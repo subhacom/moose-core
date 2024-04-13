@@ -33,6 +33,20 @@ except ImportError as error:
 from moose.neuroml2.units import SI
 
 
+from moose.neuroml2.hhfit import exponential2
+from moose.neuroml2.hhfit import sigmoid2
+from moose.neuroml2.hhfit import linoid2
+from moose.neuroml2.units import SI
+
+RATE_FN_MAP = {
+    'HHExpRate': exponential2,
+    'HHSigmoidRate': sigmoid2,
+    'HHSigmoidVariable': sigmoid2,
+    'HHExpLinearRate': linoid2
+}
+        
+
+
 def _write_flattened_nml( doc, outfile ):
     """_write_flattened_nml
     Concat all NML2 read by moose and generate one flattened NML file.
@@ -439,7 +453,6 @@ class NML2Reader(object):
             raise RuntimeError(msg)
         pool_id = moose.copy(proto_pool, compartment, species.id)
         pool = moose.element(pool_id)
-        # print('&' * 10, compartment.path, compartment.length, compartment.diameter, pool.thick)
         if compartment.length <= 0:
             vol = 4 * np.pi * (0.5 * compartment.diameter**3 - (0.5 * compartment.diameter - pool.thick)**3) / 3
         else:
@@ -469,53 +482,72 @@ class NML2Reader(object):
         print( "[INFO ] Not implemented." )
         return False
 
-    def calculateRateFn(self, ratefn, vmin, vmax, tablen=3000, vShift='0mV'):
-        """Returns A / B table from ngate."""
-        from moose.neuroml2.hhfit import exponential2
-        from moose.neuroml2.hhfit import sigmoid2
-        from moose.neuroml2.hhfit import linoid2
-        from moose.neuroml2.units import SI
+    def calculateExtendedHHRateFn(self, component, vtab, req_vars=None):
+        """Compute rate functions for extensions of HHRates.
 
-        rate_fn_map = {
-            'HHExpRate': exponential2,
-            'HHSigmoidRate': sigmoid2,
-            'HHSigmoidVariable': sigmoid2,
-            'HHExpLinearRate': linoid2
-            }
+        `req_vars` sould have either scalars or arrays of the same
+        length as vtab. For each entry in `vtab`, the corresponding
+        entry in each array entry in the `req_vars` variable will be
+        used for evaluation in pynml.
 
-        tab = np.linspace(vmin, vmax, tablen)
-        if self._is_standard_nml_rate(ratefn):
-            midpoint, rate, scale = map(SI, (ratefn.midpoint, ratefn.rate, ratefn.scale))
-            return rate_fn_map[ratefn.type](tab, rate, scale, midpoint)
+        """
+        
+        logger_.debug(f'Calculating rate for {component} of type {component.type}')
 
+        req_scalars = {'v': '0.0V'}
+        req_scalars.update(self._variables)
+        
         for ct in self.doc.ComponentType:
-            if ratefn.type != ct.name:
+            if component.type != ct.name:
                 continue
-
-            logger_.info(f"Using %s to evaluate rate"%ct.name)
             rate = []
-            for v in tab:
-                # Note: MOOSE HHGate are voltage and/or concentration
-                # dependent. Here we figure out if nml description of gate is
-                # concentration dependent or not.
-                # logger_.debug(f"{'#' * 5} {_isConcDep(ct)}")
-                if _isConcDep(ct):
-                    # Concentration dependent. Concentration can't be negative.
-                    # Find a suitable CaConc from the /library. Currently on Ca
-                    # dependent channels are allowed.
-                    caConcName = _findCaConcVariableName()
-                    req_vars  = {'v': '0.0V', 'caConc':f'{max(1e-11,v):g}', caConcName:f'{max(1e-11,v):g}','vShift':vShift,'temperature':self._getTemperature()}
+            
+            for v, a, b in zip(vtab, req_vars['alpha'], req_vars['beta']):                
+                req_scalars.update({'alpha': a, 'beta': b, 'v': v})
+                val_dict = pynml.evaluate_component(ct, req_variables=req_scalars)
+                val = val_dict.get('x', val_dict.get('t', val_dict.get('r', None)))
+                # TODO: why should we skip None and continue instead of throwing an error?
+                assert val is not None
+                rate.append(val)
+            logger_.debug(f'.... rate: {rate}')
+            return np.r_[rate]
+        
+    def calculateRateFn(self, ratefn, vtab, vshift='0mV'):
+        """Returns A / B table from ngate."""
+        if ratefn.type in RATE_FN_MAP:
+            midpoint, rate, scale = map(SI, (ratefn.midpoint, ratefn.rate, ratefn.scale))
+            logger_.debug(f'{ratefn.type}: Standard HH channel rate function')
+            return RATE_FN_MAP[ratefn.type](vtab, rate, scale, midpoint)
+        req_vars = {'vShift':vshift,'temperature':self._getTemperature()}
+        for ct in self.doc.ComponentType:
+            if ratefn.type != ct.name:                
+                continue
+            concdep = 'ConcDep' in ct.extends
+            logger_.info(f'Concentration dependent? {is_concdep}')
+            logger_.info(f"Using {ct.name} to evaluate rate")
+            req_vars.update(self._variables)
+            rate = []
+            if concdep:
+                caConcName = _findCaConcVariableName()
+                req_vars.update({'v': '0.0V', 'caConc':f'{max(1e-11,v):g}', caConcName:f'{max(1e-11,v):g}'})
                     # logger_.debug(f"{'A' * 30} {req_vars}")
-                else:
-                    req_vars  = {'v':'%sV'%v,'vShift':vShift,'temperature':self._getTemperature()}
-                req_vars.update( self._variables )
-                vals = pynml.evaluate_component(ct, req_variables=req_vars)
-                v = vals.get('x', vals.get('t', vals.get('r', None)))
-                if v is not None:
+                for v in tab:
+                    # TODO caCon = 0 causes divide by zero, put a portable number?
+                    req_vars.update({'caConc':f'{max(1e-31,v):g}', caConcName:f'{max(1e-31,v):g}'})
+                    
+                    vals = pynml.evaluate_component(ct, req_variables=req_vars)
+                    v = vals.get('x', vals.get('t', vals.get('r', None)))
+                    rate.append(v)
+            else:                
+                for v in tab:
+                    # TODO caCon = 0 causes divide by zero, put a portable number?
+                    req_vars['v'] = f'{v}V'
+                    vals = pynml.evaluate_component(ct, req_variables=req_vars)
+                    v = vals.get('x', vals.get('t', vals.get('r', None)))
                     rate.append(v)
             return np.array(rate)
 
-        print( "[WARN ] Could not determine rate: %s %s %s" %(ratefn.type,vmin,vmax))
+        print( "[WARN ] Could not determine rate: %s" %(ratefn.type))
         return np.array([])
 
 
@@ -593,10 +625,12 @@ class NML2Reader(object):
             logger_.info('== Creating channel: %s (%s) -> %s (%s)'%(chan.id, chan.gate_hh_rates, mchan, mgates))
 
         all_gates = chan.gates + chan.gate_hh_rates
-
         # Sort all_gates such that they come in x, y, z order.
         all_gates = _gates_sorted( all_gates )
+        # ngate - neuroml gate, mgate - moose gate
         for ngate, mgate in zip(all_gates, mgates):
+            logger_.debug(f'{"B" * 10} {ngate}')
+            logger_.debug(f'{"B" * 10} {mgate}')
             if ngate is None:
                 continue
             if mgate.name.endswith('X'):
@@ -636,33 +670,28 @@ class NML2Reader(object):
                 ngate.id, mgate.path, mchan.Xpower, fwd, rev, q10_scale)
                 )
 
+            # Standard HHGate of type `gateHHRates`
+            vtab = np.linspace(vmin, vmax, vdivs + 1)
             if (fwd is not None) and (rev is not None):
-                alpha = self.calculateRateFn(fwd, vmin, vmax, vdivs)
-                beta = self.calculateRateFn(rev, vmin, vmax, vdivs)
-
-                mgate.tableA = q10_scale * (alpha)
-                mgate.tableB = q10_scale * (alpha + beta)
-
-            # Assuming the meaning of the elements in GateHHTauInf ...
-            if hasattr(ngate,'time_course') and hasattr(ngate,'steady_state') \
-               and (ngate.time_course is not None) and (ngate.steady_state is not None):
-                tau = ngate.time_course
-                inf = ngate.steady_state
-                tau = self.calculateRateFn(tau, vmin, vmax, vdivs)
-                inf = self.calculateRateFn(inf, vmin, vmax, vdivs)
-                mgate.tableA = q10_scale * (inf / tau)
-                mgate.tableB = q10_scale * (1 / tau)
-
-            if hasattr(ngate,'steady_state') and (ngate.time_course is None) and (ngate.steady_state is not None):
-                inf = ngate.steady_state
-                tau = 1 / (alpha + beta)
-                if inf is not None:
-                    inf = self.calculateRateFn(inf, vmin, vmax, vdivs)
-                    if len(inf) > 0:
-                        mgate.tableA = q10_scale * (inf / tau)
-                        mgate.tableB = q10_scale * (1 / tau)
-
-        logger_.info('%s: Created %s for %s'%(self.filename,mchan.path,chan.id))
+                alpha = self.calculateRateFn(fwd, vtab)
+                beta = self.calculateRateFn(rev, vtab)
+                tau = 1/(alpha + beta)
+                inf = alpha / (alpha + beta)
+            if ngate.type == 'gateHHratesTau':
+                assert hasattr(ngate, 'time_course'), f'{ngate.type} - expected `time_course` attribute'
+                tau = self.calculateExtendedHHRateFn(ngate.time_course, vtab, req_vars={'alpha': alpha, 'beta': beta})
+            elif ngate.type == 'gateHHratesInf':
+                assert hasattr(ngate, 'steady_state'), f'{ngate.type} - expected `steady_state` attribute'
+                inf = self.calculateExtendedHHRateFn(ngate.steady_state, vtab, req_vars={'alpha': alpha, 'beta': beta})
+            elif ngate.type == 'gateHHratesTauInf':
+                assert hasattr(ngate, 'steady_state') and hasattr(ngate, 'time_course'), f'{ngate.type} - expected `steady_state` and `time_course` attributes'
+                inf = self.calculateExtendedHHRateFn(ngate.steady_state, vtab, req_vars={'alpha': alpha, 'beta': beta})
+                tau = self.calculateExtendedHHRateFn(ngate.time_course, vtab, req_vars={'alpha': alpha, 'beta': beta})
+            mgate.tableA = q10_scale * inf / tau
+            mgate.tableB = q10_scale / tau
+            
+            logger_.debug(f'{ngate.type} tau min: {min(tau)}')
+        logger_.info(f'{"$" * 20} {self.filename}: Created {mchan.path} for {chan.id}')
         return mchan
 
     def createPassiveChannel(self, chan):
