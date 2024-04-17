@@ -518,7 +518,9 @@ class NML2Reader(object):
             midpoint, rate, scale = map(SI, (ratefn.midpoint, ratefn.rate, ratefn.scale))
             logger_.debug(f'{ratefn.type}: Standard HH channel rate function')
             return RATE_FN_MAP[ratefn.type](vtab, rate, scale, midpoint)
+        
         req_vars = {'vShift':vshift,'temperature':self._getTemperature()}
+        
         for ct in self.doc.ComponentType:
             if ratefn.type != ct.name:                
                 continue
@@ -677,20 +679,29 @@ class NML2Reader(object):
                 beta = self.calculateRateFn(rev, vtab)
                 tau = 1/(alpha + beta)
                 inf = alpha / (alpha + beta)
-            if ngate.type == 'gateHHratesTau':
-                assert hasattr(ngate, 'time_course'), f'{ngate.type} - expected `time_course` attribute'
-                tau = self.calculateExtendedHHRateFn(ngate.time_course, vtab, req_vars={'alpha': alpha, 'beta': beta})
-            elif ngate.type == 'gateHHratesInf':
-                assert hasattr(ngate, 'steady_state'), f'{ngate.type} - expected `steady_state` attribute'
-                inf = self.calculateExtendedHHRateFn(ngate.steady_state, vtab, req_vars={'alpha': alpha, 'beta': beta})
-            elif ngate.type == 'gateHHratesTauInf':
-                assert hasattr(ngate, 'steady_state') and hasattr(ngate, 'time_course'), f'{ngate.type} - expected `steady_state` and `time_course` attributes'
-                inf = self.calculateExtendedHHRateFn(ngate.steady_state, vtab, req_vars={'alpha': alpha, 'beta': beta})
-                tau = self.calculateExtendedHHRateFn(ngate.time_course, vtab, req_vars={'alpha': alpha, 'beta': beta})
+            # print('%' * 10, type(ngate), dir(ngate))
+            if hasattr(ngate, 'type'): # Non-standard HH-type gates have a type attribute
+                if ngate.type == 'gateHHratesTau':
+                    assert hasattr(ngate, 'time_course'), f'{ngate.type} - expected `time_course` attribute'
+                    tau = self.calculateExtendedHHRateFn(ngate.time_course, vtab, req_vars={'alpha': alpha, 'beta': beta})
+                elif ngate.type == 'gateHHratesInf':
+                    assert hasattr(ngate, 'steady_state'), f'{ngate.type} - expected `steady_state` attribute'
+                    inf = self.calculateExtendedHHRateFn(ngate.steady_state, vtab, req_vars={'alpha': alpha, 'beta': beta})
+                elif ngate.type == 'gateHHratesTauInf':
+                    assert hasattr(ngate, 'steady_state') and hasattr(ngate, 'time_course'), f'{ngate.type} - expected `steady_state` and `time_course` attributes'
+                    inf = self.calculateExtendedHHRateFn(ngate.steady_state, vtab, req_vars={'alpha': alpha, 'beta': beta})
+                    tau = self.calculateExtendedHHRateFn(ngate.time_course, vtab, req_vars={'alpha': alpha, 'beta': beta})
+                logger_.debug(f'{ngate.type} tau min: {min(tau)}')
+                import matplotlib.pyplot as plt
+                fig, axes = plt.subplots(nrows=2)
+                fig.suptitle(ngate.type)
+                axes[0].plot(vtab, inf)
+                axes[1].plot(vtab, tau)
+                print('Q10 scale', q10_scale)
+                plt.show()
             mgate.tableA = q10_scale * inf / tau
             mgate.tableB = q10_scale / tau
             
-            logger_.debug(f'{ngate.type} tau min: {min(tau)}')
         logger_.info(f'{"$" * 20} {self.filename}: Created {mchan.path} for {chan.id}')
         return mchan
 
