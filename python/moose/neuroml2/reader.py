@@ -799,7 +799,7 @@ class NML2Reader(object):
                 elif ngate.type == 'gateHHratesTauInf':
                     assert hasattr(ngate, 'steady_state') and hasattr(
                         ngate, 'time_course'
-                    ), f'{ngate.type} - expected `steady_state` and `time_course` attributes'
+                    ), f'{ngate.type} - expected `steady_state` and `time_course` attributes'                    
                     inf = self.calculateExtendedHHRateFn(
                         ngate.steady_state,
                         {'v': vtab, 'alpha': alpha, 'beta': beta},
@@ -813,19 +813,20 @@ class NML2Reader(object):
 
                 # logger_.info(f'inf="{inf}", tau="{tau}"')
             q10_scale = self.getQ10Scale(ngate)
-            mgate.tableA = q10_scale * inf / tau
-            mgate.tableB = q10_scale / tau
+            tau /= q10_scale
+            mgate.tableA = inf / tau
+            mgate.tableB = 1 / tau
 
             # DEBUG: BEGIN
-            import matplotlib.pyplot as plt
+        #     import matplotlib.pyplot as plt
 
-            fig, axes = plt.subplots(nrows=2)
-            fig.suptitle(f'{chan.id} {ngate.id} {ngate.type}')
-            axes[0].plot(vtab, inf)
-            axes[1].plot(vtab, tau / q10_scale)
-            plt.show()
+        #     fig, axes = plt.subplots(nrows=2)
+        #     fig.suptitle(f'{chan.id} {ngate.id} {ngate.type}')
+        #     axes[0].plot(vtab, inf)
+        #     axes[1].plot(vtab, tau)
+        #     plt.show()
 
-        logger_.info(f'{"$" * 20} {self.filename}: Created {mchan.path} for {chan.id}')
+        # logger_.info(f'{"$" * 20} {self.filename}: Created {mchan.path} for {chan.id}')
 
         # DEBUG: END
         return mchan
