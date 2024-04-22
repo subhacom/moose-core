@@ -22,7 +22,8 @@ jobs:
         micromamba create -n moose cmake numpy matplotlib vpython hdf5 doxygen gsl python=${{ matrix.python-version }} -c conda-forge
         eval "$(micromamba shell hook --shell bash)"
         micromamba activate moose
-        pip install -y python-libsbml
+        pip install python-libsbml
+        pip install pyneuroml
     - name: Build
       run: |
         pip install .
