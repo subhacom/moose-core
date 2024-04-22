@@ -51,7 +51,8 @@ jobs:
       # NOTE: hard coded default micromamba.exe path 
       run: |  
         Invoke-Expression ((Invoke-WebRequest -Uri https://micro.mamba.pm/install.ps1).Content)
-        C:\Users\runneradmin\AppData\Local\micromamba\micromamba.exe shell init -s powershell -p C:\Users\runneradmin\micromamba  
+        C:\Users\runneradmin\AppData\Local\micromamba\micromamba.exe shell init -s powershell -p C:\Users\runneradmin\micromamba
+        C:\Users\runneradmin\AppData\Local\micromamba\micromamba.exe shell reinit --shell powershell
         C:\Users\runneradmin\AppData\Local\micromamba\micromamba.exe -y self-update
         C:\Users\runneradmin\AppData\Local\micromamba\micromamba.exe create -n moose python=${{ matrix.python-version }} graphviz lxml cmake numpy matplotlib vpython hdf5 gsl pytables doxygen -c conda-forge -y
         C:\Users\runneradmin\AppData\Local\micromamba\micromamba.exe activate moose

@@ -42,7 +42,7 @@ if(COMPILER_SUPPORT_UNUSED_BUT_SET_VARIABLE_NO_WARN)
     add_definitions( "-Wno-unused-but-set-variable" )
 endif(COMPILER_SUPPORT_UNUSED_BUT_SET_VARIABLE_NO_WARN)
 
-if(COMPILER_SUPPORTS_CXX11)
+if("cxx_std_11" IN_LIST CMAKE_CXX_COMPILE_FEATURES)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
     if(APPLE)
         add_definitions( -mllvm -inline-threshold=1000 )
@@ -51,6 +51,6 @@ else(COMPILER_SUPPORTS_CXX11)
     message(FATAL_ERROR "The compiler ${CMAKE_CXX_COMPILER} is too old. \n"
       "Please use a compiler which has full c++11 support."
       )
-endif(COMPILER_SUPPORTS_CXX11)
+endif()
 
 set(COMPILER_IS_TESTED ON)
