@@ -17,8 +17,6 @@ jobs:
             apt: 10
           - os: macos-14
             brew: 20
-          - os: windows-latest
-            powershell: 30
     steps:
     - uses: actions/checkout@v2
     - if: ${{ matrix.apt }}
