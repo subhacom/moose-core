@@ -50,6 +50,7 @@ jobs:
       shell: pwsh
       run: |
         Invoke-Expression ((Invoke-WebRequest -Uri https://micro.mamba.pm/install.ps1).Content)
+        micromamba shell init -s powershell -p C:\Users\runneradmin\micromamba
         micromamba self-update
         micromamba create -n moose python=${{ matrix.python-version }} graphviz lxml cmake numpy matplotlib vpython hdf5 gsl pytables doxygen -c conda-forge
         micromamba activate moose
