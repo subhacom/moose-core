@@ -3,13 +3,13 @@ name: Python package
 on: [push]
 
 jobs:
-  build:
-    name : Python Package
+  build-ubuntu:
+    name: Ubuntu Package
 
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: [3.8, 3.9, '3.10',3.11,3.12]
+        python-version: [3.8, 3.9, 3.10, 3.11, 3.12]
 
     steps:
     - uses: actions/checkout@v2
@@ -26,6 +26,31 @@ jobs:
         sudo -E apt install python3-tk
         sudo -E apt install -y libhdf5-dev doxygen
         python -m pip install numpy matplotlib vpython --user
+    - name: Build
+      run: |
+         pip install .
+         
+  build-mac:
+    name: MacOSX Package
+    runs-on: macos-14
+    strategy:
+      matrix:
+        python-version: [3.8, 3.9, 3.10, 3.11, 3.12]
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v1
+      with:
+        python-version: ${{ matrix.python-version }}
+    - name: Install dependencies
+      run: |        
+        sudo xcode-select --install
+        /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+        brew install micromamba
+        micromamba self-update
+        micromamba create -n moose numpy matplotlib vpython python3-tk libhdf5 doxygen gsl        
+        micromamba activate moose
     - name: Build
       run: |
          pip install .
