@@ -48,12 +48,13 @@ jobs:
     - uses: actions/checkout@v2
     - name: Set up Python ${{ matrix.python-version }}
       shell: pwsh
-      run: |
+      # NOTE: hard coded default micromamba.exe path 
+      run: |  
         Invoke-Expression ((Invoke-WebRequest -Uri https://micro.mamba.pm/install.ps1).Content)
-        micromamba shell init -s powershell -p C:\Users\runneradmin\micromamba
-        micromamba self-update
-        micromamba create -n moose python=${{ matrix.python-version }} graphviz lxml cmake numpy matplotlib vpython hdf5 gsl pytables doxygen -c conda-forge
-        micromamba activate moose
+        C:\Users\runneradmin\AppData\Local\micromamba\micromamba.exe shell init -s powershell -p C:\Users\runneradmin\micromamba  
+        C:\Users\runneradmin\AppData\Local\micromamba\micromamba.exe self-update
+        C:\Users\runneradmin\AppData\Local\micromamba\micromamba.exe create -n moose python=${{ matrix.python-version }} graphviz lxml cmake numpy matplotlib vpython hdf5 gsl pytables doxygen -c conda-forge
+        C:\Users\runneradmin\AppData\Local\micromamba\micromamba.exe activate moose
         pip install python-libsbml
         pip install pyneuroml
     - name: Build
