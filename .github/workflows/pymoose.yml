@@ -17,6 +17,8 @@ jobs:
             apt: 10
           - os: macos-14
             brew: 20
+          - os: windows-latest
+            powershell: 30
     steps:
     - uses: actions/checkout@v2
     - if: ${{ matrix.apt }}
@@ -30,7 +32,7 @@ jobs:
       run: |
         "${SHELL}" <(curl -L micro.mamba.pm/install.sh)
         micromamba self-update
-        micromamba create -n moose python=${{ matrix.python-version }} graphviz lxml cmake numpy matplotlib vpython hdf5 doxygen -c conda-forge
+        micromamba create -n moose python=${{ matrix.python-version }} graphviz lxml cmake numpy matplotlib vpython hdf5 pytables doxygen -c conda-forge
         eval "$(micromamba shell hook --shell bash)"
         micromamba activate moose
         pip install python-libsbml
@@ -39,3 +41,22 @@ jobs:
       run: |
         pip install .
          
+  winbuild:
+    name: Windows-build
+    runs-on: windows-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Python ${{ matrix.python-version }}
+      shell: pwsh
+      run: |
+        Invoke-Expression ((Invoke-WebRequest -Uri https://micro.mamba.pm/install.ps1).Content)
+        micromamba self-update
+        micromamba create -n moose python=${{ matrix.python-version }} graphviz lxml cmake numpy matplotlib vpython hdf5 gsl pytables doxygen -c conda-forge
+        micromamba activate moose
+        pip install python-libsbml
+        pip install pyneuroml
+    - name: Build
+      run: |
+        pip install .
+      
+    
