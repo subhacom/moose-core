@@ -19,9 +19,9 @@ jobs:
       run: |
         "${SHELL}" <(curl -L micro.mamba.pm/install.sh)
         micromamba self-update
-        micromamba create -n moose cmake numpy matplotlib vpython python3-tk libhdf5 doxygen gsl python-${{ matrix.python-version }}
+        micromamba create -n moose cmake numpy matplotlib vpython hdf5 doxygen gsl python=${{ matrix.python-version }} -c conda-forge
         micromamba activate moose
-        pip install python-libsbml
+        pip install -y python-libsbml
     - name: Build
       run: |
         pip install .
