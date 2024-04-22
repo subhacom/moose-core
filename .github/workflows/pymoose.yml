@@ -52,7 +52,11 @@ jobs:
     - name: Set up Python ${{ matrix.python-version }}
       shell: pwsh
       # NOTE: hard-coded default micromamba.exe path 
-      run: |  
+      run: |
+        git clone https://github.com/microsoft/vcpkg.git
+        .\vcpkg\bootstrap-vcpkg.bat
+        .\vcpkg\vcpkg integrate install
+        .\vcpkg\vcpkg install gsl gsl:x64-windows        
         Invoke-Expression ((Invoke-WebRequest -Uri https://micro.mamba.pm/install.ps1).Content)
         C:\Users\runneradmin\AppData\Local\micromamba\micromamba.exe shell init -s powershell -p C:\Users\runneradmin\micromamba
         C:\Users\runneradmin\AppData\Local\micromamba\micromamba.exe shell reinit --shell powershell
