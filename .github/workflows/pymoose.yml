@@ -20,6 +20,7 @@ jobs:
         "${SHELL}" <(curl -L micro.mamba.pm/install.sh)
         micromamba self-update
         micromamba create -n moose cmake numpy matplotlib vpython hdf5 doxygen gsl python=${{ matrix.python-version }} -c conda-forge
+        eval "$(micromamba shell hook --shell bash)"
         micromamba activate moose
         pip install -y python-libsbml
     - name: Build
