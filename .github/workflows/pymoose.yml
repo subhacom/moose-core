@@ -44,11 +44,16 @@ jobs:
   winbuild:
     name: Windows-build
     runs-on: windows-latest
+    strategy:      
+      matrix:
+        os: [windows-latest]
+        build_type: [Release]
+        python-version: ["3.12"]
     steps:
     - uses: actions/checkout@v2
     - name: Set up Python ${{ matrix.python-version }}
       shell: pwsh
-      # NOTE: hard coded default micromamba.exe path 
+      # NOTE: hard-coded default micromamba.exe path 
       run: |  
         Invoke-Expression ((Invoke-WebRequest -Uri https://micro.mamba.pm/install.ps1).Content)
         C:\Users\runneradmin\AppData\Local\micromamba\micromamba.exe shell init -s powershell -p C:\Users\runneradmin\micromamba
