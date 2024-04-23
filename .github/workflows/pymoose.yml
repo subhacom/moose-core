@@ -3,42 +3,27 @@ name: Python package
 on: [push]
 
 jobs:
-  winbuild:
-    name: Windows-build
+  win-build:
     runs-on: windows-latest
+    shell: pwsh
     strategy:      
       matrix:
         os: [windows-latest]
         build_type: [Release]
         python-version: ["3.12"]
     steps:
-    - uses: actions/checkout@v2
-    - name: InstallMicromamba
-      shell: pwsh
-      # NOTE: hard-coded default micromamba.exe path 
-      run: |
-        Invoke-Expression ((Invoke-WebRequest -Uri https://micro.mamba.pm/install.ps1).Content)
-        C:\Users\runneradmin\AppData\Local\micromamba\micromamba.exe shell init -s powershell -p "C:\Users\runneradmin\micromamba"
-        
-   - name: Set up Python ${{ matrix.python-version }}
-     shell: pwsh
-     run: |       
-        micromamba -y self-update
-        micromamba create -n moose python=${{ matrix.python-version }} graphviz lxml cmake numpy matplotlib vpython hdf5 gsl pytables doxygen -c conda-forge -y
-        micromamba activate moose
-        micromamba install gsl -c conda-forge -y
-        gsl-config --cflags
-        # pip install python-libsbml
-        # pip install pyneuroml
-    - name: Build GSL
-      shell: pwsh
-      run: |
-        Invoke-WebRequest -Uri https://github.com/ampl/gsl/archive/refs/tags/20211111.zip -Outfile .\20211111.zip
-        unzip 20211111.zip
-        cd gsl-20211111
-        mkdir build
-        cmake .. -G"Visual Studio 16 2019" -DNO_AMPL_BINDINGS=1 -DGSL_DISABLE_TESTS=1 -DDOCUMENTATION=OFF -DGSL_INSTALL_MULTI_CONFIG=ON
-        ls 
+      - name: InstallMicromamba
+        run: |
+          Invoke-Expression ((Invoke-WebRequest -Uri https://micro.mamba.pm/install.ps1).Content)
+          C:\Users\runneradmin\AppData\Local\micromamba\micromamba.exe shell init -s powershell
+          micromamba -y self-update
+          micromamba create -n moose python=${{ matrix.python-version }} graphviz lxml cmake numpy matplotlib vpython hdf5 gsl pytables doxygen -c conda-forge -y
+          micromamba activate moose
+          micromamba install gsl -c conda-forge -y
+          gsl-config --cflags
+          # pip install python-libsbml
+          # pip install pyneuroml
+          pip install .
         
     # - name: Build
     #   run: |
