@@ -59,7 +59,7 @@ jobs:
         C:\Users\runneradmin\AppData\Local\micromamba\micromamba.exe -y self-update
         C:\Users\runneradmin\AppData\Local\micromamba\micromamba.exe create -n moose python=${{ matrix.python-version }} graphviz lxml cmake numpy matplotlib vpython hdf5 gsl pytables doxygen -c conda-forge -y
         C:\Users\runneradmin\AppData\Local\micromamba\micromamba.exe activate moose
-        micromamba install gsl
+        micromamba install gsl -c conda-forge -y
         gsl-config --cflags
         # pip install python-libsbml
         # pip install pyneuroml
