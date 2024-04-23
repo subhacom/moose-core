@@ -68,8 +68,7 @@ jobs:
         unzip 20211111.zip
         cd gsl-20211111
         mkdir build
-        cmake .. -G "NMake Makefiles" -DNO_AMPL_BINDINGS=1 -DGSL_DISABLE_TESTS=1 -DDOCUMENTATION=OFF -DGSL_INSTALL_MULTI_CONFIG=ON
-        nmake
+        cmake .. -G"Visual Studio 16 2019" -DNO_AMPL_BINDINGS=1 -DGSL_DISABLE_TESTS=1 -DDOCUMENTATION=OFF -DGSL_INSTALL_MULTI_CONFIG=ON
         ls 
         
     # - name: Build
