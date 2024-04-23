@@ -3,30 +3,38 @@ name: Python package
 on: [push]
 
 jobs:
-  win-build:
-    runs-on: windows-latest
+  build:
+    runs-on: ${{ matrix.os }}    
     strategy:      
       matrix:
-        os: [windows-latest]
+        os: [ubuntu-latest, macos-14]
         build_type: [Release]
+        c_compiler: [clang]
         python-version: ["3.12"]
+        include:
+          - os: ubuntu-latest
+            apt: 10
+          - os: macos-14
+            brew: 20
     steps:
-      - name: InstallMicromamba
-        shell: pwsh
-        run: |
-          Invoke-Expression ((Invoke-WebRequest -Uri https://micro.mamba.pm/install.ps1).Content)
-          C:\Users\runneradmin\AppData\Local\micromamba\micromamba.exe shell init -s powershell
-          micromamba -y self-update
-          micromamba create -n moose python=${{ matrix.python-version }} graphviz lxml cmake numpy matplotlib vpython hdf5 gsl pytables doxygen -c conda-forge -y
-          micromamba activate moose
-          micromamba install gsl -c conda-forge -y
-          gsl-config --cflags
-          # pip install python-libsbml
-          # pip install pyneuroml
-          pip install .
-        
-    # - name: Build
-    #   run: |
-    #     pip install .
-      
-    
+    - uses: actions/checkout@v2
+    - if: ${{ matrix.apt }}
+      run: sudo apt-get install libhdf5-dev libgsl0-dev
+    - if: ${{ matrix.brew }}
+      run: |
+        brew install gsl
+        brew install hdf5      
+    - name: Set up Python ${{ matrix.python-version }}
+      shell: bash
+      run: |
+        "${SHELL}" <(curl -L micro.mamba.pm/install.sh)
+        micromamba self-update
+        micromamba create -n moose python=${{ matrix.python-version }} graphviz lxml cmake numpy matplotlib vpython hdf5 pytables doxygen -c conda-forge
+        eval "$(micromamba shell hook --shell bash)"
+        micromamba activate moose
+        pip install python-libsbml
+        pip install pyneuroml
+    - name: Build
+      run: |
+        pip install .
+         
