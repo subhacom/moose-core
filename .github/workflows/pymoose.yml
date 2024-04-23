@@ -5,7 +5,6 @@ on: [push]
 jobs:
   win-build:
     runs-on: windows-latest
-    shell: pwsh
     strategy:      
       matrix:
         os: [windows-latest]
@@ -13,6 +12,7 @@ jobs:
         python-version: ["3.12"]
     steps:
       - name: InstallMicromamba
+        shell: pwsh
         run: |
           Invoke-Expression ((Invoke-WebRequest -Uri https://micro.mamba.pm/install.ps1).Content)
           C:\Users\runneradmin\AppData\Local\micromamba\micromamba.exe shell init -s powershell
