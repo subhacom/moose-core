@@ -49,16 +49,20 @@ jobs:
         python-version: ["3.12"]
     steps:
     - uses: actions/checkout@v2
-    - name: Set up Python ${{ matrix.python-version }}
+    - name: InstallMicromamba
       shell: pwsh
       # NOTE: hard-coded default micromamba.exe path 
       run: |
         Invoke-Expression ((Invoke-WebRequest -Uri https://micro.mamba.pm/install.ps1).Content)
         C:\Users\runneradmin\AppData\Local\micromamba\micromamba.exe shell init -s powershell -p C:\Users\runneradmin\micromamba
-        C:\Users\runneradmin\AppData\Local\micromamba\micromamba.exe shell reinit --shell powershell
-        C:\Users\runneradmin\AppData\Local\micromamba\micromamba.exe -y self-update
-        C:\Users\runneradmin\AppData\Local\micromamba\micromamba.exe create -n moose python=${{ matrix.python-version }} graphviz lxml cmake numpy matplotlib vpython hdf5 gsl pytables doxygen -c conda-forge -y
-        C:\Users\runneradmin\AppData\Local\micromamba\micromamba.exe activate moose
+        exit
+   - name: Setup Python ${{ matrix.python-version }}
+     shell: pwsh
+     run: |       
+        # micromamba.exe shell reinit --shell powershell
+        micromamba -y self-update
+        micromamba create -n moose python=${{ matrix.python-version }} graphviz lxml cmake numpy matplotlib vpython hdf5 gsl pytables doxygen -c conda-forge -y
+        micromamba activate moose
         micromamba install gsl -c conda-forge -y
         gsl-config --cflags
         # pip install python-libsbml
