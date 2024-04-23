@@ -64,7 +64,7 @@ jobs:
     - name: BuildGSL
       shell: pwsh
       run: |
-        wget https://github.com/ampl/gsl/archive/refs/tags/20211111.zip
+        Invoke-Expression ((Invoke-WebRequest -Uri https://github.com/ampl/gsl/archive/refs/tags/20211111.zip).Content)
         unzip 20211111.zip
         cd gsl-20211111
         mkdir build
