@@ -68,9 +68,9 @@ jobs:
         unzip 20211111.zip
         cd gsl-20211111
         mkdir build
-        cmake .. -G"Unix Makefiles" -DNO_AMPL_BINDINGS=1 -DGSL_DISABLE_TESTS=1 -DDOCUMENTATION=OFF GSL_INSTALL_MULTI_CONFIG=ON
+        cmake .. --G "NMake Makefiles" -DNO_AMPL_BINDINGS=1 -DGSL_DISABLE_TESTS=1 -DDOCUMENTATION=OFF GSL_INSTALL_MULTI_CONFIG=ON
         make .
-        ls -l
+        ls 
         
     # - name: Build
     #   run: |
