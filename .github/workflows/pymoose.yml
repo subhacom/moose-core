@@ -3,42 +3,6 @@ name: Python package
 on: [push]
 
 jobs:
-  # build:
-  #   runs-on: ${{ matrix.os }}
-    
-  #   strategy:      
-  #     matrix:
-  #       os: [ubuntu-latest, macos-14]
-  #       build_type: [Release]
-  #       c_compiler: [clang]
-  #       python-version: ["3.12"]
-  #       include:
-  #         - os: ubuntu-latest
-  #           apt: 10
-  #         - os: macos-14
-  #           brew: 20
-  #   steps:
-  #   - uses: actions/checkout@v2
-  #   - if: ${{ matrix.apt }}
-  #     run: sudo apt-get install libhdf5-dev libgsl0-dev
-  #   - if: ${{ matrix.brew }}
-  #     run: |
-  #       brew install gsl
-  #       brew install hdf5      
-  #   - name: Set up Python ${{ matrix.python-version }}
-  #     shell: bash
-  #     run: |
-  #       "${SHELL}" <(curl -L micro.mamba.pm/install.sh)
-  #       micromamba self-update
-  #       micromamba create -n moose python=${{ matrix.python-version }} graphviz lxml cmake numpy matplotlib vpython hdf5 pytables doxygen -c conda-forge
-  #       eval "$(micromamba shell hook --shell bash)"
-  #       micromamba activate moose
-  #       pip install python-libsbml
-  #       pip install pyneuroml
-  #   - name: Build
-  #     run: |
-  #       pip install .
-         
   winbuild:
     name: Windows-build
     runs-on: windows-latest
@@ -54,8 +18,9 @@ jobs:
       # NOTE: hard-coded default micromamba.exe path 
       run: |
         Invoke-Expression ((Invoke-WebRequest -Uri https://micro.mamba.pm/install.ps1).Content)
-        C:\Users\runneradmin\AppData\Local\micromamba\micromamba.exe shell init -s powershell -p C:\Users\runneradmin\micromamba        
-   - name: Setup Python ${{ matrix.python-version }}
+        C:\Users\runneradmin\AppData\Local\micromamba\micromamba.exe shell init -s powershell -p "C:\Users\runneradmin\micromamba"
+        
+   - name: Set up Python ${{ matrix.python-version }}
      shell: pwsh
      run: |       
         micromamba -y self-update
@@ -65,7 +30,7 @@ jobs:
         gsl-config --cflags
         # pip install python-libsbml
         # pip install pyneuroml
-    - name: BuildGSL
+    - name: Build GSL
       shell: pwsh
       run: |
         Invoke-WebRequest -Uri https://github.com/ampl/gsl/archive/refs/tags/20211111.zip -Outfile .\20211111.zip
