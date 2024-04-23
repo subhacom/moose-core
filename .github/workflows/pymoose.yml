@@ -49,24 +49,31 @@ jobs:
         python-version: ["3.12"]
     steps:
     - uses: actions/checkout@v2
-    - name: Set up Python ${{ matrix.python-version }}
+    # - name: Set up Python ${{ matrix.python-version }}
+    #   shell: pwsh
+    #   # NOTE: hard-coded default micromamba.exe path 
+    #   run: |
+    #     Invoke-Expression ((Invoke-WebRequest -Uri https://micro.mamba.pm/install.ps1).Content)
+    #     C:\Users\runneradmin\AppData\Local\micromamba\micromamba.exe shell init -s powershell -p C:\Users\runneradmin\micromamba
+    #     C:\Users\runneradmin\AppData\Local\micromamba\micromamba.exe shell reinit --shell powershell
+    #     C:\Users\runneradmin\AppData\Local\micromamba\micromamba.exe -y self-update
+    #     C:\Users\runneradmin\AppData\Local\micromamba\micromamba.exe create -n moose python=${{ matrix.python-version }} graphviz lxml cmake numpy matplotlib vpython hdf5 gsl pytables doxygen -c conda-forge -y
+    #     C:\Users\runneradmin\AppData\Local\micromamba\micromamba.exe activate moose
+    #     pip install python-libsbml
+    #     pip install pyneuroml
+    - name: BuildGSL
       shell: pwsh
-      # NOTE: hard-coded default micromamba.exe path 
       run: |
-        git clone https://github.com/microsoft/vcpkg.git
-        .\vcpkg\bootstrap-vcpkg.bat
-        .\vcpkg\vcpkg integrate install
-        .\vcpkg\vcpkg install gsl gsl:x64-windows        
-        Invoke-Expression ((Invoke-WebRequest -Uri https://micro.mamba.pm/install.ps1).Content)
-        C:\Users\runneradmin\AppData\Local\micromamba\micromamba.exe shell init -s powershell -p C:\Users\runneradmin\micromamba
-        C:\Users\runneradmin\AppData\Local\micromamba\micromamba.exe shell reinit --shell powershell
-        C:\Users\runneradmin\AppData\Local\micromamba\micromamba.exe -y self-update
-        C:\Users\runneradmin\AppData\Local\micromamba\micromamba.exe create -n moose python=${{ matrix.python-version }} graphviz lxml cmake numpy matplotlib vpython hdf5 gsl pytables doxygen -c conda-forge -y
-        C:\Users\runneradmin\AppData\Local\micromamba\micromamba.exe activate moose
-        pip install python-libsbml
-        pip install pyneuroml
-    - name: Build
-      run: |
-        pip install .
+        wget https://github.com/ampl/gsl/archive/refs/tags/20211111.zip
+        unzip 20211111.zip
+        cd gsl-20211111
+        mkdir build
+        cmake .. -G"Unix Makefiles" -DNO_AMPL_BINDINGS=1 -DGSL_DISABLE_TESTS=1 -DDOCUMENTATION=OFF GSL_INSTALL_MULTI_CONFIG=ON
+        make .
+        ls -l
+        
+    # - name: Build
+    #   run: |
+    #     pip install .
       
     
