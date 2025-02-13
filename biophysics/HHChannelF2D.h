@@ -9,8 +9,8 @@
 *********************************************************************
 */
 
-#ifndef _HHChannel2D_h
-#define _HHChannel2D_h
+#ifndef _HHChannelF2D_h
+#define _HHChannelF2D_h
 
 #include "ChanBase.h"
 #include "ChanCommon.h"
@@ -18,43 +18,38 @@
 
 /**
  *
- * In HHChannel2D, there are three possible arguments to each gate:
+ * In HHChannelF2D, there are three possible arguments to each gate:
  * The Vm, a conc and a conc2. Two are used at a time to look up a
  * 2-D array.
  */
 
 // Ported to asyn13 on 2014-05-30 by Subhasis Ray
 
-class HHGate2D;
+class HHGateF2D;
 
-class HHChannel2D : public HHChannelBase 
-{
-#ifdef DO_UNIT_TESTS
-    friend void testHHChannel2D();
-#endif  // DO_UNIT_TESTS
+class HHChannelF2D : public HHChannelBase {
+    // #ifdef DO_UNIT_TESTS
+    //     friend void testHHChannelF2D();
+    // #endif  // DO_UNIT_TESTS
 
 public:
-    HHChannel2D();
+    HHChannelF2D();
 
     /////////////////////////////////////////////////////////////
     // Value field access function definitions
     /////////////////////////////////////////////////////////////
-    // void setUseConcentration(int value);
-    // int getUseConcentration();
     void setXindex(string index);
     string getXindex() const;
     void setYindex(string index);
     string getYindex() const;
     void setZindex(string index);
     string getZindex() const;
-
-
     /// Access function used for the X gate. The index is ignored.
-    HHGate2D* getXgate(unsigned int i);
+    HHGateF2D* getXgate(unsigned int i);
     /// Access function used for the Y gate. The index is ignored.
-    HHGate2D* getYgate(unsigned int i);
+    HHGateF2D* getYgate(unsigned int i);
     /// Access function used for the Z gate. The index is ignored.
-    HHGate2D* getZgate(unsigned int i);
+    HHGateF2D* getZgate(unsigned int i);
     /// Dummy assignment function for the number of gates.
     void setNumGates(unsigned int num);
 
@@ -102,7 +97,6 @@ public:
     void conc1(double conc);
     void conc2(double conc);
 
-
     /**
      * Function for safely creating each gate, identified by strings
      * as X, Y and Z. Will only work on a new channel, not on a
@@ -113,7 +107,7 @@ public:
     void vCreateGate(const Eref& e, string gateType) override;
 
     /// Inner utility function for creating the gate.
-    void innerCreateGate(const string& gateName, HHGate2D** gatePtr, Id chanId,
+    void innerCreateGate(const string& gateName, HHGateF2D** gatePtr, Id chanId,
                          Id gateId);
 
     /// Returns true if channel is original, false if copy.
@@ -130,7 +124,7 @@ public:
     /**
      * Inner utility for destroying the gate
      */
-    void innerDestroyGate(const string& gateName, HHGate2D** gatePtr,
+    void innerDestroyGate(const string& gateName, HHGateF2D** gatePtr,
                           Id chanId);
     static const Cinfo* initCinfo();
 
@@ -152,14 +146,13 @@ private:
     int Zdep1_;
 
     /**
-     * HHGate2D data structure for the xGate. This is writable only
+     * HHGateF2D data structure for the xGate. This is writable only
      * on the HHChannel that originally created the HHGate, for others
      * it must be treated as readonly.
      */
-    HHGate2D* xGate_;
-    HHGate2D* yGate_;  /// HHGate2D for the yGate
-    HHGate2D* zGate_;  /// HHGate2D for the zGate
-
+    HHGateF2D* xGate_;
+    HHGateF2D* yGate_;  /// HHGateF2D for the yGate
+    HHGateF2D* zGate_;  /// HHGateF2D for the zGate
 };
 
-#endif  // _HHChannel2D_h
+#endif  // _HHChannelF2D_h

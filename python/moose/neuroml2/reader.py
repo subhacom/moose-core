@@ -1351,8 +1351,8 @@ class NML2Reader(object):
             NeuroML gate description to be implemented
         mgate : HHGate
             Moose HHGate object to be updated
-        mchan : HHChannel
-            Moose HHCHannel object whose part the `mgate` is
+        mchan : HHChannel2D
+            Moose HHCHannel2D object whose part the `mgate` is
         vmin : str
             minimum voltage (or concentration) for gate interpolation tables
         vmax : str
@@ -1375,8 +1375,8 @@ class NML2Reader(object):
             mchan.Ypower = ngate.instances
         elif mgate.name.endswith("Z"):
             mchan.Zpower = ngate.instances
-        # TODO: HHGate2D and and HHChannel2D should be updated in
-        # MOOSE to avoid this redundant setting for the two tables
+        # Since HHGate2D can have different concentration inputs, we
+        # cannot set all gates to same ranges
         mgate.xmin = vmin
         mgate.xmax = vmax
         mgate.xdivs = vdivs

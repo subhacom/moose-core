@@ -137,33 +137,13 @@ public:
     virtual void vSetUseConcentration(const Eref& e, int value);
     virtual bool checkOriginal(Id chanId) const;
     /////////////////////////////////////////////////////////////
-    // Some more Virtual Value field functions from ChanBase,
-    // to be defined in derived classes. Listed here for clarity.
-    /////////////////////////////////////////////////////////////
-    // void vSetGbar( double Gbar );
-    // double vGetGbar() const;
-    // void vSetEk( double Ek );
-    // double vGetEk() const;
-    // void vSetGk( double Gk );
-    // double vGetGk() const;
-    // void vSetIk( double Ic );
-    // double vGetIk() const;
-    // void vHandleVm( double Vm );
-
-    /////////////////////////////////////////////////////////////
     // Virtual Dest function definitions
     /////////////////////////////////////////////////////////////
-    // void vProcess( const Eref& e, ProcPtr p ); // Listed for clarity
-    // void vReinit( const Eref& e, ProcPtr p ); // Listed for clarity
-
     virtual void vHandleConc(const Eref& e, double conc);
 
     /////////////////////////////////////////////////////////////
     // Virtual Gate handling functions
     /////////////////////////////////////////////////////////////
-    // virtual HHGate* vGetXgate(unsigned int i) const;
-    // virtual HHGate* vGetYgate(unsigned int i) const;
-    // virtual HHGate* vGetZgate(unsigned int i) const;
     virtual void vCreateGate(const Eref& e, string gateType) = 0;
     /////////////////////////////////////////////////////////////
     // Utility functions for taking integer powers.
