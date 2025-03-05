@@ -28,7 +28,7 @@ const Cinfo* HHGate::initCinfo()
         "Alternatively uses linear interpolation."
         "The range of the double is predefined based on knowledge of"
         "voltage or conc ranges, and the granularity is specified by"
-        "the xmin, xmax, and xdivs fields.",
+        "the min, max, and divs fields.",
         &HHGate::lookupA);
     static ReadOnlyLookupValueFinfo<HHGate, double, double> B(
         "B",
