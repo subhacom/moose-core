@@ -36,6 +36,7 @@ const Cinfo* HHChannel::initCinfo() {
         &HHChannel::getZgate, &HHChannel::setNumGates, &HHChannel::getNumZgates
         // 1
     );
+    
     ///////////////////////////////////////////////////////
     static Finfo* HHChannelFinfos[] = {
         &gateX,  // FieldElement
@@ -269,6 +270,10 @@ void HHChannel::vReinit(const Eref& er, ProcPtr info) {
 		 << "set them?"
                  << endl;
 	}
+	if(xGate_->getForm() > 0) // explicit string expression set, fill the tables by evaluating it
+	{
+	    xGate_->tabFillExpr(er);
+	}
         xGate_->lookupBoth(Vm_, &A, &B);
         if (B < EPSILON) {
             cout << "Warning: B_ value for " << e->getName()
@@ -287,6 +292,10 @@ void HHChannel::vReinit(const Eref& er, ProcPtr info) {
 		 << "set them?"
                  << endl;
 	}
+	if(yGate_->getForm() > 0) // explicit string expression set, fill the tables by evaluating it
+	{
+	    yGate_->tabFillExpr(er);
+	}
         yGate_->lookupBoth(Vm_, &A, &B);
         if (B < EPSILON) {
             cout << "Warning: B value for " << e->getName()
@@ -304,6 +313,10 @@ void HHChannel::vReinit(const Eref& er, ProcPtr info) {
                  << ".gateZ: `min` and `max` have default values. Did you forget to "
 		 << "set them?"
                  << endl;
+	}
+	if(zGate_->getForm() > 0) // explicit string expression set, fill the tables by evaluating it
+	{
+	    zGate_->tabFillExpr(er);
 	}
         if (useConcentration_){
             zGate_->lookupBoth(conc_, &A, &B);

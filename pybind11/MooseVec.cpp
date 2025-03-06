@@ -191,15 +191,21 @@ bool MooseVec::setAttribute(const string& name, const py::object& val)
         if(rttType == "unsigned int")
             return setAttrOneToOne<unsigned int>(
                 name, val.cast<vector<unsigned int>>());
+        if(rttType == "bool")
+            return setAttrOneToOne<bool>(
+                name, val.cast<vector<bool>>());
     } else {
         if(rttType == "double")
             return setAttrOneToAll<double>(name, val.cast<double>());
         if(rttType == "unsigned int")
             return setAttrOneToAll<unsigned int>(name,
                                                  val.cast<unsigned int>());
+        if(rttType == "bool")
+            return setAttrOneToAll<bool>(name,
+					 val.cast<bool>());
     }
-
-    py::print("Not implemented yet.", name, "val:", val);
+    
+    py::print("MooseVec::setAttribute: Setting vec attributes of type",  rttType, "not implemented. attr:",name, "val:", val);
     throw runtime_error(__func__ + string("::NotImplementedError."));
 }
 
