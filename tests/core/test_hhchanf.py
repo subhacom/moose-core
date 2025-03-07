@@ -4,7 +4,9 @@
 # Created: Wed Jan 29 13:15:18 2025 (+0530)
 #
 
-"""Tests HHChannelF class"""
+"""Tests HHChannelF class
+Usage: pytest test_hhchanf.py
+"""
 import moose
 import math
 import pytest
