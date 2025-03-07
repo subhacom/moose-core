@@ -7,7 +7,7 @@
 ** See the file COPYING.LIB for the full notice.
 **********************************************************************/
 
-#include "HHChannel2D.h"
+#include "HHChannelF2D.h"
 
 #include "../basecode/ElementValueFinfo.h"
 #include "../basecode/header.h"
@@ -15,14 +15,9 @@
 #include "ChanBase.h"
 #include "ChanCommon.h"
 #include "HHChannelBase.h"
-#include "HHGate2D.h"
+#include "HHGateF2D.h"
 
-// const double HHChannel2D::EPSILON = 1.0e-10;
-// const int HHChannel2D::INSTANT_X = 1;
-// const int HHChannel2D::INSTANT_Y = 2;
-// const int HHChannel2D::INSTANT_Z = 4;
-
-const Cinfo *HHChannel2D::initCinfo()
+const Cinfo *HHChannelF2D::initCinfo()
 {
     /////////////////////////////////////////////////////////////////////
     // Shared messages
@@ -30,24 +25,82 @@ const Cinfo *HHChannel2D::initCinfo()
     ///////////////////////////////////////////////////////
     // Field definitions
     ///////////////////////////////////////////////////////
-    static ValueFinfo<HHChannel2D, string> Xindex(
-        "Xindex", "String for setting X index.", &HHChannel2D::setXindex,
-        &HHChannel2D::getXindex);
-    static ValueFinfo<HHChannel2D, string> Yindex(
-        "Yindex", "String for setting Y index.", &HHChannel2D::setYindex,
-        &HHChannel2D::getYindex);
-    static ValueFinfo<HHChannel2D, string> Zindex(
-        "Zindex", "String for setting Z index.", &HHChannel2D::setZindex,
-        &HHChannel2D::getZindex);
-    static ElementValueFinfo<HHChannel2D, double> Xpower(
-        "Xpower", "Power for X gate", &HHChannel2D::setXpower,
-        &HHChannel2D::getXpower);
-    static ElementValueFinfo<HHChannel2D, double> Ypower(
-        "Ypower", "Power for Y gate", &HHChannel2D::setYpower,
-        &HHChannel2D::getYpower);
-    static ElementValueFinfo<HHChannel2D, double> Zpower(
-        "Zpower", "Power for Z gate", &HHChannel2D::setZpower,
-        &HHChannel2D::getZpower);
+    static ValueFinfo<HHChannelF2D, string> Xindex(
+        "Xindex",
+        "String specifying input variable assignment for X gate. This tells the"
+        " channel which input (dest field) to use for which parameter in the"
+        " gate equations."
+        " It can take the following string values:\n"
+        " \"VOLT_INDEX\": use only voltage input received via dest field 'Vm'"
+        " (assigned to the `v` variable in the equations).\n"
+        " \"C1_INDEX\": use only concentration input received via  dest field"
+        " 'concen' (assigned to `c` variable in the equations).\n"
+        " \"C2_INDEX\": use only concentration input received via dest field"
+        " 'concen2'  (assigned to `c` variable in the equations)\n"
+        " \"VOLT_C1_INDEX\": assign voltage input 'Vm' to `v` and concentration"
+        " input 'concen' to `c`\n"
+        " \"VOLT_C2_INDEX\": assign voltage input 'Vm' to `v` and concentration"
+        " input 'concen2' to `c`\n"
+        " \"C1_C2_INDEX\": assign concentration input 'concen' to `v` and "
+        "concentration"
+        " input 'concen2' to `c`"
+
+        ,
+        &HHChannelF2D::setXindex, &HHChannelF2D::getXindex);
+    static ValueFinfo<HHChannelF2D, string> Yindex(
+        "Yindex",
+        "String specifying input variable assignment for Y gate. This tells the"
+        " channel which input (dest field) to use for which parameter in the"
+        " gate equations."
+        " It can take the following string values:\n"
+        " \"VOLT_INDEX\": use only voltage input received via dest field 'Vm'"
+        " (assigned to the `v` variable in the equations).\n"
+        " \"C1_INDEX\": use only concentration input received via  dest field"
+        " 'concen' (assigned to `c` variable in the equations).\n"
+        " \"C2_INDEX\": use only concentration input received via dest field"
+        " 'concen2'  (assigned to `c` variable in the equations)\n"
+        " \"VOLT_C1_INDEX\": assign voltage input 'Vm' to `v` and concentration"
+        " input 'concen' to `c`\n"
+        " \"VOLT_C2_INDEX\": assign voltage input 'Vm' to `v` and concentration"
+        " input 'concen2' to `c`\n"
+        " \"C1_C2_INDEX\": assign concentration input 'concen' to `v` and "
+        "concentration"
+        " input 'concen2' to `c`"
+
+        ,
+        &HHChannelF2D::setYindex, &HHChannelF2D::getYindex);
+    static ValueFinfo<HHChannelF2D, string> Zindex(
+        "Zindex",
+        "String specifying input variable assignment for Y gate. This tells the"
+        " channel which input (dest field) to use for which parameter in the"
+        " gate equations."
+        " It can take the following string values:\n"
+        " \"VOLT_INDEX\": use only voltage input received via dest field 'Vm'"
+        " (assigned to the `v` variable in the equations).\n"
+        " \"C1_INDEX\": use only concentration input received via  dest field"
+        " 'concen' (assigned to `c` variable in the equations).\n"
+        " \"C2_INDEX\": use only concentration input received via dest field"
+        " 'concen2'  (assigned to `c` variable in the equations)\n"
+        " \"VOLT_C1_INDEX\": assign voltage input 'Vm' to `v` and concentration"
+        " input 'concen' to `c`\n"
+        " \"VOLT_C2_INDEX\": assign voltage input 'Vm' to `v` and concentration"
+        " input 'concen2' to `c`\n"
+        " \"C1_C2_INDEX\": assign concentration input 'concen' to `v` and "
+        "concentration"
+        " input 'concen2' to `c`",
+        &HHChannelF2D::setZindex, &HHChannelF2D::getZindex);
+    static ElementValueFinfo<HHChannelF2D, double> Xpower(
+        "Xpower", "Power for X gate", &HHChannelF2D::setXpower,
+        &HHChannelF2D::getXpower);
+    static ElementValueFinfo<HHChannelF2D, double> Ypower(
+        "Ypower", "Power for Y gate", &HHChannelF2D::setYpower,
+        &HHChannelF2D::getYpower);
+    static ElementValueFinfo<HHChannelF2D, double> Zpower(
+        "Zpower", "Power for Z gate", &HHChannelF2D::setZpower,
+        &HHChannelF2D::getZpower);
+    ///////////////////////////////////////////////////////
+    // MsgSrc definitions
+    ///////////////////////////////////////////////////////
 
     ///////////////////////////////////////////////////////
     // MsgDest definitions
@@ -56,41 +109,37 @@ const Cinfo *HHChannel2D::initCinfo()
         "concen",
         "Incoming message from Concen object to specific conc to use"
         "as the first concen variable",
-        new OpFunc1<HHChannel2D, double>(&HHChannel2D::conc1));
+        new OpFunc1<HHChannelF2D, double>(&HHChannelF2D::conc1));
     static DestFinfo concen2(
         "concen2",
         "Incoming message from Concen object to specific conc to use"
         "as the second concen variable",
-        new OpFunc1<HHChannel2D, double>(&HHChannel2D::conc2));
+        new OpFunc1<HHChannelF2D, double>(&HHChannelF2D::conc2));
     ///////////////////////////////////////////////////////
     // FieldElementFinfo definition for HHGates. Note that these are made
     // with the deferCreate flag off, so that the HHGates are created
     // right away even if they are empty.
     // I assume that we only have a single HHGate entry for each one.
     ///////////////////////////////////////////////////////
-    static FieldElementFinfo<HHChannel2D, HHGate2D> gateX(
-        "gateX", "Sets up HHGate X for channel", HHGate2D::initCinfo(),
-        &HHChannel2D::getXgate, &HHChannel2D::setNumGates,
-        &HHChannel2D::getNumXgates);
-    static FieldElementFinfo<HHChannel2D, HHGate2D> gateY(
-        "gateY", "Sets up HHGate Y for channel", HHGate2D::initCinfo(),
-        &HHChannel2D::getYgate, &HHChannel2D::setNumGates,
-        &HHChannel2D::getNumYgates);
-    static FieldElementFinfo<HHChannel2D, HHGate2D> gateZ(
-        "gateZ", "Sets up HHGate Z for channel", HHGate2D::initCinfo(),
-        &HHChannel2D::getZgate, &HHChannel2D::setNumGates,
-        &HHChannel2D::getNumZgates);
-    static Finfo *HHChannel2DFinfos[] = {
-        &Xindex,  // Value
-        &Yindex,  // Value
-        &Zindex,  // Value
-        &Xpower,  // Value
-        &Ypower,  // Value
-        &Zpower,  // Value
-        // &instant,	// Value
-        // &X,			// Value
-        // &Y,			// Value
-        // &Z,			// Value
+    static FieldElementFinfo<HHChannelF2D, HHGateF2D> gateX(
+        "gateX", "Sets up HHGate X for channel", HHGateF2D::initCinfo(),
+        &HHChannelF2D::getXgate, &HHChannelF2D::setNumGates,
+        &HHChannelF2D::getNumXgates);
+    static FieldElementFinfo<HHChannelF2D, HHGateF2D> gateY(
+        "gateY", "Sets up HHGate Y for channel", HHGateF2D::initCinfo(),
+        &HHChannelF2D::getYgate, &HHChannelF2D::setNumGates,
+        &HHChannelF2D::getNumYgates);
+    static FieldElementFinfo<HHChannelF2D, HHGateF2D> gateZ(
+        "gateZ", "Sets up HHGate Z for channel", HHGateF2D::initCinfo(),
+        &HHChannelF2D::getZgate, &HHChannelF2D::setNumGates,
+        &HHChannelF2D::getNumZgates);
+    static Finfo *HHChannelF2DFinfos[] = {
+        &Xindex,   // Value
+        &Yindex,   // Value
+        &Zindex,   // Value
+        &Xpower,   // Value
+        &Ypower,   // Value
+        &Zpower,   // Value
         &concen,   // Dest
         &concen2,  // Dest
         &gateX,    // FieldElement
@@ -100,27 +149,28 @@ const Cinfo *HHChannel2D::initCinfo()
 
     static string doc[] = {
         "Name",
-        "HHChannel2D",
+        "HHChannelF2D",
         "Author",
         "Niraj Dudani, 2009, NCBS, Updated Upi Bhalla, 2011",
         "Description",
-        "HHChannel2D: Hodgkin-Huxley type voltage-gated Ion channel. Something "
+        "HHChannelF2D: Hodgkin-Huxley type voltage-gated Ion channel. "
+        "Something "
         "like the old tabchannel from GENESIS, but also presents "
         "a similar interface as hhchan from GENESIS. ",
     };
 
-    static Dinfo<HHChannel2D> dinfo;
-    static Cinfo HHChannel2DCinfo("HHChannel2D", ChanBase::initCinfo(),
-                                  HHChannel2DFinfos,
-                                  sizeof(HHChannel2DFinfos) / sizeof(Finfo *),
-                                  &dinfo, doc, sizeof(doc) / sizeof(string));
+    static Dinfo<HHChannelF2D> dinfo;
+    static Cinfo HHChannelF2DCinfo("HHChannelF2D", ChanBase::initCinfo(),
+                                   HHChannelF2DFinfos,
+                                   sizeof(HHChannelF2DFinfos) / sizeof(Finfo *),
+                                   &dinfo, doc, sizeof(doc) / sizeof(string));
 
-    return &HHChannel2DCinfo;
+    return &HHChannelF2DCinfo;
 }
 
-static const Cinfo *HHChannel2DCinfo = HHChannel2D::initCinfo();
+static const Cinfo *HHChannelF2DCinfo = HHChannelF2D::initCinfo();
 
-HHChannel2D::HHChannel2D()
+HHChannelF2D::HHChannelF2D()
     : HHChannelBase(),
       conc1_(0.0),
       conc2_(0.0),
@@ -141,12 +191,12 @@ HHChannel2D::HHChannel2D()
 // Field function definitions
 ///////////////////////////////////////////////////
 
-string HHChannel2D::getXindex() const
+string HHChannelF2D::getXindex() const
 {
     return Xindex_;
 }
 
-void HHChannel2D::setXindex(string Xindex)
+void HHChannelF2D::setXindex(string Xindex)
 {
     if(Xindex == Xindex_)
         return;
@@ -158,12 +208,12 @@ void HHChannel2D::setXindex(string Xindex)
     assert(Xdep0_ >= 0);
 }
 
-string HHChannel2D::getYindex() const
+string HHChannelF2D::getYindex() const
 {
     return Yindex_;
 }
 
-void HHChannel2D::setYindex(string Yindex)
+void HHChannelF2D::setYindex(string Yindex)
 {
     if(Yindex == Yindex_)
         return;
@@ -175,12 +225,12 @@ void HHChannel2D::setYindex(string Yindex)
     assert(Ydep0_ >= 0);
 }
 
-string HHChannel2D::getZindex() const
+string HHChannelF2D::getZindex() const
 {
     return Zindex_;
 }
 
-void HHChannel2D::setZindex(string Zindex)
+void HHChannelF2D::setZindex(string Zindex)
 {
     if(Zindex == Zindex_)
         return;
@@ -193,42 +243,42 @@ void HHChannel2D::setZindex(string Zindex)
 }
 
 ////////////////////////////////////////////////////////////////////
-// HHGate2D access funcs
+// HHGateF2D access funcs
 ////////////////////////////////////////////////////////////////////
 
-HHGate2D *HHChannel2D::getXgate(unsigned int i)
+HHGateF2D *HHChannelF2D::getXgate(unsigned int i)
 {
     return xGate_;
 }
 
-HHGate2D *HHChannel2D::getYgate(unsigned int i)
+HHGateF2D *HHChannelF2D::getYgate(unsigned int i)
 {
     return yGate_;
 }
 
-HHGate2D *HHChannel2D::getZgate(unsigned int i)
+HHGateF2D *HHChannelF2D::getZgate(unsigned int i)
 {
     return zGate_;
 }
 
-void HHChannel2D::setNumGates(unsigned int num)
+void HHChannelF2D::setNumGates(unsigned int num)
 {
     ;
 }
-unsigned int HHChannel2D::getNumXgates() const
+unsigned int HHChannelF2D::getNumXgates() const
 {
     return xGate_ != nullptr;
 }
-unsigned int HHChannel2D::getNumYgates() const
+unsigned int HHChannelF2D::getNumYgates() const
 {
     return yGate_ != nullptr;
 }
-unsigned int HHChannel2D::getNumZgates() const
+unsigned int HHChannelF2D::getNumZgates() const
 {
     return zGate_ != nullptr;
 }
 
-double HHChannel2D::depValue(int dep)
+double HHChannelF2D::depValue(int dep)
 {
     switch(dep) {
         case 0:
@@ -243,7 +293,7 @@ double HHChannel2D::depValue(int dep)
     }
 }
 
-int HHChannel2D::dependency(string index, unsigned int dim)
+int HHChannelF2D::dependency(string index, unsigned int dim)
 {
     static vector<map<string, int>> dep;
     if(dep.empty()) {
@@ -283,12 +333,12 @@ int HHChannel2D::dependency(string index, unsigned int dim)
 // Dest function definitions
 ///////////////////////////////////////////////////
 
-void HHChannel2D::conc1(double conc)
+void HHChannelF2D::conc1(double conc)
 {
     conc1_ = conc;
 }
 
-void HHChannel2D::conc2(double conc)
+void HHChannelF2D::conc2(double conc)
 {
     conc2_ = conc;
 }
@@ -297,7 +347,7 @@ void HHChannel2D::conc2(double conc)
 // utility function definitions
 ///////////////////////////////////////////////////
 
-void HHChannel2D::vProcess(const Eref &e, ProcPtr info)
+void HHChannelF2D::vProcess(const Eref &e, ProcPtr info)
 {
     g_ += ChanBase::getGbar(e);
     double A = 0;
@@ -345,7 +395,7 @@ void HHChannel2D::vProcess(const Eref &e, ProcPtr info)
  * Here we get the steady-state values for the gate (the 'instant'
  * calculation) as A_/B_.
  */
-void HHChannel2D::vReinit(const Eref &er, ProcPtr info)
+void HHChannelF2D::vReinit(const Eref &er, ProcPtr info)
 {
     g_ = ChanBase::getGbar(er);
     Element *e = er.element();
@@ -421,7 +471,7 @@ void HHChannel2D::vReinit(const Eref &er, ProcPtr info)
 // Assuming that the elements are simple elements. Use Eref for
 // general case
 
-bool HHChannel2D::checkOriginal(Id chanId) const
+bool HHChannelF2D::checkOriginal(Id chanId) const
 {
     bool isOriginal = 1;
     if(xGate_) {
@@ -436,22 +486,22 @@ bool HHChannel2D::checkOriginal(Id chanId) const
     return isOriginal;
 }
 
-void HHChannel2D::innerCreateGate(const string &gateName, HHGate2D **gatePtr,
-                                  Id chanId, Id gateId)
+void HHChannelF2D::innerCreateGate(const string &gateName, HHGateF2D **gatePtr,
+                                   Id chanId, Id gateId)
 {
     // Shell* shell = reinterpret_cast< Shell* >( ObjId( Id(), 0 ).data() );
     if(*gatePtr) {
-        cout << "Warning: HHChannel2D::createGate: '" << gateName
+        cout << "Warning: HHChannelF2D::createGate: '" << gateName
              << "' on Element '" << chanId.path() << "' already present\n";
         return;
     }
-    *gatePtr = new HHGate2D(chanId, gateId);
+    *gatePtr = new HHGateF2D(chanId, gateId);
 }
 
-void HHChannel2D::vCreateGate(const Eref &e, string gateType)
+void HHChannelF2D::vCreateGate(const Eref &e, string gateType)
 {
     if(!checkOriginal(e.id())) {
-        cout << "Warning: HHChannel2D::createGate: Not allowed from copied "
+        cout << "Warning: HHChannelF2D::createGate: Not allowed from copied "
                 "channel:\n"
              << e.id().path() << "\n";
         return;
@@ -464,15 +514,15 @@ void HHChannel2D::vCreateGate(const Eref &e, string gateType)
     else if(gateType == "Z")
         innerCreateGate("zGate", &zGate_, e.id(), Id(e.id().value() + 3));
     else
-        cout << "Warning: HHChannel2D::createGate: Unknown gate type '"
+        cout << "Warning: HHChannelF2D::createGate: Unknown gate type '"
              << gateType << "'. Ignored\n";
 }
 
-void HHChannel2D::innerDestroyGate(const string &gateName, HHGate2D **gatePtr,
-                                   Id chanId)
+void HHChannelF2D::innerDestroyGate(const string &gateName, HHGateF2D **gatePtr,
+                                    Id chanId)
 {
     if(*gatePtr == nullptr) {
-        cout << "Warning: HHChannel2D::destroyGate: '" << gateName
+        cout << "Warning: HHChannelF2D::destroyGate: '" << gateName
              << "' on Element '" << chanId.path() << "' not present\n";
         return;
     }
@@ -480,10 +530,10 @@ void HHChannel2D::innerDestroyGate(const string &gateName, HHGate2D **gatePtr,
     *gatePtr = nullptr;
 }
 
-void HHChannel2D::destroyGate(const Eref &e, string gateType)
+void HHChannelF2D::destroyGate(const Eref &e, string gateType)
 {
     if(!checkOriginal(e.id())) {
-        cout << "Warning: HHChannel2D::destroyGate: Not allowed from copied "
+        cout << "Warning: HHChannelF2D::destroyGate: Not allowed from copied "
                 "channel:\n"
              << e.id().path() << "\n";
         return;
@@ -496,18 +546,6 @@ void HHChannel2D::destroyGate(const Eref &e, string gateType)
     else if(gateType == "Z")
         innerDestroyGate("zGate", &zGate_, e.id());
     else
-        cout << "Warning: HHChannel2D::destroyGate: Unknown gate type '"
+        cout << "Warning: HHChannelF2D::destroyGate: Unknown gate type '"
              << gateType << "'. Ignored\n";
 }
-
-///////////////////////////////////////////////////
-// Unit tests
-///////////////////////////////////////////////////
-
-#ifdef DO_UNIT_TESTS
-
-void testHHChannel2D2D()
-{
-    ;
-}
-#endif

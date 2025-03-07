@@ -72,6 +72,8 @@ public:
             return Field<unsigned long>::set(getItem(i), name, val);
         if (rttType == "unsigned int")
             return Field<unsigned int>::set(getItem(i), name, val);
+        if (rttType == "bool")
+            return Field<bool>::set(getItem(i), name, val);
         return false;
     }
 

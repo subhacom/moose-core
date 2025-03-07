@@ -81,6 +81,24 @@ public:
     void setMinfinity(const Eref& e, vector<double> val);
     vector<double> getMinfinity(const Eref& e) const;
 
+    /// Set/get expression for alpha
+    void setAlphaExpr(const Eref& e, string expr);
+    string getAlphaExpr(const Eref& e) const;
+    /// Set/get expression for beta
+    void setBetaExpr(const Eref& e, string expr);
+    string getBetaExpr(const Eref& e) const;
+    /// Set/get expression for tau
+    void setTauExpr(const Eref& e, string expr);
+    string getTauExpr(const Eref& e) const;
+    /// Set/get expression for inf
+    void setInfExpr(const Eref& e, string expr);
+    string getInfExpr(const Eref& e) const;
+    int getForm() const;
+    /// Fill the tables by evaluating expressions
+    void tabFillExpr(const Eref& e); 
+    
+    vector<double> computeTable(string expr, double xmin, double xmax, unsigned int xdivs);
+    
     void setMin(const Eref& e, double val);
     double getMin(const Eref& e) const;
     void setMax(const Eref& e, double val);
@@ -167,6 +185,12 @@ private:
     /// 5 parameters for mInfinity
     vector<double> mInfinity_;
 
+    /// Strings for expressions
+    string alphaExpr_;
+    string betaExpr_;
+    /// Flag if the expressions are in tau-inf form or explicitly set
+    /// 0 - not using expression, 1 - alpha/beta, 2 - tau/inf
+    int form_;  
     /// The actual lookup table for calculations. Holds alpha(V).
     vector<double> A_;
 

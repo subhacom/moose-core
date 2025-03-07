@@ -36,6 +36,7 @@ const Cinfo* HHChannel::initCinfo() {
         &HHChannel::getZgate, &HHChannel::setNumGates, &HHChannel::getNumZgates
         // 1
     );
+    
     ///////////////////////////////////////////////////////
     static Finfo* HHChannelFinfos[] = {
         &gateX,  // FieldElement
@@ -86,46 +87,6 @@ HHChannel::~HHChannel() {
     // 	delete zGate_;
 }
 
-// bool HHChannel::setGatePower(const Eref& e, double power, double* assignee,
-//                              const string& gateType)
-// {
-//     if (doubleEq(power, *assignee)) return false;
-
-//     if (doubleEq(*assignee, 0.0) && power > 0) {
-//         createGate(e, gateType);
-//     } else if (doubleEq(power, 0.0)) {
-//         // destroyGate( e, gateType );
-//     }
-//     *assignee = power;
-
-//     return true;
-// }
-
-// /**
-//  * Assigns the Xpower for this gate. If the gate exists and has
-//  * only this element for input, then change the gate value.
-//  * If the gate exists and has multiple parents, then make a new gate.
-//  * If the gate does not exist, make a new gate
-//  */
-// void HHChannel::vSetXpower(const Eref& e, double power)
-// {
-//     if (setGatePower(e, power, &Xpower_, "X")) takeXpower_ =
-//     selectPower(power);
-// }
-
-// void HHChannel::vSetYpower(const Eref& e, double power)
-// {
-//     if (setGatePower(e, power, &Ypower_, "Y")) takeYpower_ =
-//     selectPower(power);
-// }
-
-// void HHChannel::vSetZpower(const Eref& e, double power)
-// {
-//     if (setGatePower(e, power, &Zpower_, "Z")) {
-//         takeZpower_ = selectPower(power);
-//         useConcentration_ = 1;  // Not sure about this.
-//     }
-// }
 
 /**
  * If the gate exists and has only this element for input, then change
@@ -144,7 +105,6 @@ HHChannel::~HHChannel() {
  */
 // Assuming that the elements are simple elements. Use Eref for
 // general case
-
 bool HHChannel::checkOriginal(Id chanId) const {
     bool isOriginal = true;
     // cerr << "# HHChannel::checkOriginal(Id chanId) chanId: " << chanId << ", xGate: " << xGate_ << endl;
@@ -240,54 +200,6 @@ unsigned int HHChannel::getNumYgates() const { return yGate_ != nullptr; }
 
 unsigned int HHChannel::getNumZgates() const { return zGate_ != nullptr; }
 
-///////////////////////////////////////////////////
-// Field function definitions
-///////////////////////////////////////////////////
-
-// void HHChannel::vSetInstant(const Eref& e, int instant)
-// {
-//     instant_ = instant;
-// }
-
-// int HHChannel::vGetInstant(const Eref& e) const
-// {
-//     return instant_;
-// }
-
-// void HHChannel::vSetX(const Eref& e, double X)
-// {
-//     X_ = X;
-//     xInited_ = true;
-// }
-// double HHChannel::vGetX(const Eref& e) const
-// {
-//     return X_;
-// }
-
-// void HHChannel::vSetY(const Eref& e, double Y)
-// {
-//     Y_ = Y;
-//     yInited_ = true;
-// }
-// double HHChannel::vGetY(const Eref& e) const
-// {
-//     return Y_;
-// }
-
-// void HHChannel::vSetZ(const Eref& e, double Z)
-// {
-//     Z_ = Z;
-//     zInited_ = true;
-// }
-// double HHChannel::vGetZ(const Eref& e) const
-// {
-//     return Z_;
-// }
-
-// void HHChannel::vSetUseConcentration(const Eref& e, int value)
-// {
-//     useConcentration_ = value;
-// }
 
 ///////////////////////////////////////////////////
 // Dest function definitions
@@ -352,6 +264,16 @@ void HHChannel::vReinit(const Eref& er, ProcPtr info) {
     double B = 0.0;
     if (Xpower_ > 0) {
         assert(xGate_);
+        if((xGate_->getMax(er) == 1) && (xGate_->getMin(er) == 0)) {
+            cout << "Warning: " << er.objId().path()
+                 << ".gateX: `min` and `max` have default values. Did you forget to "
+		 << "set them?"
+                 << endl;
+	}
+	if(xGate_->getForm() > 0) // explicit string expression set, fill the tables by evaluating it
+	{
+	    xGate_->tabFillExpr(er);
+	}
         xGate_->lookupBoth(Vm_, &A, &B);
         if (B < EPSILON) {
             cout << "Warning: B_ value for " << e->getName()
@@ -364,6 +286,16 @@ void HHChannel::vReinit(const Eref& er, ProcPtr info) {
 
     if (Ypower_ > 0) {
         assert(yGate_);
+        if((yGate_->getMax(er) == 1) && (yGate_->getMin(er) == 0)) {
+            cout << "Warning: " << er.objId().path()
+                 << ".gateY: `min` and `max` have default values. Did you forget to "
+		 << "set them?"
+                 << endl;
+	}
+	if(yGate_->getForm() > 0) // explicit string expression set, fill the tables by evaluating it
+	{
+	    yGate_->tabFillExpr(er);
+	}
         yGate_->lookupBoth(Vm_, &A, &B);
         if (B < EPSILON) {
             cout << "Warning: B value for " << e->getName()
@@ -376,10 +308,27 @@ void HHChannel::vReinit(const Eref& er, ProcPtr info) {
 
     if (Zpower_ > 0) {
         assert(zGate_);
-        if (useConcentration_)
+        if((zGate_->getMax(er) == 1) && (zGate_->getMin(er) == 0)) {
+            cout << "Warning: " << er.objId().path()
+                 << ".gateZ: `min` and `max` have default values. Did you forget to "
+		 << "set them?"
+                 << endl;
+	}
+	if(zGate_->getForm() > 0) // explicit string expression set, fill the tables by evaluating it
+	{
+	    zGate_->tabFillExpr(er);
+	}
+        if (useConcentration_){
             zGate_->lookupBoth(conc_, &A, &B);
-        else
+	}
+        else {
+	    cout << "Warning: " << er.objId().path()
+                 << ".gateZ: `useConcentration=False`, though this gate is"
+		 << " commonly used for concentration-dependency."
+		 << " Did you forget to set it?"
+                 << endl;
             zGate_->lookupBoth(Vm_, &A, &B);
+	}
         if (B < EPSILON) {
             cout << "Warning: B value for " << e->getName()
                  << " is ~0. Check Z table\n";
@@ -403,12 +352,3 @@ void HHChannel::vReinit(const Eref& er, ProcPtr info) {
 
 void HHChannel::vHandleConc(const Eref& e, double conc) { conc_ = conc; }
 
-///////////////////////////////////////////////////
-// HHGate functions
-///////////////////////////////////////////////////
-
-// HHGate* HHChannel::vGetXgate(unsigned int i) const { return xGate_; }
-
-// HHGate* HHChannel::vGetYgate(unsigned int i) const { return yGate_; }
-
-// HHGate* HHChannel::vGetZgate(unsigned int i) const { return zGate_; }

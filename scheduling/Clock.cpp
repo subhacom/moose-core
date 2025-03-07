@@ -397,6 +397,7 @@ const Cinfo* Clock::initCinfo()
         "    HHChannel           4       50e-6\n"
         "    HHChannel2D         4       50e-6\n"
         "    HHChannelF          4       50e-6\n"
+	"    HHChannelF2D        4       50e-6\n"
         "    Leakage             4       50e-6\n"
         "    MarkovChannel       4       50e-6\n"        
         "    SpikeGen             5      50e-6\n"
@@ -915,6 +916,7 @@ void Clock::buildDefaultTick()
     defaultTick_["HHChannel"] = 4;
     defaultTick_["HHChannel2D"] = 4;
     defaultTick_["HHChannelF"] = 4;
+    defaultTick_["HHChannelF2D"] = 4;
     defaultTick_["Leakage"] = 4;
     defaultTick_["MarkovChannel"] = 4;
     defaultTick_["SpikeGen"] = 5;
