@@ -100,7 +100,7 @@ const Cinfo* HHGateF::initCinfo()
         "Author",
         "Subhasis Ray, 2025, CHINTA",
         "Description",
-        "HHGateF: Gate for Hodkgin-Huxley type channels, equivalent to the "
+        "Gating component of Hodkgin-Huxley type channels, equivalent to the "
         "m and h terms on the Na squid channel and the n term on K. "
         "This takes the voltage and state variable from the channel, "
         "computes the new value of the state variable and a scaling, "
