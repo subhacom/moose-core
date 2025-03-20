@@ -523,13 +523,16 @@ string mooseClassDoc(const string& className)
         ss << "This class is not valid." << endl;
         return ss.str();
     }
-
+    ss << "class " << className << "\n\n"
+       << moose::textwrap(cinfo->getDocsEntry("Description"), "  ") << "\n\n"
+       << "Author: " << moose::textwrap(cinfo->getDocsEntry("Author"), "  ")
+       << "\n\n";
     ss << moose::underlined<'='>("Attributes:");
     ss << endl;
 
     for(string f : {"value", "lookup", "src", "dest", "shared", "field"})
         ss << mooseClassFieldsDoc(cinfo, f, "");
-
+    
     return ss.str();
 }
 

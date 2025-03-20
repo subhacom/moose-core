@@ -176,6 +176,10 @@ public:
      * Return the documentation string
      */
     string getDocs() const;
+    /**
+     * Get a specifi entry from the docs map
+     */
+    string getDocsEntry(string key) const;
 
     /**
      * Return the name of the base class

@@ -101,7 +101,7 @@ const Cinfo* HHGate::initCinfo()
     static ElementValueFinfo<HHGate, string> tauExpr(
         "tauExpr",
         "Explicit expression for computing `tau`."
-        " For using this, `infExpr` must be set as well."q
+        " For using this, `infExpr` must be set as well."
         " See `alphaExpr` and `HHChannelF` documentation.",
         &HHGate::setTauExpr, &HHGate::getTauExpr);
 
