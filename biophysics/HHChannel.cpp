@@ -272,7 +272,7 @@ void HHChannel::vReinit(const Eref& er, ProcPtr info) {
 	}
 	if(xGate_->getForm() > 0) // explicit string expression set, fill the tables by evaluating it
 	{
-	    xGate_->tabFillExpr(er);
+	    xGate_->fillFromExpr(er);
 	}
         xGate_->lookupBoth(Vm_, &A, &B);
         if (B < EPSILON) {
@@ -294,7 +294,7 @@ void HHChannel::vReinit(const Eref& er, ProcPtr info) {
 	}
 	if(yGate_->getForm() > 0) // explicit string expression set, fill the tables by evaluating it
 	{
-	    yGate_->tabFillExpr(er);
+	    yGate_->fillFromExpr(er);
 	}
         yGate_->lookupBoth(Vm_, &A, &B);
         if (B < EPSILON) {
@@ -316,7 +316,7 @@ void HHChannel::vReinit(const Eref& er, ProcPtr info) {
 	}
 	if(zGate_->getForm() > 0) // explicit string expression set, fill the tables by evaluating it
 	{
-	    zGate_->tabFillExpr(er);
+	    zGate_->fillFromExpr(er);
 	}
         if (useConcentration_){
             zGate_->lookupBoth(conc_, &A, &B);
