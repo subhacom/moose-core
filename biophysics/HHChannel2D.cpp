@@ -110,7 +110,7 @@ const Cinfo *HHChannel2D::initCinfo()
     };
 
     static Dinfo<HHChannel2D> dinfo;
-    static Cinfo HHChannel2DCinfo("HHChannel2D", ChanBase::initCinfo(),
+    static Cinfo HHChannel2DCinfo("HHChannel2D", HHChannelBase::initCinfo(),
                                   HHChannel2DFinfos,
                                   sizeof(HHChannel2DFinfos) / sizeof(Finfo *),
                                   &dinfo, doc, sizeof(doc) / sizeof(string));
