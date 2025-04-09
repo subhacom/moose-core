@@ -95,7 +95,7 @@ public:
     string getInfExpr(const Eref& e) const;
     int getForm() const;
     /// Fill the tables by evaluating expressions
-    void tabFillExpr(const Eref& e); 
+    void fillFromExpr(const Eref& e); 
     
     vector<double> computeTable(string expr, double xmin, double xmax, unsigned int xdivs);
     
