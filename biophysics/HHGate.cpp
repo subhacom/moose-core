@@ -464,6 +464,7 @@ void HHGate::fillFromExpr(const Eref& e)
     double tau_;
     double inf_;
     symTab_.add_variable("v", v_);
+    symTab_.add_variable("c", v_);
     symTab_.add_variable("alpha", a_);
     symTab_.add_variable("beta", b_);
     symTab_.add_variable("tau", tau_);

@@ -29,6 +29,18 @@ from moose import model_utils
 
 __moose_classes__ = {}
 
+# These fields are system fields and should not be displayed unless user requests explicitly
+_sys_fields = {
+    'fieldIndex',
+    'idValue',
+    'index',
+    'numData',
+    'numField',
+    'path',
+    'this',
+    'me',
+}
+
 
 class melement(_moose.ObjId):
     """Base class for all moose classes.
@@ -608,7 +620,7 @@ def le(el=None):
         el = _moose.element(el)
     elif isinstance(el, _moose.vec):
         el = el[0]
-    return _moose.le(el)
+    _moose.le(el)
 
 
 def showfields(el, field="*", showtype=False):
@@ -642,36 +654,69 @@ def showfields(el, field="*", showtype=False):
         max_type_len = max(len(dtype) for dtype in value_field_dict.values())
         max_field_len = max(len(dtype) for dtype in value_field_dict.keys())
         result.append("\n[" + el.path + "]\n")
-        for key, dtype in sorted(value_field_dict.items()):
+        # Maintain the common fields first
+        common_fields = ['name', 'className', 'tick', 'dt']
+        flist = [(field, value_field_dict[field], el.getField(field))
+                 for field in common_fields]
+        for field, dtype in sorted(value_field_dict.items()):
             if (
-                dtype == "bad"
-                or key == "this"
-                or key == "dummy"
-                or key == "me"
-                or dtype.startswith("vector")
-                or "ObjId" in dtype
+                    (dtype == "bad")
+                    or dtype.startswith("vector")
+                    or ("ObjId" in dtype)
+                    or (field in _sys_fields)
+                    or (field in common_fields)
             ):
                 continue
-            value = el.getField(key)
+            flist.append((field, dtype, el.getField(field)))
+        # Extract the length of the longest type name
+        max_type_len = len(max(flist, key=lambda x: len(x[1]))[1])
+        # Extract the length of the longest field name
+        max_field_len = len(max(flist, key=lambda x: len(x[0]))[0])
+        for field, dtype, value in flist:
             if showtype:
-                typestr = dtype.ljust(max_type_len + 4)
-                ## The following hack is for handling both Python 2 and
-                ## 3. Directly putting the print command in the if/else
-                ## clause causes syntax error in both systems.
-                result.append(typestr + " ")
-            result.append(key.ljust(max_field_len + 4) + "=" + str(value) + "\n")
+                result.append(f'{dtype:<{max_type_len+4}} ')
+            result.append(f'{field:<{max_field_len + 4}} = {value}\n')
     else:
         try:
             result.append(field + "=" + el.getField(field))
         except AttributeError:
             pass  # Genesis silently ignores non existent fields
     print("".join(result))
-    return "".join(result)
 
 
 def showfield(el, field="*", showtype=False):
     """Alias for showfields."""
-    return showfields(el, field, showtype)
+    showfields(el, field, showtype)
+
+
+def sysfields(el, showtype=False):
+    """This function shows system fields which are suppressed by `showfields`."""
+    if isinstance(el, str):
+        if not _moose.exists(el):
+            raise ValueError(f"no such element: {el}")
+        el = _moose.element(el)
+    result = []
+    value_field_dict = _moose.getFieldDict(el.className, "valueFinfo")
+    max_type_len = max(len(dtype) for dtype in value_field_dict.values())
+    max_field_len = max(len(dtype) for dtype in value_field_dict.keys())
+    result.append("\n[" + el.path + "]\n")
+    for key in sorted(_sys_fields):
+        dtype = value_field_dict[key]
+        if (
+                dtype == "bad"
+                or dtype.startswith("vector")
+                or ("ObjId" in dtype)
+        ):
+            continue
+        value = el.getField(key)
+        if showtype:
+            typestr = dtype.ljust(max_type_len + 4)
+            ## The following hack is for handling both Python 2 and
+            ## 3. Directly putting the print command in the if/else
+            ## clause causes syntax error in both systems.
+            result.append(typestr + " ")
+        result.append(key.ljust(max_field_len + 4) + "=" + str(value) + "\n")
+    print("".join(result))
 
 
 def listmsg(arg):
