@@ -778,7 +778,7 @@ def showmsg(el, direction=ALLMSG):
     print(_moose.showmsg(_moose.element(el), direction))
 
 
-def neighbors(el, field, msgtype='', direction=ALLMSG):
+def neighbors(el, field='*', msgtype='', direction=ALLMSG):
     """Get a list of neighbors connected on the specifield field
 
     Parameters
@@ -786,8 +786,9 @@ def neighbors(el, field, msgtype='', direction=ALLMSG):
     el: melement/vec/str
     el : melement/vec/str
         Object whose messages are to be displayed.
-    field: str
-        Name of the field on which to look for connections.
+    field: str {'*'}
+        Name of the field on which to look for connections. If  '*' (default)
+        get all neighbors connected on all fields.
     msgtype: str {'', 'Single', 'OneToOne', 'OneToAll', 'Sparse', 'Diagonal'}
         If specified, select neighbors connected by this type of message only.
         This is case-insensitive.

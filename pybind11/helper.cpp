@@ -713,7 +713,7 @@ vector<ObjId> getNeighbors(const ObjId& obj, const string& fieldName,
                     fields.insert(tmp.begin(), tmp.end());
                 }
             }
-            if(fields.find(fieldName) != fields.end()) {
+            if(fieldName == "*" || fields.find(fieldName) != fields.end()) {
                 res.push_back(e2);
             }
         }
@@ -730,7 +730,7 @@ vector<ObjId> getNeighbors(const ObjId& obj, const string& fieldName,
                     fields.insert(tmp.begin(), tmp.end());
                 }
             }
-            if(fields.find(fieldName) != fields.end()) {
+            if(fieldName == "*" || fields.find(fieldName) != fields.end()) {
                 res.push_back(e1);
             }
         }
