@@ -26,8 +26,22 @@ class MooseNeuronDataWrapper( moogul.DataWrapper ):
         elif field in ["Ik","Gk", "Ek", "Gbar", "modulation"]:
             self.dummyObj = moose.SynChan( "/dummyCa" )
 
+        self.objClass = "Compartment"
         compts = moose.wildcardFind( neuronId.path + "/#[ISA=CompartmentBase]" )
-        self.coords_ = np.array( [ii.coords for ii in compts] )
+        if len(compts) > 0:
+            self.coords_ = np.array( [ii.coords for ii in compts] )
+        else:
+            compts = moose.wildcardFind( neuronId.path + "/#[ISA=IntFire]" )
+            if len( compts ) > 0:
+                self.objClass = "IntFire"
+                self.coords_ = []
+                coords = moose.vec( compts[0].path + "/coords" )
+                assert( len( coords ) == len( compts ) )
+                self.coords_ = [ cc.vector for cc in coords ]
+            else:
+                print( "Error: NeuronDataWrapper should be either class CompartmentBase or IntFire." )
+                quit()
+
         self.getMinMax()
         if relativeObjPath == ".":
             self.objList_ = compts
