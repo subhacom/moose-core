@@ -1044,7 +1044,7 @@ print( "Wall Clock Time = {:8.2f}, simtime = {:8.3f}".format( time.time() - _sta
             self.moogNames.append( rmoogli.makeMoogli( self, dendObj, iObj, kf ) )
 
     def _buildFileOutput( self ):
-        if not hasattr( self, 'files' ):
+        if not hasattr( self, 'files' ) or len( self.files ) == 0:
             return
         fileBase = moose.Neutral( self.modelPath + "/file" )
         knownFields = knownFieldsDefault
