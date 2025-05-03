@@ -35,17 +35,12 @@ details about MOOSE simulator, visit https://moose.ncbs.res.in .
 
 See [INSTALL.md](INSTALL.md) for instructions on installation.
 
-Have a look at examples, tutorials and demo here
-https://github.com/BhallaLab/moose-examples.
+# Examples and Tutorials
+- Have a look at examples, tutorials and demo scripts here
+https://github.com/MooseNeuro/moose-examples.
 
-# Build 
-
-To build `pymoose`, follow instructions given in
-[INSTALL.md](INSTALL.md) and for platform specific
-information see:
-- Linux: [UbuntuBuild.md](UbuntuBuild.md)
-- MacOSX: [AppleM1Build.md](AppleM1Build.md)
-- Windows: [WindowsBuild.md](WindowsBuild.md)
+- A set of jupyter notebooks with step by step examples with explanation are available here:
+https://github.com/MooseNeuro/moose-notebooks.
 
 # ABOUT VERSION 4.1.0, `Jhangri`
 

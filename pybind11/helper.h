@@ -223,8 +223,32 @@ string mooseDoc(const string& string);
 
 vector<string> mooseLe(const ObjId& obj);
 
-string mooseShowMsg(const ObjId& obj);
+/** Returns a formatted string showing the messages on object `obj`.
+    `type` == 0 for outgoing messages,
+    `type` == 1 for incoming messages,
+    `type` == 2 for all messages.
+*/
+string mooseShowMsg(const ObjId& obj, int type=2);
 
-vector<ObjId> mooseListMsg(const ObjId& obj);
+/** Returns a vector of the messages on object `obj`.
+    `type` == 0 for outgoing messages,
+    `type` == 1 for incoming messages,
+    `type` == 2 for all messages.
+*/
+vector<ObjId> mooseListMsg(const ObjId& obj, int direction=2);
+
+/** Returns a vector of neighboring elements of `obj' connected to its field
+`fieldName`, by messages of type `msgType`, and in direction `direction`.
+`direction`=0 for outgoing,
+`direction`=1 for incoming,
+`direction`=2 for both.
+
+msgType should specify the class of message: "Single", "OneToOne",
+"OneToAll", "Diagonal", and "Sparse", of "" for all types of
+messages. Default is "".
+
+   
+ */
+vector<ObjId> mooseNeighbors(const ObjId& obj, const string& fieldName, const string& msgType="", int direction=2);
 
 #endif /* end of include guard: HELPER_H */
