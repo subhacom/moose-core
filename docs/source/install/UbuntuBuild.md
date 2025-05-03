@@ -46,7 +46,7 @@ conda activate moose
 ```
 cd moose-core
 
-meson setup --wipe _build --prefix=`pwd`/_build_install -Duse_mpi=false -Dbuildtype=release
+meson setup --wipe _build -Duse_mpi=false -Dbuildtype=release
 meson compile -v -C _build 
 meson install -C _build
 ```
@@ -54,7 +54,16 @@ meson install -C _build
 This will create `moose` module inside `moose-core/_build_install` directory. To make moose importable from any terminal, add this directory to your `PYTHONPATH` environment variable. For standard installation you can simply run `pip install .` in the `moose-core` directory.
 
 Meson provides many builtin options: https://mesonbuild.com/Builtin-options.html. Meson options are supplied in the command line to `meson setup` in the format `-Doption=value`.
-
+  - **Installation prefix**
+    To install MOOSE in a custom location, you can pass the `--prefix` argument to `meson setup`. For example, if you are in the `moose-core` directory, and want to have it installed in `_build_install` subdirectory, you can use
+	```
+    meson setup --wipe _build --prefix=`pwd`/_build_install -Duse_mpi=false -Dbuildtype=release
+	```
+	But then to let Python find this custom location, you must add the directory containing `moose` under `_build_install` in your `PYTHONPATH` environment variable. In `bash` shell, this would be:
+	```
+	export PYTHONPATH="$PYTHONPATH:`pwd`/_buid_install/Lib/site-packages"
+	```
+	
   - **Buildtype**
 
 	If you want a developement build with debug enabled, pass `-Dbuildtype=debug` in the `meson setup ...` command line.
