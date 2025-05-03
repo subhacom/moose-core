@@ -26,15 +26,23 @@ namespace py = pybind11;
 #include "pymoose.h"
 #include "MooseVec.h"
 
-MooseVec::MooseVec(const string& path, unsigned int n = 0,
-                   const string& dtype = "Neutral")
+MooseVec::MooseVec(const string& path, unsigned int n, const string& dtype)
     : path_(path)
 {
     // If path is given and it does not exists, then create one. The old api
     // support it.
     oid_ = ObjId(path);
-    if(oid_.bad())
-        oid_ = mooseCreateFromPath(dtype, path, n);
+    if(oid_.bad()) {
+        if(dtype != "") {
+            oid_ = mooseCreateFromPath(dtype, path, n);
+        }
+        else {
+            throw std::runtime_error(
+                path +
+                ": path does not exist. To create a new vec "
+                "object pass `dtype=classname`");
+        }
+    }
 }
 
 MooseVec::MooseVec(const ObjId& oid) : oid_(oid), path_(oid.path())
@@ -182,7 +190,7 @@ bool MooseVec::setAttribute(const string& name, const py::object& val)
     auto rttType = finfo->rttiType();
 
     bool isVector = false;
-    if(py::isinstance<py::iterable>(val) && (! py::isinstance<py::str>(val)))
+    if(py::isinstance<py::iterable>(val) && (!py::isinstance<py::str>(val)))
         isVector = true;
 
     if(isVector) {
@@ -192,20 +200,20 @@ bool MooseVec::setAttribute(const string& name, const py::object& val)
             return setAttrOneToOne<unsigned int>(
                 name, val.cast<vector<unsigned int>>());
         if(rttType == "bool")
-            return setAttrOneToOne<bool>(
-                name, val.cast<vector<bool>>());
-    } else {
+            return setAttrOneToOne<bool>(name, val.cast<vector<bool>>());
+    }
+    else {
         if(rttType == "double")
             return setAttrOneToAll<double>(name, val.cast<double>());
         if(rttType == "unsigned int")
             return setAttrOneToAll<unsigned int>(name,
                                                  val.cast<unsigned int>());
         if(rttType == "bool")
-            return setAttrOneToAll<bool>(name,
-					 val.cast<bool>());
+            return setAttrOneToAll<bool>(name, val.cast<bool>());
     }
-    
-    py::print("MooseVec::setAttribute: Setting vec attributes of type",  rttType, "not implemented. attr:",name, "val:", val);
+
+    py::print("MooseVec::setAttribute: Setting vec attributes of type", rttType,
+              "not implemented. attr:", name, "val:", val);
     throw runtime_error(__func__ + string("::NotImplementedError."));
 }
 

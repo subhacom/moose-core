@@ -57,8 +57,8 @@ class melement(_moose.ObjId):
     __type__ = "UNKNOWN"
     __doc__ = ""
 
-    def __init__(self, x, ndata=1, **kwargs):
-        obj = _moose.__create__(self.__type__, x, ndata)
+    def __init__(self, x, n=1, **kwargs):
+        obj = _moose.__create__(self.__type__, x, n)
         if sys.version_info.major > 2:
             super().__init__(obj)
             for k, v in kwargs.items():
@@ -185,6 +185,26 @@ def wildcardFind(pattern):
     List of all objects of type `Compartment` under '/neuron'
 
     >>> moose.wildcardFind('/neuron/#[ISA=Compartment]')
+
+
+    List all elements under '/library' whose name start with 'Ca':
+
+    >>> moose.wildcardFind('/library/##/Ca#')
+
+    List all elements under '/library' whose names start with 'Ca':
+
+    >>> moose.wildcardFind('/library/##/Ca#')
+
+    List all elements directly under library whose names end with 'Stellate':
+
+    >>> moose.wildcardFind('/library/#Stellate')
+
+    Note that if there is an element called 'SpinyStellate' (a
+    celltype in the cortex) under '/library' this will find it, but
+    the following will return an empty list:
+
+    >>> moose.wildcardFind('/library/##/#Stellate')
+
     """
     return [__to_melement(x) for x in _moose.wildcardFind(pattern)]
 

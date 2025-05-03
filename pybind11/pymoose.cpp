@@ -349,7 +349,7 @@ PYBIND11_MODULE(_moose, m)
     // Vec class for vectorization over dataIndex or fieldIndex.
     py::class_<MooseVec>(m, "vec")
         .def(py::init<const string &, unsigned int, const string &>(), "path"_a,
-             "n"_a = 1, "dtype"_a = "Neutral")  // Default
+             "n"_a = 1, "dtype"_a = "")  // Default
         .def(py::init<const ObjId &>())
         .def("__eq__", [](const MooseVec &a,
                           const MooseVec &b) { return a.obj() == b.obj(); })

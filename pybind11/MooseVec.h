@@ -23,7 +23,10 @@ class MooseVec
 {
 
 public:
-    MooseVec(const string& path, unsigned int n, const string& dtype);
+    /// Create a MooseVec from path. If path does not exist and dtype
+    /// is a valid moose class name, then create the object. Otherwise
+    /// python wrapper should raise an error
+    MooseVec(const string& path, unsigned int n=1, const string& dtype="");
 
     MooseVec(const Id& id);
 

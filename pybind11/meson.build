@@ -1,10 +1,10 @@
 # Author: Subhasis Ray
-# Date: Sun Jul  7
+# Date: Sun Jul  7 2024
 
 pybind11_src = ['Finfo.cpp',
                 'helper.cpp',
                 'MooseVec.cpp',
-                # 'pymoose.cpp',
+                # 'pymoose.cpp',  # this is used in top level meson build file, skip here
                 'PyRun.cpp']
 
 python_res = run_command('python', '-c', 'from sysconfig import get_paths as gp; print(gp()["include"])')
