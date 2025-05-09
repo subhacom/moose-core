@@ -25,15 +25,15 @@ support for many model formats. These include SBML, NeuroML, GENESIS kkit
 and cell.p formats, HDF5 and NSDF for data writing.
 
 This is the core computational engine of [MOOSE
-simulator](https://github.com/BhallaLab/moose). This repository
+simulator](https://mooseneuro.github.io). This repository
 contains C++ codebase and python interface called `pymoose`. For more
-details about MOOSE simulator, visit https://moose.ncbs.res.in .
+details about MOOSE simulator and old documentation, visit https://moose.ncbs.res.in .
 
 
 ----------
 # Installation
 
-See [INSTALL.md](INSTALL.md) for instructions on installation.
+See [docs/source/install/INSTALL.md](docs/source/install/INSTALL.md) for instructions on installation.
 
 # Examples and Tutorials
 - Have a look at examples, tutorials and demo scripts here
