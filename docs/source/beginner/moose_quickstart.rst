@@ -468,10 +468,7 @@ in Python::
 	  <https://en.wikipedia.org/wiki/Floating-point_arithmetic>`_, and if
 	  the unit choice renders the magnitude of a quantity too small, then
 	  the results can lose precision. This was a problem with
-	  `single-precision arithmetic
-	  <https://en.wikipedia.org/wiki/Single-precision_floating-point_format
-	  >`_ used in old times. But MOOSE uses `double precision floating point numbers
-	  <https://en.wikipedia.org/wiki/Double-precision_floating-point_format>`_
+	  `single-precision arithmetic <https://en.wikipedia.org/wiki/Single-precision_floating-point_format>`_ used in old times. But MOOSE uses `double precision floating point numbers <https://en.wikipedia.org/wiki/Double-precision_floating-point_format>`_
 	  wherever possible, and all realistic quantities in SI unit are covered
 	  in this range.
 	 
