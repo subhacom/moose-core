@@ -265,14 +265,10 @@ void mooseUseClock(size_t tick, const string& path, const string& fn)
  * @Returns  cwe.
  */
 /* ----------------------------------------------------------------------------*/
-ObjId mooseGetCweId()
-{
-    return getShellPtr()->getCwe();
-}
 
 py::object mooseGetCwe()
 {
-    return py::cast(mooseGetCweId());
+    return py::cast(getShellPtr()->getCwe());
 }
 
 void mooseSetCwe(const py::object& arg)
@@ -575,7 +571,7 @@ vector<string> mooseLe(const ObjId& obj)
     vector<string> chPaths;
 
     if(obj.bad())
-        throw pybind11::value_error("no such element.");
+        throw std::runtime_error("no such element.");
 
     Neutral::children(obj.eref(), children);
     stringstream ss;

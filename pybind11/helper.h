@@ -26,7 +26,6 @@
 namespace py = pybind11;
 using namespace std;
 
-ObjId mooseGetCweId();
 py::object mooseGetCwe();
 
 void mooseSetCwe(const py::object& arg);
@@ -59,14 +58,15 @@ inline ObjId mooseObjIdPath(const string& p)
 
     // If path is a relative path.
     if(p[0] != '/') {
-        string cwepath(mooseGetCweId().path());
+        string cwepath(getShellPtr()->getCwe().path());
         if(cwepath.back() != '/')
             cwepath.push_back('/');
         path = cwepath + p;
     }
     ObjId oid(path);
     if(oid.bad()) {
-        cerr << "moose.element: " << path << " does not exist!" << endl;
+	throw runtime_error("element with path '" + path +
+			    "' does not exist.");
     }
     return oid;
 }
@@ -100,7 +100,7 @@ inline ObjId mooseCreateFromPath(const string type, const string& p,
     auto path = moose::normalizePath(p);
 
     if(path.at(0) != '/') {
-        string cwe = mooseGetCweId().path();
+        string cwe = getShellPtr()->getCwe().path();
         if(cwe.back() != '/')
             cwe += '/';
         path = cwe + path;
@@ -168,6 +168,11 @@ ObjId shellConnect(const ObjId& src, const string& srcField, const ObjId& tgt,
 ObjId shellConnectToVec(const ObjId& src, const string& srcField,
                         const MooseVec& tgt, const string& tgtField,
                         const string& msgType);
+
+inline bool mooseDeleteId(const Id& id)
+{
+    return getShellPtr()->doDelete(ObjId(id));
+}
 
 inline bool mooseDeleteObj(const ObjId& oid)
 {

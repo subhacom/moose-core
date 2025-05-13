@@ -182,6 +182,17 @@ py::object getFieldGeneric(const ObjId &oid, const string &fieldName)
     return py::none();
 }
 
+vector<ObjId> getChildren(const ObjId &oid)
+{
+    vector<Id> children;
+    Neutral::children(oid.eref(), children);
+    vector<ObjId> res;
+    std::transform(children.begin(), children.end(), res.begin(),
+                   [](const Id& id) { return ObjId(id); });
+    return res;
+}
+
+
 /* --------------------------------------------------------------------------*/
 /**
  * @Synopsis  MOOSE extension module _moose.so.
@@ -328,7 +339,7 @@ PYBIND11_MODULE(_moose, m)
         .def("__getattr__", &getFieldGeneric,
              py::return_value_policy::reference_internal)
         .def("__setattr__", &setFieldGeneric)
-
+	.def_property_readonly("children", &getChildren)
         //---------------------------------------------------------------------
         //  Connect
         //---------------------------------------------------------------------
@@ -411,7 +422,7 @@ PYBIND11_MODULE(_moose, m)
 
     m.def("delete", &mooseDeleteStr);
     m.def("delete", &mooseDeleteObj);
-
+    m.def("delete", &mooseDeleteId);
     m.def("__create__", &mooseCreateFromPath);
     m.def("__create__", &mooseCreateFromObjId);
     m.def("__create__", &mooseCreateFromMooseVec);

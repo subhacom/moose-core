@@ -45,4 +45,6 @@ bool setFieldGeneric(const ObjId& id, const string& frname,
 
 py::object getFieldGeneric(const ObjId& oid, const string& fname);
 
+vector<ObjId> getChildren(const ObjId& oid);
+
 #endif /* end of include guard: PYMOOSE_H */
