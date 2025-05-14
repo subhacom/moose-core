@@ -47,21 +47,19 @@ will be normally hidden, like this:
 
 .. _importing-moose:
 
-Import moose and simulate a model
+Import `moose` and simulate a model
 =============================
 
-In a python script you must `import` modules to access the
-functionalities they provide. In order to use moose, you need to
-import it within a python environment or at the beginning of your
-python script::
+In order to use `moose` in Python, you need to import it in your
+interactive python session or at the beginning of your python script::
 
   >>> import moose
 
-This make the ``moose`` module available for use in Python.
+This makes the ``moose`` module available for use in Python.
 
 The easiest way to do a simulation in MOOSE is to load an existing
 model and simulate it. MOOSE supports multiple model description
-formats: SBML, NeuroML, GENESIS kkit and cellproto (.p) files. There
+formats: SBML, NeuroML, GENESIS kkit and cellproto (`.p`) files. There
 are some such examples in the `moose-core
 repository<https://github.com/MooseNeuro/moose-core>`_ in the
 `tests/data` subdirectory.
@@ -130,7 +128,7 @@ module::
         >>> help(moose)
 
 This will give you an overview of the module. This may be too much at
-this point. Press ``q`` to exit the pager and get back to the
+this point. Press `q` to exit the pager and get back to the
 interpreter. You can also access the documentation for individual
 classes and functions this way::
 
