@@ -1,4 +1,16 @@
-The source code of documentation is /source directory.
+Building the documentation for MOOSE
+====================================
+As MOOSE includes both C++ and Python code, we use `sphinx` with
+`doxygen` for the documentation. To bridge `sphinx` and `doxygen`, you need `breathe` and `exhale`:
+
+```bash
+pip install sphinx breathe exhale
+```
+
+The source code of documentation is in `./source` directory.
+
+
+
 
 This directory contains MOOSE user documentation in reST format that can be
 compiled into various formats by sphinx. To build the documentation in HTML,

@@ -47,21 +47,19 @@ will be normally hidden, like this:
 
 .. _importing-moose:
 
-Import moose and simulate a model
+Import `moose` and simulate a model
 =============================
 
-In a python script you must `import` modules to access the
-functionalities they provide. In order to use moose, you need to
-import it within a python environment or at the beginning of your
-python script::
+In order to use `moose` in Python, you need to import it in your
+interactive python session or at the beginning of your python script::
 
   >>> import moose
 
-This make the ``moose`` module available for use in Python.
+This makes the ``moose`` module available for use in Python.
 
 The easiest way to do a simulation in MOOSE is to load an existing
 model and simulate it. MOOSE supports multiple model description
-formats: SBML, NeuroML, GENESIS kkit and cellproto (.p) files. There
+formats: SBML, NeuroML, GENESIS kkit and cellproto (`.p`) files. There
 are some such examples in the `moose-core
 repository<https://github.com/MooseNeuro/moose-core>`_ in the
 `tests/data` subdirectory.
@@ -130,7 +128,7 @@ module::
         >>> help(moose)
 
 This will give you an overview of the module. This may be too much at
-this point. Press ``q`` to exit the pager and get back to the
+this point. Press `q` to exit the pager and get back to the
 interpreter. You can also access the documentation for individual
 classes and functions this way::
 
@@ -257,6 +255,16 @@ Notice that without any argument, `le` lists elements under the
 working element. You must pass the path of an existing element as a string
 argument to `le` to list the elements under that path.
 
+.. note:: Functions take and element or its path as argument
+   
+	  ``moose.le(...)``, ``moose.ce(...)``,
+	  ``moose.showfield(...)``, ``moose.showmsg(...)`` work with
+	  both a string specifying the path of an element and an
+	  element.
+
+	  Thus `moose.le('/model/soma')` and `moose.le(soma)` produce
+	  the same result.
+	  
 
 .. _traversing-element-tree:
 
@@ -410,7 +418,11 @@ resting membrane potential, and `initVm` is the value `Vm` will be set
 to at the start of the simulation.
 
 The `diameter`, `length`, `x`, `y`, `z`, and `x0`, `y0`, `z0` are not
-used for simulation, but for display and other conveniences.
+directly used for simulation, but for display and other
+conveniences. (`x0`, `y0`, `z0`), and (`x`, `y`, `z`) are the
+coordinates of the two ends of the cylindrical compartment axis, and
+modifying them will update the length of the compartment. `length` is
+set to `0` to indicate spherical compartment.
 
 All these fields have some default value which you can modify
 according to your model::
@@ -665,61 +677,6 @@ This should show you the charging curve of the membrane capacitance:
 
 
 
-.. _searching-with-wildcardfind:
-
-Searching the element tree
-==========================
-
-In the very first example in this document you saw ``moose.wildcardFind`` function::
-
-  >>> for x in moose.wildcardFind( '/model/#graphs/conc#/#' ):
-  ...     pylab.plot( x.vector, label=x.name )
-
-Whether you loaded an existing model or set up your own in Python,
-typing out the path of every object in the model or keeping track of
-every object that you create in Python variables become tedious with
-larger models. ``moose.wildcardFind`` is a powerful function that
-allows you to search the moose element tree for objects that meet some
-criterion. MOOSE uses `'#'` as the wildcard character in paths. This
-is similar to `'*'` used for file searches in most operating systems.
-
-`wildcardFind` takes a string argument which represents a path with a wildcard::
-
-  >>> moose.wildcardFind('/#')
-  
-This will return a list of elements under `root`, i.e., its children. A single `'#'`
-character after an element's path matches all child elements.
-
-A `'##'` triggers recursive search under the path::
-
-  >>> moose.wildcardFind('/##')
-
-This will show a long list of elements including the elements we
-created under `/model`.
-
-You can match parts of the name of an element in the path::
-
-  >>> moose.wildcardFind('/##/stim#')
-  [<moose.PulseGen id=489 dataIndex=0 path=/model[0]/stimulus[0]>]
-
-
-You can restrict the match by adding conditions after the wildcard::
-
-  >>> moose.wildcardFind('/##[TYPE=Compartment]')
-  [<moose.Compartment id=487 dataIndex=0 path=/model[0]/soma[0]>]
-
-Here `[TYPE=Compartment]` tells `wildcardFind` to select only those
-elements which are of ``moose.Compartment`` class.
-
-You can also set the condition to compare the field value to a specific value::
-
-  >>> moose.wildcardFind('/##[FIELD(Vm)>-0.07]')
-  [<moose.Compartment id=541 dataIndex=0 path=/model[0]/soma[0]>]
-
-
-In this case we have just one compartment. In a multicompartmental
-model, or networks of multicompartmental neurons, this kind of search
-can be very useful.
 
   
   

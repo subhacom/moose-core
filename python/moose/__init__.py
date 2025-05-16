@@ -297,9 +297,11 @@ def element(arg):
     melement
         MOOSE element (object) corresponding to the `arg` converted to write
         subclass.
+
+    Raises
+    ------
+    RunTimeError if `args` is a string path, but no such element exists.
     """
-    if isinstance(arg, str) and not _moose.exists(arg):
-        raise RuntimeError(f'{arg}: element at path does not exist')
     return _moose.element(arg)
 
 
