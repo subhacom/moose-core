@@ -60,17 +60,20 @@ def makeChemProto(name, Aexpr, Bexpr, params):
 
     Adot.expr = parseExpr(Aexpr, params, True)
     Bdot.expr = parseExpr(Bexpr, params, False)
-    CaStim.expr = 'x2 * exp( -((x0 - t)^2)/(2* ' + str(sw * sw) + ') )'
+    # Since setting numVars is deprecated, and it is inferred from the
+    # expression, we have to add `0 * x1` to enable 3 independent
+    # variables without affecting the results.
+    CaStim.expr = 'x2 * exp( -((x0 - t)^2)/(2* ' + str(sw * sw) + ') ) + 0 * x1'  
 
     # Connections
-    Adot.x.num = 4
+    # Adot.x.num = 4
     moose.connect(Ca, 'nOut', Adot.x[0], 'input')
     moose.connect(A, 'nOut', Adot.x[1], 'input')
     moose.connect(B, 'nOut', Adot.x[2], 'input')
     moose.connect(Z, 'nOut', Adot.x[3], 'input')
     moose.connect(Adot, 'valueOut', A, 'increment')
 
-    Bdot.x.num = 3
+    # Bdot.x.num = 3
     if name[:5] == 'negFF':
         moose.connect(Ca, 'nOut', Bdot.x[0], 'input')
         print('Doing special msg')
@@ -79,7 +82,7 @@ def makeChemProto(name, Aexpr, Bexpr, params):
     moose.connect(B, 'nOut', Bdot.x[1], 'input')
     moose.connect(Z, 'nOut', Bdot.x[2], 'input')
     moose.connect(Bdot, 'valueOut', B, 'increment')
-    CaStim.x.num = 3
+    # CaStim.x.numVars = 3
     moose.connect(phase, 'nOut', CaStim.x[0], 'input')
     moose.connect(vel, 'nOut', CaStim.x[1], 'input')
     moose.connect(ampl, 'nOut', CaStim.x[2], 'input')

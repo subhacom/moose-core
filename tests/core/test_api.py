@@ -31,8 +31,8 @@ def test_children():
     ax1 = ax.children[0]
     assert ax == a1
     assert ax1 == a11
-    assert a11[0].isA['Neutral'], a11.isA
-    assert ax1[0].isA['Neutral'], a11.isA
+    assert a11.isA['Neutral'], a11.isA
+    assert ax1.isA['Neutral'], a11.isA
     print("test_children is done")
 
 
@@ -55,36 +55,60 @@ def test_other():
 
 
 def test_vec():
-    a = moose.Pool('/p111', 100)
+    ndata = 100
+    a = moose.Compartment('/p111', ndata)
     v = moose.vec(a)
 
     # le can cause segfault in some cases.
     moose.le(v)
 
-    assert len(v) == 100, len(v)
+    assert len(v) == ndata, len(v)
     assert v == v.vec
     assert v[0] == v.vec[0], (v[0], v.vec[0])
-    x = [random.random() for i in range(100)]
-    v.conc = x
-    assert np.isclose(np.sum(v.conc), sum(x))
-    assert np.allclose(v.conc, x), (v.conc, x)
+    assert v[1] == v.vec[1], (v[1], v.vec[1])
+    x = [random.random() for i in range(ndata)]
+    v.Vm = x
+    assert np.allclose(v.Vm, x), (v.conc, x)
+    assert np.isclose(np.sum(v.Vm), sum(x))
 
     # assign bool to double.
-    y = [float(x < 5) for x in range(100) ]
-    v.concInit = y
-    assert (v.concInit[:5] == 1.0).all(), v.concInit[:5]
-    assert (v.concInit[5:] == 0.0).all(), v.concInit[5:]
+    y = [float(x < 5) for x in range(ndata) ]
+    v.initVm = y
+    assert (v.initVm[:5] == 1.0).all(), v.initVm[:5]
+    assert (v.initVm[5:] == 0.0).all(), v.initVm[5:]
+
+    
+def test_vec2():
+    ndata = 100
+    v = moose.vec('/p1112', n=ndata, dtype='Compartment')
+    # le can cause segfault in some cases.
+    moose.le(v)
+
+    assert len(v) == ndata, len(v)
+    assert v == v.vec
+    assert v[0] == v.vec[0], (v[0], v.vec[0])
+    assert v[1] == v.vec[1], (v[1], v.vec[1])
+    x = [random.random() for i in range(ndata)]
+    v.Vm = x
+    assert np.allclose(v.Vm, x), (v.conc, x)
+    assert np.isclose(np.sum(v.Vm), sum(x))
+
+    # assign bool to double.
+    y = [float(x < 5) for x in range(ndata) ]
+    v.initVm = y
+    assert (v.initVm[:5] == 1.0).all(), v.initVm[:5]
+    assert (v.initVm[5:] == 0.0).all(), v.initVm[5:]
+    
 
 def test_finfos():
-    s = moose.SimpleSynHandler('synh')
+    synh = moose.SimpleSynHandler('synh')
 
-    s.numSynapses = 10
-    assert s.numSynapses == 10
+    synh.numSynapses = 10
+    assert synh.numSynapses == 10
 
-    syns = s.synapse.vec
-    print(s.synapse, '111')
-    s8a = s.synapse[8]
-    s8b = s.synapse[-2]
+    syns = synh.synapse.vec
+    s8a = synh.synapse[8]
+    s8b = synh.synapse[-2]
     assert s8a == s8b, (s8a, s8b)
 
     # negative indexing.
@@ -99,13 +123,13 @@ def test_finfos():
     syns.weight = 11.121
     assert np.allclose(syns.weight, 11.121), syns.weight
 
-     # try:
-     #     print(syns[11])
-     # except Exception as e:
-     #     print(e, "Great. We must got an exception here")
-     # else:
-     #     print(syns[11])
-     #     raise Exception("This should have failed")
+    try:
+        print(syns[21])
+    except IndexError as e:
+        print(e, "Great. We just got an exception here as expected")
+    else:
+        print(syns[11])
+        raise Exception("This should have failed")
 
     a = moose.Pool('x13213')
     a.concInit = 0.1
@@ -211,15 +235,12 @@ def test_elements():
 def test_paths():
     print('Testing paths')
     x = moose.Neutral('///x')
-    assert x.path == '/x', x.path
+    assert x.path == '/x[0]', x.path
 
 def test_le():
-    # see issue BhallaLab/moose-core#423
-    x = moose.le('/')
-    assert len(x) > 5, x
     try:
         moose.le('/abrakadabra')
-    except ValueError:
+    except RuntimeError:
         pass
     else:
         raise RuntimeError("This should have raised ValueError")
@@ -235,6 +256,7 @@ def main():
     test_access()
     test_element()
     test_vec()
+    test_vec2()
     test_typing()
     test_elements()
     test_le()

@@ -3,23 +3,26 @@
 # Filename: test_function.py
 # Description:
 # Author: subha
-# Maintainer: Dilawar Singh <diawars@ncbs.res.in>
+# Updated for exprtk based reimplementation of Function by: Dilawar Singh <diawars@ncbs.res.in>
 # Created: Sat Mar 28 19:34:20 2015 (-0400)
-# Version:
+
 
 from __future__ import print_function
 import numpy as np
 import moose
-print( "[INFO ] Using moose %s form %s" % (moose.version(), moose.__file__) )
 
-def create_func( funcname, expr ):
-    f = moose.Function( funcname )
+print(f"[INFO ] Using moose {moose.version()} from {moose.__file__}")
+
+
+def create_func(funcname, expr):
+    f = moose.Function(funcname)
     f.expr = expr
-    t = moose.Table( funcname + 'tab' )
-    moose.connect( t, 'requestOut', f, 'getValue' )
-    moose.setClock( f.tick, 0.1)
-    moose.setClock( t.tick, 0.1)
+    t = moose.Table(funcname + 'tab')
+    moose.connect(t, 'requestOut', f, 'getValue')
+    moose.setClock(f.tick, 0.1)
+    moose.setClock(t.tick, 0.1)
     return f, t
+
 
 def test_var_order():
     """The y values are one step behind the x values because of
@@ -29,11 +32,9 @@ def test_var_order():
     dt = 1.0
     # fn0 = moose.Function('/fn0')
     fn1 = moose.Function('/fn1')
-    print(fn1.x.num)
-    fn1.x.num = 2
     fn1.expr = 'y1+y0+x1+x0'
     fn1.mode = 1
-    inputs = np.arange(0, nsteps+1, 1.0)
+    inputs = np.arange(0, nsteps + 1, 1.0)
     x0 = moose.StimulusTable('/x0')
     x0.vector = inputs
     x0.startTime = 0.0
@@ -75,53 +76,74 @@ def test_var_order():
     moose.reinit()
     moose.start(simtime)
     expected = [0, 1.1, 2.211, 3.322, 4.433, 5.544]
-    print('sum: ', x0.vector + x1.vector + y0.vector  + y1.vector)
+    print('sum: ', x0.vector + x1.vector + y0.vector + y1.vector)
     print('got', z1.vector)
-    assert np.allclose(z1.vector, expected), "Excepted %s, got %s" % (expected, z1.vector )
-    print( 'Passed order vars' )
+    assert np.allclose(z1.vector, expected), "Excepted %s, got %s" % (
+        expected,
+        z1.vector,
+    )
+    print('Passed order vars')
 
-def test_t( ):
-    f, t = create_func( 'funct', 't/2.0')
+
+def test_t():
+    f, t = create_func('funct', 't/2.0')
     moose.reinit()
     moose.start(1)
     y = t.vector
-    d = np.diff( y[1:] ) 
+    d = np.diff(y[1:])
     assert np.mean(d) == d[0]
-    print( 'Passed t/2' )
+    print('Passed t/2')
 
-def test_trig( ):
+
+def test_trig():
     f, t = create_func('func2', '(sin(t)^2+cos(t)^2)-1')
     moose.reinit()
-    moose.start( 1 )
+    moose.start(1)
     y = t.vector
     print(y)
-    assert np.isclose(np.mean(y),  0.0), np.mean(y)
+    assert np.isclose(np.mean(y), 0.0), np.mean(y)
     assert np.isclose(np.std(y), 0.0), np.std(y)
-    print( 'Passed sin^2 x + cos^x=1' )
+    print('Passed sin^2 x + cos^x=1')
 
-def test_rand( ):
-    moose.seed( 10 )
-    f, t = create_func( 'random', 'rnd()')
+
+def test_rand():
+    moose.seed(10)
+    f, t = create_func('random', 'rnd()')
     moose.reinit()
     moose.start(1000)
-    print(np.mean(t.vector), np.std(t.vector), 'xxx')
-    assert abs(np.mean(t.vector) - 0.5) < 0.01
-    assert np.std(t.vector) < 0.3
-##    expected = [0.29876116, 0.49458993, 0.83191136, 0.02517173, 0.26556613,
-##            0.15037787, 0.81660184, 0.89081653, 0.03061665, 0.72743551, 0.13145815]
-##    assert np.isclose(t.vector, expected ).all(), "Expected %s, got %s" % (
-##            expected, t.vector)
-##    print( 'Passed test random' )
+    assert (
+        abs(np.mean(t.vector) - 0.5) < 0.01
+    ), 'Mean is not close enough to 0.5'
+    assert np.std(t.vector) < 0.3, 'Std is too high'
+    print('#' * 10, t.vector)
+    expected = [
+        0.29876116,
+        0.49458993,
+        0.83191136,
+        0.02517173,
+        0.26556613,
+        0.15037787,
+        0.81660184,
+        0.89081653,
+        0.03061665,
+        0.72743551,
+        0.13145815,
+    ]
+    assert np.isclose(
+        t.vector[: len(expected)], expected
+    ).all(), f"Expected {expected}, got {t.vector[:len(expected)]}"
+    print('Passed test random')
 
-def test_fmod( ):
-    f, t = create_func( 'fmod', 'fmod(t, 2)' )
+
+def test_fmod():
+    f, t = create_func('fmod', 'fmod(t, 2)')
     moose.reinit()
     moose.start(20)
     y = t.vector
     print(y)
     assert (np.fmod(y, 2) == y).all()
-    assert(np.isclose(np.max(y), 1.9)), "Expected 1.9 got %s" % np.max(y)
-    assert(np.isclose(np.min(y), 0.0)), "Expected 0.0 got %s" % np.min(y)
+    assert np.isclose(np.max(y), 1.9), "Expected 1.9 got %s" % np.max(y)
+    assert np.isclose(np.min(y), 0.0), "Expected 0.0 got %s" % np.min(y)
     print('Passed fmod(t,2)')
 
 

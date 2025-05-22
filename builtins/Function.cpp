@@ -193,10 +193,9 @@ const Cinfo * Function::initCinfo()
         &Function::getExpr
     );
 
-    static ValueFinfo< Function, unsigned int > numVars(
+    static ReadOnlyValueFinfo< Function, unsigned int > numVars(
         "numVars",
         "Number of variables used by Function.",
-        &Function::setNumVar,
         &Function::getNumVar
     );
 
@@ -704,9 +703,9 @@ double Function::getDerivative() const
 
 void Function::setNumVar(const unsigned int num)
 {
-    // Deprecated: numVar has no effect. MOOSE can infer number of variables
+    // Deprecated: numVar has no effect. MOOSE infer number of variables
     // from the expression.
-    numVar_ = num;
+    cerr << "Function::setNumVar is deprecated. Function object infers number of variables from the expression." << endl;
 }
 
 unsigned int Function::getNumVar() const
@@ -756,7 +755,7 @@ double Function::getConst(string name) const
 
 void Function::setVarIndex(string name, unsigned int val)
 {
-    cerr << "This should not be used." << endl;
+    cerr << "Function::setVarIndex : This should not be used." << endl;
 }
 
 unsigned int Function::getVarIndex(string name) const

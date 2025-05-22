@@ -71,7 +71,7 @@ bool setFieldGeneric(const ObjId &oid, const string &fieldName,
     auto cinfo = oid.element()->cinfo();
     auto finfo = cinfo->findFinfo(fieldName);
     if(!finfo) {
-        throw runtime_error(__func__ + string("::") + fieldName +
+        throw py::attribute_error(__func__ + string("::") + fieldName +
                             " is not found on path '" + oid.path() + "'.");
         return false;
     }
@@ -151,7 +151,7 @@ py::object getFieldGeneric(const ObjId &oid, const string &fieldName)
     auto finfo = cinfo->findFinfo(fieldName);
 
     if(!finfo) {
-        throw py::key_error(fieldName + " is not found on '" + oid.path() +
+        throw py::attribute_error(fieldName + " is not found on '" + oid.path() +
                             "'.");
     }
 
@@ -247,7 +247,7 @@ PYBIND11_MODULE(_moose, m)
     py::class_<__Finfo__>(m, "Finfo", py::dynamic_attr())
         .def(py::init<const ObjId &, const Finfo *, const char *>())
         // Only for FieldElementFinfos
-        .def("__len__", &__Finfo__::getNumField)
+        .def("__len__", &__Finfo__::getNum)
         .def("__call__", &__Finfo__::operator())
         .def("__getitem__", &__Finfo__::getItem)
         .def("__setitem__", &__Finfo__::setItem)
@@ -255,14 +255,15 @@ PYBIND11_MODULE(_moose, m)
              [](__Finfo__ &f, const string &key, const py::object &val) {
                  // FIXME: `num` is a special case here.
                  if(key == "num")
-                     return f.setNumField(val.cast<unsigned int>());
+                     return f.setNum(val.cast<unsigned int>());
                  return f.getMooseVecPtr()->setAttribute(key, val);
              })
         .def("__getattr__",
              [](__Finfo__ &f, const string &key) {
                  // FIXME: `num` is a special case.
-                 if(key == "num")
-                     return py::cast(f.getNumField());
+                 if(key == "num") {
+                     return py::cast(f.getNum());
+		 }
                  return f.getMooseVecPtr()->getAttribute(key);
              })
         .def_property_readonly("type", &__Finfo__::type)
