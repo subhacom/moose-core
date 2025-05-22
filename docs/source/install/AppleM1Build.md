@@ -20,4 +20,4 @@
 micromamba create -n moose numpy matplotlib vpython lxml meson ninja meson-python gsl setuptools pybind11[global] pkg-config -c conda-forge
 ```
 - Activate the moose environment: `micromamba activate moose`
-- Install moose from github: `pip install git+https://github.com/BhallaLab/moose-core.git`
+- Install moose from github: `pip install git+https://github.com/MooseNeuro/moose-core.git`

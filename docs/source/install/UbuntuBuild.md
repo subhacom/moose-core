@@ -9,17 +9,17 @@ sudo apt install build-essential
 
 1. Install the dependencies
 ```
-sudo apt-get install ninja meson pkg-config python-pip python-numpy libgsl-dev g++ pybind11 
+sudo apt-get install ninja meson pkg-config python-pip python-numpy libgsl-dev g++ pybind11 libz-dev
 pip install meson-python
 pip install python-libsbml
 pip install pyneuroml
 pip install vpython
 ```
 
-2. Now use `pip` to download and install `pymoose` from the [github repository](https://github.com/BhallaLab/moose-core).
+2. Now use `pip` to download and install `pymoose` from the [github repository](https://github.com/MooseNeuro/moose-core).
 
 ```
-$ pip install git+https://github.com/BhallaLab/moose-core --user
+$ pip install git+https://github.com/MooseNeuro/moose-core --user
 ```
 
 ## Building with conda or variants
@@ -40,7 +40,7 @@ conda activate moose
 ## After the above steps, for both system Python and conda environment
 4. Clone `moose-core` source code using git
 ```
-    $ git clone https://github.com/BhallaLab/moose-core --depth 50 
+    $ git clone https://github.com/MooseNeuro/moose-core --depth 50 
 ```
 5. Build moose
 ```
@@ -104,7 +104,7 @@ Install the required dependencies and download the latest source code of moose
 from github.
 
 ```
-    $ git clone https://github.com/BhallaLab/moose-core --depth 50 
+    $ git clone https://github.com/MooseNeuro/moose-core --depth 50 
     $ cd moose-core
     $ meson setup --wipe _build --prefix=`pwd`/_build_install -Duse_mpi=false -Dbuildtype=release
     $ ninja -v -C _build 

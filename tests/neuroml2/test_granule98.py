@@ -61,7 +61,7 @@ def dump_gate_tables(channel, do_plot=False):
 
 def test_granule98():
     modeldir = os.path.join(os.path.dirname(__file__), 'GranuleCell')
-    do_plot = True
+    do_plot = False
     reader = NML2Reader(verbose=True)
     filename = os.path.join(modeldir, "GranuleCell.net.nml")
     reader.read(filename)
