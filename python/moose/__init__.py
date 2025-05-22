@@ -23,6 +23,7 @@ References:
 import sys
 import pydoc
 import os
+import warnings
 
 import moose._moose as _moose
 from moose import model_utils
@@ -280,6 +281,12 @@ def delete(arg):
     -------
     None, Raises ValueError if given path/object does not exists.
     """
+    if isinstance(arg, str) and not exists(arg):
+        warnings.warn(
+            f'Attempt to delete nonexistent path {arg}: ignoring',
+            warnings.RuntimeWarning,
+        )
+        return
     _moose.delete(arg)
 
 
@@ -467,7 +474,7 @@ def setCwe(arg):
 
 def ce(arg):
     """Set the current element to `arg`
-    
+
     This is an alias for ``setCwe``
     """
     _moose.setCwe(arg)
