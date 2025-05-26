@@ -532,7 +532,7 @@ string mooseClassDoc(const string& className)
         return ss.str();
     }
     ss << "class " << className << "\n\n"
-       << moose::textwrap(cinfo->getDocsEntry("Description"), "  ") << "\n\n"
+       << cinfo->getDocsEntry("Description") << "\n\n"
        << "Author: " << moose::textwrap(cinfo->getDocsEntry("Author"), "  ")
        << "\n\n";
     ss << moose::underlined<'='>("Attributes:");

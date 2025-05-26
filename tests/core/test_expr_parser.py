@@ -262,8 +262,15 @@ def singleCompt(name, params):
     stoich.reacSystemPath = mod.path + '/##'
     print('REINIT AND START')
     moose.reinit()
+    print('Reinit: value=', CaStim.value, '<-', CaStim.evalResult)
+    for ii in range(CaStim.numVars):
+        print(f'x{ii} = {CaStim.x[ii]}')
     runtime += 100 + steptime * 2
     moose.start(runtime)
+    print('Finished.', CaStim.value)
+    for ii in range(CaStim.numVars):
+        print(f'x{ii} = {CaStim.x[ii]}.value')
+    
     t = np.arange(0, runtime + 1e-9, tab.dt)
     return name, t, tab.vector
 

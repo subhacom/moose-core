@@ -15,7 +15,6 @@ import moose
 print('[INFO] Using moose from %s' % moose.__file__ )
 import os
 
-moose.seed( 1 )
 
 concA = 0.005 # millimolar
 def makeModel():
@@ -105,6 +104,8 @@ def test_diffusion_gsolve_dsolve():
 
     The concentrations of all molecules are displayed in an animation.
     """
+    moose.seed( 1 )
+
     runtime = 20.0
     diffdt = 0.005
     plotdt = 0.1
@@ -140,6 +141,7 @@ def test_diffusion_gsolve_dsolve():
     error = got - expected
     rerror = np.abs( error ) / expected
     assert np.allclose(got, expected, atol=1e-3), "Got %s, expected %s" % (got, expected)
+    moose.delete('/model')
 
 def main():
     test_diffusion_gsolve_dsolve()

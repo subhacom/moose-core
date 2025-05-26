@@ -24,6 +24,7 @@ import sys
 import pydoc
 import os
 import warnings
+import atexit
 
 import moose._moose as _moose
 from moose import model_utils
@@ -1048,3 +1049,17 @@ def isinstance_(el, classobj):
 
     """
     return el.isA(classobj.__name__)
+
+
+def cleanup(verbose=False):
+    """Cleanup everything except system elements"""
+    if verbose:
+        print('Cleaning up')
+    for child in element('/').children:
+        if child.name not in ['Msgs', 'clock', 'classes', 'postmaster']:
+            if verbose:
+                print('  Deleting', child.path)
+            delete(child.path)
+
+
+atexit.register(cleanup)
