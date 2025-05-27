@@ -42,7 +42,7 @@ micromamba activate moose
 - Build and install pymoose
 
 ```
-pip install git+https://github.com/BhallaLab/moose-core.git
+pip install git+https://github.com/MooseNeuro/moose-core.git
 ```
 
 You need to do the above only once. After that, each time to use moose, open WSL Ubuntu terminal and do the following
