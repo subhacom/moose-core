@@ -51,9 +51,12 @@ meson compile -v -C _build
 meson install -C _build
 ```
 
-This will create `moose` module inside `moose-core/_build_install` directory. To make moose importable from any terminal, add this directory to your `PYTHONPATH` environment variable. For standard installation you can simply run `pip install .` in the `moose-core` directory.
+This will install `moose` module inside your environment's default module installation (usually `site-packages`) directory. This  requires write permission on the target directory. See below for local installation.
+
+For standard installation you can also simply run `pip install .` (for system-wide installation if you have the permission) or `pip install . --user` (for local installation) in the `moose-core` directory.
 
 Meson provides many builtin options: https://mesonbuild.com/Builtin-options.html. Meson options are supplied in the command line to `meson setup` in the format `-Doption=value`.
+
   - **Installation prefix**
     To install MOOSE in a custom location, you can pass the `--prefix` argument to `meson setup`. For example, if you are in the `moose-core` directory, and want to have it installed in `_build_install` subdirectory, you can use
 	```
@@ -111,9 +114,9 @@ from github.
 	$ meson install -C _build
 ```
 
-This will build moose, in `moose-core/_build`  directory and install it as Python package in the `moose-core/_build_install` directory.
+This will build moose in `moose-core/_build` directory and install it as a Python package in the `moose-core/_build_install` directory.
 
-To rebuild, delete the `_build` directory and the generated `_build_install/` directory and continue the steps above starting with `meson setup ...`.
+To do a clean rebuild, delete the `_build` directory and the generated `_build_install/` directory and continue the steps above starting with `meson setup ...`.
 
 To make in debug mode replace the option `-Dbuildtype=release` with `-Dbuildtype=debug`
 
