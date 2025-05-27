@@ -13,9 +13,9 @@
 
 using namespace std;
 
-#include "../external/pybind11/include/pybind11/pybind11.h"
-#include "../external/pybind11/include/pybind11/numpy.h"
-#include "../external/pybind11/include/pybind11/stl.h"
+#include <pybind11/pybind11.h>
+#include <pybind11/numpy.h>
+#include <pybind11/stl.h>
 
 namespace py = pybind11;
 
@@ -135,7 +135,7 @@ py::object MooseVec::getAttribute(const string& name)
     auto cinfo = oid_.element()->cinfo();
     auto finfo = cinfo->findFinfo(name);
     if(!finfo) {
-        auto fmap = __Finfo__::finfoNames(cinfo, "*");
+        auto fmap = finfoNames(cinfo, "*");
         cerr << __func__ << ":: AttributeError: " << name
              << " is not found on path '" << oid_.path() << "'." << endl;
         cerr << finfoNotFoundMsg(cinfo) << endl;
@@ -182,7 +182,7 @@ bool MooseVec::setAttribute(const string& name, const py::object& val)
     auto rttType = finfo->rttiType();
 
     bool isVector = false;
-    if(py::isinstance<py::iterable>(val) and(not py::isinstance<py::str>(val)))
+    if(py::isinstance<py::iterable>(val) && (! py::isinstance<py::str>(val)))
         isVector = true;
 
     if(isVector) {
@@ -191,15 +191,21 @@ bool MooseVec::setAttribute(const string& name, const py::object& val)
         if(rttType == "unsigned int")
             return setAttrOneToOne<unsigned int>(
                 name, val.cast<vector<unsigned int>>());
+        if(rttType == "bool")
+            return setAttrOneToOne<bool>(
+                name, val.cast<vector<bool>>());
     } else {
         if(rttType == "double")
             return setAttrOneToAll<double>(name, val.cast<double>());
         if(rttType == "unsigned int")
             return setAttrOneToAll<unsigned int>(name,
                                                  val.cast<unsigned int>());
+        if(rttType == "bool")
+            return setAttrOneToAll<bool>(name,
+					 val.cast<bool>());
     }
-
-    py::print("Not implemented yet.", name, "val:", val);
+    
+    py::print("MooseVec::setAttribute: Setting vec attributes of type",  rttType, "not implemented. attr:",name, "val:", val);
     throw runtime_error(__func__ + string("::NotImplementedError."));
 }
 

@@ -156,8 +156,8 @@ void ZombieHHChannel::vSetUseConcentration( const Eref& e, int value )
 void ZombieHHChannel::vSetModulation( const Eref& e , double modulation )
 {
 	if ( modulation > 0.0 ) {
-		modulation_ = modulation;
-    	hsolve_->setHHmodulation( e.id(), modulation );
+            ChanCommon::vSetModulation(e, modulation);
+            hsolve_->setHHmodulation( e.id(), modulation );
 	}
 }
 
@@ -191,20 +191,20 @@ void ZombieHHChannel::vCreateGate(const Eref& e, string name)
 // HHGate functions
 ///////////////////////////////////////////////////
 
-HHGate* ZombieHHChannel::vGetXgate( unsigned int i ) const
-{
-    return 0;
-}
+// HHGate* ZombieHHChannel::vGetXgate( unsigned int i ) const
+// {
+//     return 0;
+// }
 
-HHGate* ZombieHHChannel::vGetYgate( unsigned int i ) const
-{
-    return 0;
-}
+// HHGate* ZombieHHChannel::vGetYgate( unsigned int i ) const
+// {
+//     return 0;
+// }
 
-HHGate* ZombieHHChannel::vGetZgate( unsigned int i ) const
-{
-    return 0;
-}
+// HHGate* ZombieHHChannel::vGetZgate( unsigned int i ) const
+// {
+//     return 0;
+// }
 
 ///////////////////////////////////////////////////
 // Assign solver

@@ -114,11 +114,8 @@ void VoxelPools::advance( const ProcInfo* p )
     {
 		// True if first step or restart, or if diffusion. Tells LSODA to 
 		// recalculate using new pool n values, which slows it down a bit. 
-			/*
 		if ( p->isStart() || (numVoxels_ > 1) ) 
 			lsodaState_ = 1;
-			*/
-		lsodaState_ = 1;	/// check Dec 2022
     	size_t totVar = stoichPtr_->getNumVarPools() + stoichPtr_->getNumProxyPools();
         vector<double> yout(size()+1);
         pLSODA->lsoda_update( &VoxelPools::lsodaSys, size()

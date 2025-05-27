@@ -12,7 +12,13 @@ References:
 
 # Notes
 # -----
-# Use these guidelines for docstring: https://numpydoc.readthedocs.io/en/latest/format.html
+#
+# 1. Use these guidelines for docstring:
+# https://numpydoc.readthedocs.io/en/latest/format.html.
+#
+# 2. We redefine many functions defined in _moose just to add the
+# docstring since Python C-API does not provide a way to add docstring
+# to a function defined in the C/C++ extension
 
 import sys
 import pydoc
@@ -38,10 +44,7 @@ class melement(_moose.ObjId):
             for k, v in kwargs.items():
                 super().setField(k, v)
         else:
-            # Support for dead python2.
-            super(melement, self).__init__(obj)
-            for k, v in kwargs.items():
-                super(melement, self).setField(k, v)
+            raise Exception('Python 2 support is deprecated.')
 
 
 def __to_melement(obj):
@@ -59,12 +62,7 @@ for p in _moose.wildcardFind("/##[TYPE=Cinfo]"):
             {"__type__": p.name, "__doc__": _moose.__generatedoc__(p.name)},
         )
     else:
-        # Python2.
-        cls = type(
-            str(p.name),
-            (melement,),
-            {"__type__": p.name, "__doc__": _moose.__generatedoc__(p.name)},
-        )
+        raise Exception('Python 2 support is deprecated.')
     setattr(_moose, cls.__name__, cls)
     __moose_classes__[cls.__name__] = cls
 
@@ -75,7 +73,7 @@ from moose._moose import *
 
 
 def version():
-    """Reutrns moose version string."""
+    """Returns moose version string."""
     return _moose.__version__
 
 __version__ = version()
@@ -212,7 +210,10 @@ def connect(src, srcfield, dest, destfield, msgtype="Single"):
     """
     src = _moose.element(src)
     dest = _moose.element(dest)
-    return src.connect(srcfield, dest, destfield, msgtype)
+    msg = src.connect(srcfield, dest, destfield, msgtype)
+    if msg.name == '/':
+        raise RuntimeError(f'Could not connect {src}.{srcfield} with {dest}.{destfield}')
+    return msg
 
 
 def delete(arg):
@@ -247,6 +248,8 @@ def element(arg):
         MOOSE element (object) corresponding to the `arg` converted to write
         subclass.
     """
+    if isinstance(arg, str) and not _moose.exists(arg):
+        raise RuntimeError(f'{arg}: element at path does not exist')
     return _moose.element(arg)
 
 
@@ -352,8 +355,8 @@ def reinit():
 
 def start(runtime, notify=False):
     """Run simulation for `t` time. Advances the simulator clock by `t` time. If
-    'notify = True', a message is written to terminal whenever 10\% of
-    simulation time is over. \
+    'notify = True', a message is written to terminal whenever 10% of
+    simulation time is over.
 
     After setting up a simulation, YOU MUST CALL MOOSE.REINIT() before CALLING
     MOOSE.START() TO EXECUTE THE SIMULATION. Otherwise, the simulator behaviour
@@ -366,7 +369,7 @@ def start(runtime, notify=False):
     t : float
         duration of simulation.
     notify: bool
-        default False. If True, notify user whenever 10\% of simultion is over.
+        default False. If True, notify user whenever 10% of simultion is over.
 
     Returns
     -------
@@ -631,7 +634,7 @@ def showfields(el, field="*", showtype=False):
     """
     if isinstance(el, str):
         if not _moose.exists(el):
-            raise ValueError("no such element: %s" % el)
+            raise ValueError(f"no such element: {el}")
         el = _moose.element(el)
     result = []
     if field == "*":
@@ -740,7 +743,7 @@ def doc(arg, paged=True):
 
     """
     text = _moose.__generatedoc__(arg)
-    if pydoc.page:
+    if pydoc.pager:
         pydoc.pager(text) 
     else:
         print(text)
@@ -883,3 +886,43 @@ def mergeChemModel(modelpath, dest):
         No example file which shows its use. Deprecated?
     """
     return model_utils.mooseMergeChemModel(modelpath, dest)
+
+
+def isinstance_(element, classobj):
+    """Returns True if `element` is an instance of `classobj` or its
+    subclass.
+
+    Like Python's builtin `isinstance` method, this returns `True` if
+    `element` is an instance of `classobj` or one of its subclasses.
+
+    Parameters
+    ----------
+    element : moose.melement
+        moose object
+    classobj : class
+        moose class
+
+    Returns
+    -------
+    True if `classobj` is a MOOSE-baseclass of `element`, False otherwise.
+
+    Raises
+    ------
+    TypeError if `classobj` is not a MOOSE class, or
+    `element` is not a MOOSE object
+
+
+    """
+    base_cinfo = _moose.element(f'/classes/{classobj.__name__}')
+    if base_cinfo.name == '/':
+        raise TypeError('Not a MOOSE class', classobj)
+
+    try:
+        obj_cinfo = _moose.element(f'/classes/{element.className}')
+    except AttributeError:  # Not a MOOSE element - doesn't have className attribute
+        raise TypeError('Not a MOOSE object', element)
+    while obj_cinfo.baseClass != 'none':
+        if obj_cinfo.name == base_cinfo.name:
+            return True
+        obj_cinfo = _moose.element(f'/classes/{obj_cinfo.baseClass}')
+    return False

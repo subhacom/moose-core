@@ -13,9 +13,13 @@
 **           copyright (C) 2003-2017 Upinder S. Bhalla. and NCBS
 Created : Thu May 13 10:19:00 2016(+0530)
 Version
-Last-Updated: Tue Apr 5 17:10:00 2022(+0530)
-          By:HarshaRani
+Last-Updated: Thu Nov 28 15:14:19 2024 (+0530)
+          By: Subhasis Ray
 **********************************************************************/
+2023
+Aug3: SBMLread will not accept & and  < special character in the name
+      Moose will not accept '/' (bcos path kinetics/pool etc),#,&,[,],?,/,<
+      explicitly I was converting space to _space_ which is removed
 2022:
 Apr 05: - edge case NN_mapk15.g, extra Neutral path '/kinetics' exist which
           was not created in xml file which was causing ex12.0* example break
@@ -523,7 +527,7 @@ def getCmptAnnotation(obj):
 
 def getObjAnnotation(obj, modelAnnotationInfo):
     name = obj.getId()
-    name = name.replace(" ", "_space_")
+    #name = name.replace(" ", "_space_")
     # modelAnnotaInfo= {}
     annotateMap = {}
     if (obj.getAnnotation() is not None):
@@ -568,7 +572,7 @@ def getObjAnnotation(obj, modelAnnotationInfo):
 def getEnzAnnotation(obj, modelAnnotaInfo, rev,
                      globparameterIdValue, specInfoMap,funcDef):
     name = obj.getId()
-    name = name.replace(" ", "_space_")
+    #name = name.replace(" ", "_space_")
     # modelAnnotaInfo= {}
     annotateMap = {}
     if (obj.getAnnotation() is not None):
@@ -708,7 +712,7 @@ def createReaction(model, specInfoMap, modelAnnotaInfo, globparameterIdValue,fun
             #     group = groups[0]
         if (reac.isSetName()):
             rName = reac.getName()
-            rName = rName.replace(" ", "_space_")
+            #rName = rName.replace(" ", "_space_")
         if not(rName):
             rName = rId
         rev = reac.getReversible()
@@ -878,7 +882,7 @@ def getKLaw(model, klaw,noOfsub, noOfprd,rev, globparameterIdValue, funcDef, spe
             value = p.getValue()
         parmValueMap[ids] = value
     ruleMemlist = []
-    flag = getMembers(klaw.getMath(), ruleMemlist)
+    flag, msg = getMembers(klaw.getMath(), ruleMemlist)
     index = 0
     kfparm = ""
     kbparm = ""
@@ -1004,107 +1008,51 @@ def unitsforRates(model):
     else:
         return lvalue
 def getMembers(node, ruleMemlist):
-    msg = ""
+    msg = ''
     found = True
-
-    if node == None:
-        pass
-
-    elif node.getType() == libsbml.AST_POWER:
-        pass
-    
-    elif node.getType() == libsbml.AST_FUNCTION:
-        for i in range(0,node.getNumChildren()):
-            getMembers(node.getChild(i),ruleMemlist)
-    
-    elif node.getType() == libsbml.AST_PLUS:
-        #print " plus ", node.getNumChildren()
-        if node.getNumChildren() == 0:
-            #print ("0")
-            return False
-        getMembers(node.getChild(0), ruleMemlist)
-        for i in range(1, node.getNumChildren()):
-            # addition
-            getMembers(node.getChild(i), ruleMemlist)
-    elif node.getType() == libsbml.AST_REAL:
-        # This will be constant
-        pass
-    elif node.getType() == libsbml.AST_NAME:
-        # This will be the ci term"
-        ruleMemlist.append(node.getName())
-    elif node.getType() == libsbml.AST_MINUS:
-        if node.getNumChildren() == 0:
-            #print("0")
-            return False
-        else:
+    if node is not None:
+        nodetype = node.getType()
+        if nodetype == libsbml.AST_POWER:
+            # Keeping for future update
+            pass
+        elif nodetype == libsbml.AST_REAL or nodetype == libsbml.AST_INTEGER:
+            pass
+        elif nodetype == libsbml.AST_FUNCTION:
+            for i in range(0,node.getNumChildren()):
+                _, msg = getMembers(node.getChild(i),ruleMemlist)
+        elif nodetype == libsbml.AST_PLUS and node.getNumChildren() > 0:
+            getMembers(node.getChild(0), ruleMemlist)
+            for i in range(1, node.getNumChildren()):
+                # addition
+                _, msg = getMembers(node.getChild(i), ruleMemlist)
+        elif nodetype == libsbml.AST_NAME:
+            # This will be the ci term"
+            ruleMemlist.append(node.getName())
+        elif nodetype == libsbml.AST_MINUS and node.getNumChildren() > 0:
             lchild = node.getLeftChild()
-            getMembers(lchild, ruleMemlist)
+            _, msg = getMembers(lchild, ruleMemlist)
             rchild = node.getRightChild()
-            getMembers(rchild, ruleMemlist)
-    elif node.getType() == libsbml.AST_DIVIDE:
-
-        if node.getNumChildren() == 0:
-            #print("0")
-            return False
-        else:
+            _, tmp = getMembers(rchild, ruleMemlist)
+            msg = '\n'.join([msg, tmp])
+        elif nodetype == libsbml.AST_DIVIDE and node.getNumChildren() > 0:
             lchild = node.getLeftChild()
-            getMembers(lchild, ruleMemlist)
+            _, msg = getMembers(lchild, ruleMemlist)
             rchild = node.getRightChild()
-            getMembers(rchild, ruleMemlist)
-
-    elif node.getType() == libsbml.AST_TIMES:
-        if node.getNumChildren() == 0:
-            #print ("0")
-            return False
-        getMembers(node.getChild(0), ruleMemlist)
-        for i in range(1, node.getNumChildren()):
-            # Multiplication
-            getMembers(node.getChild(i), ruleMemlist)
-    elif node.getType() == libsbml.AST_LAMBDA:
-        #In lambda get Bvar values and getRighChild which will be kineticLaw
-        if node.getNumChildren() == 0:
-            #print ("0")
-            return False
-        if node.getNumBvars() == 0:
-            #print ("0")
-            return False
-        '''
-        getMembers(node.getChild(0), ruleMemlist)
-        for i in range(1, node.getNumChildren()):
-            getMembers(node.getChild(i), ruleMemlist)
-        '''
-        for i in range (0,node.getNumBvars()):
-            ruleMemlist.append(node.getChild(i).getName())
-        #funcD[funcName] = {"bvar" : bvar, "MathML":node.getRightChild()}
-    elif node.getType() == libsbml.AST_INTEGER:
-        #value is constant
-        #ruleMemlist.append(node.getValue())
-        pass
-
-    elif node.getType() == libsbml.AST_FUNCTION_POWER:
-        msg = msg + "\n moose is yet to handle \""+node.getName() + "\" operator"
-        found = False
-    
-    elif node.getType() == libsbml.AST_FUNCTION_PIECEWISE:
-        #print " piecewise ", libsbml.formulaToL3String(node)
-        msg = msg + "\n moose is yet to handle \""+node.getName() + "\" operator"
-        found = False
-        '''
-        if node.getNumChildren() == 0:
-            print("0")
-            return False
+            _, tmp = getMembers(rchild, ruleMemlist)
+            msg = '\n'.join([msg, tmp])
+        elif nodetype == libsbml.AST_TIMES and node.getNumChildren() > 0:
+            getMembers(node.getChild(0), ruleMemlist)
+            for i in range(1, node.getNumChildren()):
+                # Multiplication
+                _, msg = getMembers(node.getChild(i), ruleMemlist)
+        elif nodetype == libsbml.AST_LAMBDA and node.getNumChildren() > 0 and node.getNumBvars() > 0:
+            #In lambda get Bvar values and getRighChild which will be kineticLaw
+            for i in range (0,node.getNumBvars()):
+                ruleMemlist.append(node.getChild(i).getName())
+            #funcD[funcName] = {"bvar" : bvar, "MathML":node.getRightChild()}
         else:
-            lchild = node.getLeftChild()
-            getMembers(lchild, ruleMemlist)
-            rchild = node.getRightChild()
-            getMembers(rchild, ruleMemlist)
-        '''
-    else:
-        msg = msg + "\n moose is yet to handle \""+node.getName() + "\" operator"
-        found = False
-    # if len(ruleMemlist) > 2:
-    #     print "Sorry! for now MOOSE cannot handle more than 2 parameters"
- #        return True
+            msg = f'{msg}\nmoose is yet to handle "{node.getName()}" operator'
+            found = False
     return found, msg
 
 def createRules(model, specInfoMap, globparameterIdValue):
@@ -1264,7 +1212,7 @@ def createSpecies(basePath, model, comptSbmlidMooseIdMap,
             #     group = groups[0]
             if spe.isSetName():
                 sName = spe.getName()
-                sName = sName.replace(" ", "_space_")
+                #sName = sName.replace(" ", "_space_")
 
             if spe.isSetCompartment():
                 comptId = spe.getCompartment()
@@ -1471,7 +1419,7 @@ def createCompartment(basePath, model, comptSbmlidMooseIdMap):
 
             if (compt.isSetName()):
                 name = compt.getName()
-                name = name.replace(" ", "_space")
+                #name = name.replace(" ", "_space")
 
             if (compt.isSetOutside()):
                 outside = compt.getOutside()
@@ -1613,9 +1561,12 @@ def idBeginWith(name):
 
 
 def convertSpecialChar(str1):
-    d = {"&": "_and", "<": "_lessthan_", ">": "_greaterthan_", "BEL": "&#176", "-": "_minus_", "'": "_prime_",
-         "+": "_plus_", "*": "_star_", "/": "_slash_", "(": "_bo_", ")": "_bc_",
-         "[": "_sbo_", "]": "_sbc_", " ": "_"
+    # d = {"&": "_and", "<": "_lessthan_", ">": "_greaterthan_", "BEL": "&#176", "-": "_minus_", "'": "_prime_",
+    #      "+": "_plus_", "*": "_star_", "/": "_slash_", "(": "_bo_", ")": "_bc_",
+    #      "[": "_sbo_", "]": "_sbc_", " ": "_"
+    #      }
+    d = {"BEL": "&#176" , "'": "_prime_", "/": "_slash_"   ,"[": "_sbo_", "]": "_sbc_",
+         "#"  :"_hash_" , "\"":"_quote_" , "?":"_question_" ,"\\":"_slash","&":"_and_","<":"_greater_"
          }
     for i, j in list(d.items()):
         str1 = str1.replace(i, j)

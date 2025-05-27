@@ -1,5 +1,3 @@
-#ifndef _HHGate_h
-#define _HHGate_h
 /**********************************************************************
 ** This program is part of 'MOOSE', the
 ** Messaging Object Oriented Simulation Environment.
@@ -8,6 +6,11 @@
 ** GNU Lesser General Public License version 2.1
 ** See the file COPYING.LIB for the full notice.
 **********************************************************************/
+#ifndef _HHGate_h
+#define _HHGate_h
+
+
+#include "HHGateBase.h"
 
 /**
  * This class handles a single gate on an HHChannel. It is equivalent to the
@@ -29,7 +32,7 @@
  * original HHChannel, but all the others do have read permission.
  */
 
-class HHGate {
+class HHGate: public HHGateBase {
     friend void testHHGateLookup();
     friend void testHHGateSetup();
 
@@ -78,6 +81,24 @@ public:
     void setMinfinity(const Eref& e, vector<double> val);
     vector<double> getMinfinity(const Eref& e) const;
 
+    /// Set/get expression for alpha
+    void setAlphaExpr(const Eref& e, string expr);
+    string getAlphaExpr(const Eref& e) const;
+    /// Set/get expression for beta
+    void setBetaExpr(const Eref& e, string expr);
+    string getBetaExpr(const Eref& e) const;
+    /// Set/get expression for tau
+    void setTauExpr(const Eref& e, string expr);
+    string getTauExpr(const Eref& e) const;
+    /// Set/get expression for inf
+    void setInfExpr(const Eref& e, string expr);
+    string getInfExpr(const Eref& e) const;
+    int getForm() const;
+    /// Fill the tables by evaluating expressions
+    void tabFillExpr(const Eref& e); 
+    
+    vector<double> computeTable(string expr, double xmin, double xmax, unsigned int xdivs);
+    
     void setMin(const Eref& e, double val);
     double getMin(const Eref& e) const;
     void setMax(const Eref& e, double val);
@@ -119,35 +140,6 @@ public:
      * Returns looked up value of specified table
      */
     double lookupTable(const vector<double>& tab, double v) const;
-
-    /**
-     * Checks if the provided Id is the one that the HHGate was created
-     * on. If true, fine, otherwise complains about trying to set the
-     * field.
-     */
-    bool checkOriginal(Id id, const string& field) const;
-
-    /**
-     * isOriginalChannel returns true if the provided Id is the Id of
-     * the channel on which the HHGate was created.
-     */
-    bool isOriginalChannel(Id id) const;
-
-    /**
-     * isOriginalChannel returns true if the provided Id is the Id of
-     * the Gate created at the same time as the original channel.
-     */
-    bool isOriginalGate(Id id) const;
-
-    /**
-     * Returns the Id of the original Channel.
-     */
-    Id originalChannelId() const;
-
-    /**
-     * Returns the Id of the original Gate.
-     */
-    Id originalGateId() const;
 
     /**
      * tabFill does interpolation and range resizing for
@@ -193,6 +185,12 @@ private:
     /// 5 parameters for mInfinity
     vector<double> mInfinity_;
 
+    /// Strings for expressions
+    string alphaExpr_;
+    string betaExpr_;
+    /// Flag if the expressions are in tau-inf form or explicitly set
+    /// 0 - not using expression, 1 - alpha/beta, 2 - tau/inf
+    int form_;  
     /// The actual lookup table for calculations. Holds alpha(V).
     vector<double> A_;
 

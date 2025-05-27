@@ -18,16 +18,16 @@
 #include <stdexcept>
 #include <csignal>
 
-#include "../external/pybind11/include/pybind11/functional.h"
-#include "../external/pybind11/include/pybind11/numpy.h"
-#include "../external/pybind11/include/pybind11/pybind11.h"
-#include "../external/pybind11/include/pybind11/stl.h"
+#include <pybind11/functional.h>
+#include <pybind11/numpy.h>
+#include <pybind11/pybind11.h>
+#include <pybind11/stl.h>
 
 namespace py = pybind11;
 
 // See
 // https://pybind11.readthedocs.io/en/stable/advanced/cast/stl.html#binding-stl-containers
-// #include "../external/pybind11/include/pybind11/stl_bind.h"
+// #include <pybind11/stl_bind.h>
 
 #include "../basecode/header.h"
 #include "../basecode/global.h"
@@ -42,7 +42,7 @@ namespace py = pybind11;
 #include "../randnum/randnum.h"
 
 #include "helper.h"
-#include "pymoose.h"
+
 #include "Finfo.h"
 
 using namespace std;
@@ -359,11 +359,16 @@ void mooseReinit()
 /* ----------------------------------------------------------------------------*/
 void mooseStart(double runtime, bool notify = false)
 {
+  // TODO: handle keyboard interrupt on _WIN32
+#if !defined(_WIN32)
+  // Credit:
+  // http://stackoverflow.com/questions/1641182/how-can-i-catch-a-ctrl-c-event-c
     struct sigaction sigHandler;
     sigHandler.sa_handler = handleKeyboardInterrupts;
     sigemptyset(&sigHandler.sa_mask);
     sigHandler.sa_flags = 0;
     sigaction(SIGINT, &sigHandler, NULL);
+#endif    
     getShellPtr()->doStart(runtime, notify);
 }
 
@@ -445,7 +450,7 @@ vector<string> mooseGetFieldNames(const string& className,
 
 string finfoNotFoundMsg(const Cinfo* cinfo)
 {
-    auto fmap = __Finfo__::finfoNames(cinfo, "*");
+    auto fmap = finfoNames(cinfo, "*");
     stringstream ss;
     ss << "Available attributes:" << endl;
     for(size_t i = 0; i < fmap.size(); i++) {
@@ -518,13 +523,16 @@ string mooseClassDoc(const string& className)
         ss << "This class is not valid." << endl;
         return ss.str();
     }
-
+    ss << "class " << className << "\n\n"
+       << moose::textwrap(cinfo->getDocsEntry("Description"), "  ") << "\n\n"
+       << "Author: " << moose::textwrap(cinfo->getDocsEntry("Author"), "  ")
+       << "\n\n";
     ss << moose::underlined<'='>("Attributes:");
     ss << endl;
 
     for(string f : {"value", "lookup", "src", "dest", "shared", "field"})
         ss << mooseClassFieldsDoc(cinfo, f, "");
-
+    
     return ss.str();
 }
 
@@ -613,7 +621,7 @@ string mooseShowMsg(const ObjId& obj)
             cerr << "No Msg found on " << obj.path() << endl;
             continue;
         }
-        ss << fmt::format("  {0}, [{1}] <-- {2}, [{3}]\n", msg->getE1().path(),
+        ss << fmt::format("  {0}, [{1}] --> {2}, [{3}]\n", msg->getE1().path(),
                           moose::vectorToCSV<string>(msg->getSrcFieldsOnE1()),
                           msg->getE2().path(),
                           moose::vectorToCSV<string>(msg->getDestFieldsOnE2()));

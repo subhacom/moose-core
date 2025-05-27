@@ -10,9 +10,14 @@
 #ifndef MOOSE_VEC_H
 #define MOOSE_VEC_H
 
-#include "../external/pybind11/include/pybind11/pybind11.h"
-#include "../external/pybind11/include/pybind11/numpy.h"
+#include "../basecode/header.h"
+
+#include <pybind11/pybind11.h>
+#include <pybind11/numpy.h>
+
 namespace py = pybind11;
+
+using namespace std;
 
 class MooseVec
 {
@@ -67,6 +72,8 @@ public:
             return Field<unsigned long>::set(getItem(i), name, val);
         if (rttType == "unsigned int")
             return Field<unsigned int>::set(getItem(i), name, val);
+        if (rttType == "bool")
+            return Field<bool>::set(getItem(i), name, val);
         return false;
     }
 

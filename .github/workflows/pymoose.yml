@@ -1,29 +1,80 @@
-name: Python package
+name: Build install test
 
 on: [push]
 
 jobs:
   build:
-    name : Python Package
-
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}    
     strategy:
+      fail-fast: false
       matrix:
-        python-version: [3.7, 3.8, 3.9, '3.10']
-
+        os: [ubuntu-22.04, macos-14, windows-latest]
+        build_type: [Release]
+        c_compiler: [clang]
+        python-version: ["3.12"]
+        include:
+          - os: ubuntu-22.04
+            apt: 10
+          - os: macos-14
+            brew: 20
+          - os: windows-latest
+            winget: 30
     steps:
-    - uses: actions/checkout@v2
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v1
-      with:
-        python-version: ${{ matrix.python-version }}
-    - name: Install dependencies
-      run: |
-        export DEBIAN_FRONTEND=noninteractive
-        sudo -E apt install -y cmake libgsl-dev g++ gcc git 
-        sudo -E apt install python3-tk python-tk
-        sudo -E apt install -y libhdf5-dev doxygen
-        python -m pip install numpy matplotlib vpython --user
-    - name: Build
-      run: |
-        python setup.py install
+      - name: mamba-setup
+        uses: mamba-org/setup-micromamba@v1
+        with:
+          environment-name: moose
+          cache-environment: true
+          cache-downloads: true
+          create-args: >-
+            python=${{ matrix.python-version }}
+            pkg-config
+            clang
+            hdf5
+            pybind11[global]
+            graphviz
+            pytables
+            numpy
+            matplotlib
+            vpython
+            lxml
+            doxygen
+            setuptools
+            wheel
+            meson
+            ninja
+            meson-python
+            gsl
+          post-cleanup: all
+          generate-run-shell: false            
+      - name: Display Python version
+        run: |          
+          python -c "import sys; print(sys.version)"
+      - if: ${{ matrix.apt }}
+        run: |
+          sudo apt-get update
+          sudo apt-get -y install libgsl0-dev libgsl-dev libhdf5-dev
+      - if: ${{ matrix.brew }}
+        run: |
+          brew install gsl
+          brew install hdf5
+      - name: checkout
+        uses: actions/checkout@v4          
+      - name: Build and install (non-windows)
+        if: runner.os != 'Windows' 
+        run: |
+          eval "$(micromamba shell hook --shell bash)"
+          micromamba activate moose
+          python -c "import sys; print('#' * 60, sys.version)"
+          pip install python-libsbml
+          pip install .
+          python -c "import moose; moose.le()"
+      - name: Build and install (windows)
+        if: runner.os == 'Windows' 
+        run: |
+          micromamba shell hook -s powershell | Out-String | Invoke-Expression
+          micromamba activate moose
+          python -c "import sys; print('#' * 60, sys.version)"
+          pip install python-libsbml
+          pip install .
+          python -c "import moose; moose.le()"
