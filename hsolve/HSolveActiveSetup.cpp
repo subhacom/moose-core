@@ -96,7 +96,8 @@ void HSolveActive::reinitChannels()
     for ( iv = V_.begin(); iv != V_.end(); ++iv )
     {
 
-        vTable_.row( *iv, vRow );
+	if (!vTable_.empty())
+	    vTable_.row( *iv, vRow );
         icarowcompt = caRowCompt_.begin();
 
         caBoundary = ica + *icacount;
@@ -338,20 +339,15 @@ void HSolveActive::readCalcium()
 
 void HSolveActive::createLookupTables()
 {
-    std::set< Id > caSet;
-    std::set< Id > vSet;
     vector< Id > caGate;
     vector< Id > vGate;
     map< Id, unsigned int > gateSpecies;
 
     for ( unsigned int ig = 0; ig < gateId_.size(); ++ig )
         if ( gCaDepend_[ ig ] )
-            caSet.insert( gateId_[ ig ] );
+            caGate.push_back( gateId_[ ig ] );
         else
-            vSet.insert( gateId_[ ig ] );
-
-    caGate.insert( caGate.end(), caSet.begin(), caSet.end() );
-    vGate.insert( vGate.end(), vSet.begin(), vSet.end() );
+            vGate.push_back( gateId_[ ig ] );
 
     for ( unsigned int ig = 0; ig < caGate.size(); ++ig )
         gateSpecies[ caGate[ ig ] ] = ig;

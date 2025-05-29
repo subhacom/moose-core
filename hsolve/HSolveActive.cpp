@@ -236,7 +236,8 @@ void HSolveActive::advanceChannels( double dt )
 
     for ( iv = V_.begin(); iv != V_.end(); ++iv )
     {
-        vTable_.row( *iv, vRow );
+	if (!vTable_.empty())
+	    vTable_.row( *iv, vRow );
         icarowcompt = caRowCompt_.begin();
         caBoundary = ica + *icacount;
         for ( ; ica < caBoundary; ++ica )
