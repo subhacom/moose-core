@@ -99,8 +99,12 @@ ObjId MooseVec::getItem(const int index) const
 {
     // Negative indexing.
     size_t i = (index < 0) ? size() + index : index;
-    if(oid_.element()->hasFields())
+    if(i > size()) {
+        throw py::index_error("Index " + to_string(i) + " out of range.");
+    }
+    if(oid_.element()->hasFields()) {
         return getFieldItem(i);
+    }
     return getDataItem(i);
 }
 
@@ -147,7 +151,7 @@ py::object MooseVec::getAttribute(const string& name)
         cerr << __func__ << ":: AttributeError: " << name
              << " is not found on path '" << oid_.path() << "'." << endl;
         cerr << finfoNotFoundMsg(cinfo) << endl;
-        throw py::key_error(name + " is not found.");
+        throw py::attribute_error(name + " is not found.");
     }
 
     auto rttType = finfo->rttiType();
@@ -184,7 +188,7 @@ bool MooseVec::setAttribute(const string& name, const py::object& val)
         cerr << __func__ << ":: AttributeError: " << name
              << " is not found on path '" << oid_.path() << "'." << endl;
         cerr << finfoNotFoundMsg(cinfo) << endl;
-        throw py::key_error(name + " is not found.");
+        throw py::attribute_error(name + " is not found.");
     }
 
     auto rttType = finfo->rttiType();

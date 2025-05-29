@@ -22,7 +22,7 @@ def setupSteadyState(simdt,plotDt):
     stoich = moose.Stoich( '/model/kinetics/stoich' )
     stoich.compartment = moose.element('/model/kinetics')
     stoich.ksolve = ksolve
-    stoich.path = "/model/kinetics/##"
+    stoich.reacSystemPath = "/model/kinetics/##"
     state = moose.SteadyState( '/model/kinetics/state' )
     moose.reinit()
     state.stoich = stoich

@@ -32,6 +32,7 @@ namespace moose
 MooseParser::MooseParser(): expr_("0"), valid_(true)
 {
     Parser::symbol_table_t symbolTable;
+    symbolTable.add_constants();
     symbolTable.add_function("ln", MooseParser::Ln);
     symbolTable.add_function("rand", MooseParser::Rand); // between 0 and 1
     symbolTable.add_function("rnd", MooseParser::Rand);  // between 0 and 1
@@ -140,8 +141,12 @@ bool MooseParser::DefineVar( const string varName, double* const val)
 
 void MooseParser::DefineConst( const string& constName, const double value )
 {
-    const_map_[constName] = value;
-    GetSymbolTable().add_constant(constName, value);
+    if (GetSymbolTable().is_constant_node(constName)) {
+	cout << "Warning: Ignoring attempt to change existing constant "
+	     << constName << endl;
+    } else if(!GetSymbolTable().add_constant(constName, value)){
+	cout << "Warning: Failed to set constant " << constName << " = " << value << endl;
+    }
 }
 
 void MooseParser::DefineFun1( const string& funcName, double (&func)(double) )
@@ -353,7 +358,7 @@ double MooseParser::Eval(bool check) const
 
     if(expr_.empty())
     {
-        cout << "MooseParser::Eval: warn: Expr is empty " << endl;
+        cout << "MooseParser::Eval: Warn: Expr is empty " << endl;
         return 0.0;
     }
 
@@ -369,9 +374,20 @@ double MooseParser::Diff( const double a, const double b ) const
     return a-b;
 }
 
-Parser::varmap_type MooseParser::GetConst( ) const
+bool MooseParser::IsConst(const string& name) const
 {
-    return const_map_;
+    
+    return GetSymbolTable().is_constant_node(name);
+}
+
+double MooseParser::GetConst(const string& name ) const
+{
+    if(!IsConst(name)) {
+    // if(!GetSymbolTable().type_store.is_constant(name)) {
+        cout << "Warning: no constant defined with name " << name << endl;
+        return 0.0;
+    }
+    return GetSymbolTable().get_variable(name)->value();
 }
 
 void MooseParser::ClearVariables( )

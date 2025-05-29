@@ -8,6 +8,8 @@
 **********************************************************************/
 
 #include <vector>
+#include <iostream>
+
 using namespace std;
 
 #include "RateLookup.h"
@@ -61,6 +63,10 @@ void LookupTable::column( unsigned int species, LookupColumn& column )
 
 void LookupTable::row( double x, LookupRow& row )
 {
+    if(table_.empty()) {
+	cerr << "LookupTable::row : Error: table is empty" << endl;
+        return;
+    }
 	if ( x < min_ )
 		x = min_;
 	else if ( x > max_ )

@@ -67,8 +67,17 @@ const Cinfo * Function::initCinfo()
     // Value fields
     static  ReadOnlyValueFinfo< Function, double > value(
         "value",
-        "Result of the function evaluation with current variable values.",
+        "Value calculated in the last evaluation of the function. This gets"
+	" updated in each simulation step.",
         &Function::getValue
+    );
+
+    static  ReadOnlyValueFinfo< Function, double > evalResult(
+        "evalResult",
+        "Result of the function evaluation with current variable values. This"
+	" can be used for evaluating the function without running a simulation"
+	" step.",
+        &Function::getEval
     );
 
     static ReadOnlyValueFinfo< Function, double > derivative(
@@ -91,7 +100,7 @@ const Cinfo * Function::initCinfo()
 
     static ValueFinfo< Function, unsigned int > mode(
         "mode",
-        "Mode of operation: \n"
+        "Mode of operation (default 1): \n"
         " 1: only the function value will be sent out.\n"
         " 2: only the derivative with respect to the independent variable will be sent out.\n"
         " 3: only rate (time derivative) will be sent out.\n"
@@ -113,7 +122,8 @@ const Cinfo * Function::initCinfo()
 
     static ValueFinfo< Function, bool > doEvalAtReinit(
         "doEvalAtReinit",
-        "When *false*, disables function evaluation at reinit, and "
+        "Deprecated: This does not have any use."
+	"When *false*, disables function evaluation at reinit, and "
         "just emits a value of zero to any message targets. \n"
         "When *true*, does a function evaluation at reinit and sends "
         "the computed value to any message targets. \n"
@@ -193,16 +203,18 @@ const Cinfo * Function::initCinfo()
         &Function::getExpr
     );
 
-    static ValueFinfo< Function, unsigned int > numVars(
+    static ReadOnlyValueFinfo< Function, unsigned int > numVars(
         "numVars",
-        "Number of variables used by Function.",
-        &Function::setNumVar,
+        "Number of variables used by Function. It is determined by parsing"
+	" when `expr` is set",
         &Function::getNumVar
     );
 
     static FieldElementFinfo< Function, Variable > inputs(
         "x",
-        "Input variables (indexed) to the function. These can be passed via messages.",
+        "Input variables (indexed) to the function."
+	" The values can be passed via messages to the `input` field on each"
+	" entry.",
         Variable::initCinfo(),
         &Function::getX,
         &Function::setNumVar,
@@ -220,7 +232,7 @@ const Cinfo * Function::initCinfo()
 
     static LookupValueFinfo< Function, string, unsigned int > xindex(
         "xindex",
-        "(developer only) Returns the index of a given variable which can be used with field `x`."
+        "Returns the index of a given variable which can be used with field `x`."
         " Note that we have a mechanism to map string (variable name) to integer "
         " (variable index).",
         &Function::setVarIndex,
@@ -229,14 +241,14 @@ const Cinfo * Function::initCinfo()
 
     static ReadOnlyValueFinfo< Function, vector < double > > y(
         "y",
-        "Variable values received from target fields by requestOut",
+        "Variable values received from target fields by 'requestOut' message",
         &Function::getY
     );
 
-    static ValueFinfo< Function, string > independent(
+    static ValueFinfo<Function, string> independent(
         "independent",
-        "Index of independent variable. Differentiation is done based on this. Defaults"
-        " to the first assigned variable.",
+        "Index of independent variable. Differentiation is done based on this."
+        " Defaults to the first assigned variable.",
         &Function::setIndependent,
         &Function::getIndependent
     );
@@ -272,9 +284,9 @@ const Cinfo * Function::initCinfo()
             );
 
 
-    static Finfo *functionFinfos[] =
-    {
+    static Finfo *functionFinfos[] = {
         &value,
+	&evalResult,
         &rate,
         &derivative,
         &mode,
@@ -287,7 +299,7 @@ const Cinfo * Function::initCinfo()
         &xindex,
         &constants,
         &independent,
-		&setSolver,			// DestFinfo
+	&setSolver,			// DestFinfo
         &proc,
         requestOut(),
         valueOut(),
@@ -298,31 +310,106 @@ const Cinfo * Function::initCinfo()
     static string doc[] = {
         "Name", "Function", "Author", "Subhasis Ray/Dilawar Singh",
         "Description",
-        R"(
+        R"#(
 General purpose function calculator using real numbers.
 
 It can parse mathematical expression defining a function and evaluate it and/or
 its derivative for specified variable values.  You can assign expressions of
 the form::
 
- f(t, x, y, z, var, p, q, Ca, CaMKII) 
+ f(t, x, y, var, p, q, Ca, CaMKII) 
 
 NOTE: `t` represents time. You CAN NOT use to for any other purpose.
 
-The constants must be defined before setting the expression and variables are
-connected via messages. The variables can be input from other moose objects.
-Connected variables named `xyz` in the expression and the source field is
-connected to Function[xyz]'s `input` destination field.
+The constants must be defined before setting the expression using 
+the lookup field `c`. Once set, 
 
-In case the input variable is not available as a source field, but is a value
-field, then the value can be requested by connecting the `requestOut` message
-to the `get{Field}` destination on the target object. Such variables must be
-specified in the expression as y{i} and connecting the messages should happen
-in the same order as the y indices.
+The interpretation of variable names in expression depends on 
+`allowUnknownVariables` flag::
 
- This class handles only real numbers (C-double). Predefined constants
- are: pi=3.141592..., e=2.718281...
-)"
+When `allowUnknownVariables` is `True` (default):
+
+- Names of the form "x{n}", where n is a non-negative integer, 
+  are treated as input variables that are pushed from fields in
+  other objects via incoming messages to the `input` dest of the
+  corresponding `x` field.
+
+- Names of the form "y{n}" are treated as input variables, that 
+  are requested via the outgoing `requestOut` message from other
+  objects' value fields.
+
+- Any name that has already been assigned as a constant (e.g., 
+  inserted with `Function.c['name'] = value` or predefined
+  mathematical constants like `pi`, `e`) is treated as constant.
+
+- All other names are assumed to be variables and assigned successive
+  entries in the `x` field.
+
+
+When `allowUnknownVariables` is `False`, the allowed names are 
+restricted:
+
+- Names of the form "x{n}", where n is a non-negative integer, 
+  are treated as input variables that are pushed from fields in
+  other objects via incoming messages to the `input` dest of the
+  corresponding `x` field.
+
+- Names of the form "y{n}" are treated as input variables, that 
+  are requested via the outgoing `requestOut` message from other
+  objects' value fields.
+
+- Any name that has already been assigned as a constant (e.g., 
+  inserted with `Function.c['name'] = value`), is treated 
+  as constant.
+
+- If the expression has any name that is not "t" (for time), or one of
+  the above, it throws an error.
+
+Input (independent) variables come from other elements, either pushed
+into entries in element field "x" through "input" dest field, or pulled via
+"requestOut" message to "get{Field}" dest field on the source element and
+collected in the "y" variables. 
+
+In pull-mode, the y-indices correspond to the order of connecting the
+messages. This is used when the input variable is not available as a source 
+field, but is a value field. For any value field `{field}`, the object has
+a corresponding dest field `get{Field}`. The "requestOut" src field is 
+connected to this.
+
+This class handles only real numbers (C-double). Predefined constants
+are: pi=3.141592..., e=2.718281...
+
+
+Example::
+
+The following python example illustrates a Function which has a user-defined 
+constant 'A', two pushed variables, 'Vm' and 'n', which come from a 
+compartment object, and one pulled variable 'y0', which is read from
+the 'diameter' field of the compartment. It also uses the global mathematical 
+constant 'pi'.
+
+
+  comp = moose.Compartment('comp')
+  comp.diameter = 2.0
+  pool = moose.Pool('pool')
+  func = moose.Function('f')
+  
+  # A made-up example to illustrate push, pull vars and constants
+  func.c['A'] = 6.022e23   # constant
+  func.expr = 'Vm + y0 * n * pi / A'
+  
+  i_v = func.xindex['Vm']
+  i_n = func.xindex['n']
+  
+  # There should be two x vars, one for `Vm`, the other for `n`
+  assert func.x.num == 2 
+  
+  moose.connect(comp, 'VmOut', func.x[i_v], 'input')
+  moose.conncet(pool, 'nOut', func.x[i_n], 'input')
+  moose.connect(func, 'requestOut', comp, 'getDiameter')
+
+
+)#"
     };
 
     static Dinfo< Function > dinfo;
@@ -525,8 +612,11 @@ VarType Function::getVarType(const string& name) const
         return XVAR_INDEX;
     if(regex_match(name, regex("y\\d+")))
         return YVAR;
-    if(regex_match(name, regex("c\\d+")))
+    if (regex_match(name, regex("c\\d+")))
         return CONSTVAR;
+    if (allowUnknownVar_ && parser_->IsConst(name)){ // if user already defined named constants 
+	return CONSTVAR;
+    }
     if(name == "t")
         return TVAR;
     return XVAR_NAMED;
@@ -663,6 +753,12 @@ bool Function::getAllowUnknowVariable() const
 
 double Function::getValue() const
 {
+    // return parser_->Eval( );
+    return value_;
+}
+
+double Function::getEval() const
+{
     return parser_->Eval( );
 }
 
@@ -704,9 +800,9 @@ double Function::getDerivative() const
 
 void Function::setNumVar(const unsigned int num)
 {
-    // Deprecated: numVar has no effect. MOOSE can infer number of variables
+    // Deprecated: numVar has no effect. MOOSE infer number of variables
     // from the expression.
-    numVar_ = num;
+    cerr << "Function::setNumVar is deprecated. Function object infers number of variables from the expression." << endl;
 }
 
 unsigned int Function::getNumVar() const
@@ -742,21 +838,12 @@ void Function::setConst(string name, double value)
 
 double Function::getConst(string name) const
 {
-    moose::Parser::varmap_type cmap = parser_->GetConst();
-    if (! cmap.empty() )
-    {
-        moose::Parser::varmap_type::const_iterator it = cmap.find(name);
-        if (it != cmap.end())
-        {
-            return it->second;
-        }
-    }
-    return 0;
+    return parser_->GetConst(name);
 }
 
 void Function::setVarIndex(string name, unsigned int val)
 {
-    cerr << "This should not be used." << endl;
+    cerr << "Function::setVarIndex : This should not be used." << endl;
 }
 
 unsigned int Function::getVarIndex(string name) const
@@ -781,7 +868,7 @@ void Function::process(const Eref &e, ProcPtr p)
     requestOut()->send(e, &databuf);
 
     t_ = p->currTime;
-    value_ = getValue();
+    value_ = getEval();
     rate_ = (value_ - lastValue_) / p->dt;
 
     for (unsigned int ii = 0; (ii < databuf.size()) && (ii < ys_.size()); ++ii)
@@ -793,31 +880,33 @@ void Function::process(const Eref &e, ProcPtr p)
         return;
     }
 
-    if( 1 == mode_ )
+    switch (mode_) 
+    {
+    case 1:
     {
         valueOut()->send(e, value_);
         lastValue_ = value_;
-        return;
+	break;
     }
-    if( 2 == mode_ )
+    case 2:
     {
         derivativeOut()->send(e, getDerivative());
         lastValue_ = value_;
-        return;
+        break;
     }
-    if( 3 == mode_ )
+    case 3:
     {
         rateOut()->send(e, rate_);
         lastValue_ = value_;
-        return;
+	break;
     }
-    else
+    default:
     {
         valueOut()->send(e, value_);
         derivativeOut()->send(e, getDerivative());
         rateOut()->send(e, rate_);
-        lastValue_ = value_;
-        return;
+        lastValue_ = value_;	
+    }
     }
 }
 
@@ -832,37 +921,40 @@ void Function::reinit(const Eref &e, ProcPtr p)
 
     t_ = p->currTime;
 
-    if (doEvalAtReinit_)
-        lastValue_ = value_ = getValue();
+    if (doEvalAtReinit_){
+        lastValue_ = value_ = getEval();
+    }
     else
         lastValue_ = value_ = 0.0;
 
     rate_ = 0.0;
 
-    if (1 == mode_)
+    switch (mode_){
+    case 1:
     {
         valueOut()->send(e, value_);
-        return;
+        break;
     }
-    if( 2 == mode_ )
+    case 2:
     {
         derivativeOut()->send(e, 0.0);
-        return;
+        break;
     }
-    if( 3 == mode_ )
+    case 3:
     {
         rateOut()->send(e, rate_);
-        return;
+        break;
     }
-    else
+    default:
     {
         valueOut()->send(e, value_);
         derivativeOut()->send(e, 0.0);
         rateOut()->send(e, rate_);
-        return;
+        break;
+    }
     }
 }
-
+    
 
 void Function::clearAll()
 {

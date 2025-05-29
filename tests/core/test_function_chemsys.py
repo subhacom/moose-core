@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""test_muparser.py:
+"""test_function_chemsys.py:
 
 odified from https://elifesciences.org/articles/25827 
 Fig4.py
@@ -58,21 +58,27 @@ def makeChemProto( name, Aexpr, Bexpr, params ):
 
     Adot.expr = parseExpr( Aexpr, params, True )
     Bdot.expr = parseExpr( Bexpr, params, False )
-    CaStim.expr = 'x2 * exp( -((x0 - t)^2)/(2* ' + str(sw*sw) + ') )'
+    # 0 * x1 added because number of independent variables is inferred
+    # from expression, cannot be set directly since at least jalebi
+    # (2022, switch to pybind11?) release .
+    # - Subha Thu May 22 22:07:18 IST 2025
 
-    #print Adot.expr
-    #print Bdot.expr
-    #print CaStim.expr
+    CaStim.expr = 'x2 * exp( -((x0 - t)^2)/(2* ' + str(sw*sw) + ')) + 0 * x1'
+
+    # print('Adot', Adot.expr)
+    # print('Bdot', Bdot.expr)
+    # print('CaStim', CaStim.expr)
 
     # Connections
-    Adot.x.num = 4
+    # Adot.x.num = 4
+    # Adot.expr = 'x0 + x1 + x2 + x3'
     moose.connect( Ca, 'nOut', Adot.x[0], 'input' )
     moose.connect( A, 'nOut', Adot.x[1], 'input' )
     moose.connect( B, 'nOut', Adot.x[2], 'input' )
     moose.connect( Z, 'nOut', Adot.x[3], 'input' )
     moose.connect( Adot, 'valueOut', A, 'increment' )
 
-    Bdot.x.num = 3
+    # Bdot.x.num = 3
     if name[:5] == 'negFF':
         moose.connect( Ca, 'nOut', Bdot.x[0], 'input' )
         print('Doing special msg')
@@ -82,7 +88,7 @@ def makeChemProto( name, Aexpr, Bexpr, params ):
     moose.connect( Z, 'nOut', Bdot.x[2], 'input' )
     moose.connect( Bdot, 'valueOut', B, 'increment' )
 
-    CaStim.x.num = 3
+    # CaStim.x.num = 3
     moose.connect( phase, 'nOut', CaStim.x[0], 'input' )
     moose.connect( vel, 'nOut', CaStim.x[1], 'input' )
     moose.connect( ampl, 'nOut', CaStim.x[2], 'input' )
@@ -256,7 +262,7 @@ def singleCompt( name, params ):
     stoich = moose.Stoich( mod.path + '/stoich' )
     stoich.compartment = mod
     stoich.ksolve = ksolve
-    stoich.path = mod.path + '/##'
+    stoich.reacSystemPath = mod.path + '/##'
 
     print( 'REINIT AND START' )
     moose.reinit()

@@ -5,6 +5,7 @@ import numpy as np
 import chan_proto
 import param_chan
 
+
 t_stop = 10
 dend_diameter = 2.2627398e-6
 dend_length =  1.131369936e-6
@@ -31,6 +32,7 @@ gbar = 1
 km = 0.3e-3
 kcat = 85e-22
 pumps = 1
+
 
 def linoid(x, param):
     den = (param[2] + np.exp((V + param[3]) / param[4]))
@@ -212,6 +214,7 @@ def test_diffshell():
                 res[:, 4 + i * (difbuff_no + 1) + j + 1] = buf.vector
                 header += ' difshell_' + str(i) + '_difbuff_' + str(j)
     np.savetxt(fname, res, header=header, comments='')
+    print(f'{__file__}: SUCCESS')
 
 def main():
     test_diffshell()

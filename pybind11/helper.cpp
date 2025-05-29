@@ -179,7 +179,7 @@ ObjId loadModelInternal(const string& fname, const string& modelpath,
     }
 
     if(model == Id()) {
-        throw runtime_error("could not load model");
+        throw std::runtime_error("could not load model");
         return Id();
     }
     return ObjId(model);
@@ -199,7 +199,7 @@ ObjId getElementFieldItem(const ObjId& objid, const string& fname,
     assert(len >= 0);
 
     if(index >= len) {
-        throw runtime_error(
+        throw py::index_error(
             "ElementField.getItem: index out of bounds. "
             "Total elements=" +
             to_string(len) + ".");
@@ -211,7 +211,7 @@ ObjId getElementFieldItem(const ObjId& objid, const string& fname,
         index += len;
     }
     if(index < 0) {
-        throw runtime_error(
+        throw py::index_error(
             "ElementField.getItem: invalid index: " + to_string(index) + ".");
         return ObjId();
     }
@@ -532,7 +532,7 @@ string mooseClassDoc(const string& className)
         return ss.str();
     }
     ss << "class " << className << "\n\n"
-       << moose::textwrap(cinfo->getDocsEntry("Description"), "  ") << "\n\n"
+       << cinfo->getDocsEntry("Description") << "\n\n"
        << "Author: " << moose::textwrap(cinfo->getDocsEntry("Author"), "  ")
        << "\n\n";
     ss << moose::underlined<'='>("Attributes:");
