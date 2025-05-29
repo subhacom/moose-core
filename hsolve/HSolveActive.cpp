@@ -258,8 +258,8 @@ void HSolveActive::advanceChannels( double dt )
         chanBoundary = ichan + *ichannelcount;
         for ( ; ichan < chanBoundary; ++ichan )
         {
-
-            caTable_.row( *iextca, dRow );
+	    if (!caTable_.empty())
+		caTable_.row( *iextca, dRow );
 
             if ( ichan->Xpower_ > 0.0 )
             {

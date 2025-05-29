@@ -51,7 +51,7 @@ def test_gsolve_paralllel(nT=4):
     stoich.compartment = compt
     stoich.ksolve = ksolve
     stoich.dsolve = dsolve
-    stoich.path = '/cylinder/##'
+    stoich.reacSystemPath = '/cylinder/##'
 
     #initialize
     x = np.arange( 0, compt.x1, compt.diffLength )
