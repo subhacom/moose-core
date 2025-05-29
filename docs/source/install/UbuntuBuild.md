@@ -9,7 +9,7 @@ sudo apt install build-essential
 
 1. Install the dependencies
 ```
-sudo apt-get install ninja meson pkg-config python-pip python-numpy libgsl-dev g++ pybind11 
+sudo apt-get install ninja meson pkg-config python-pip python-numpy libgsl-dev g++ pybind11 libz-dev
 pip install meson-python
 pip install python-libsbml
 pip install pyneuroml

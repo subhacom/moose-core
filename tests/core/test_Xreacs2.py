@@ -42,7 +42,7 @@ def test_xreac2():
     s1.compartment = moose.element( '/model/kinetics' )
     s1.ksolve = ks1
     s1.dsolve = ds1
-    s1.path = '/model/kinetics/##'
+    s1.reacSystemPath = '/model/kinetics/##'
 
     ks2 = moose.Ksolve( '/model/compartment_1/ksolve' )
     ds2 = moose.Dsolve( '/model/compartment_1/dsolve' )
@@ -50,7 +50,7 @@ def test_xreac2():
     s2.compartment = moose.element( '/model/compartment_1' )
     s2.ksolve = ks2
     s2.dsolve = ds2
-    s2.path = '/model/compartment_1/##'
+    s2.reacSystemPath = '/model/compartment_1/##'
 
     print(ds1)
     ds2.buildMeshJunctions( ds1 )

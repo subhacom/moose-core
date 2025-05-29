@@ -256,7 +256,7 @@ def singleCompt(name, params):
     stoich.compartment = mod
 
     stoich.ksolve = ksolve
-    stoich.path = mod.path + '/##'
+    stoich.reacSystemPath = mod.path + '/##'
     print('REINIT AND START')
     moose.reinit()
     runtime += 100 + steptime * 2

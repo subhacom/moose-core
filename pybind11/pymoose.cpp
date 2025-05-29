@@ -187,8 +187,9 @@ vector<ObjId> getChildren(const ObjId &oid)
     vector<Id> children;
     Neutral::children(oid.eref(), children);
     vector<ObjId> res;
-    std::transform(children.begin(), children.end(), res.begin(),
-                   [](const Id& id) { return ObjId(id); });
+    for(auto child : children) {
+        res.push_back(ObjId(child));
+    }
     return res;
 }
 

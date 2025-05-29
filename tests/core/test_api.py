@@ -3,6 +3,7 @@ __copyright__  = "Copyright 2019-, Dilawar Singh"
 __maintainer__ = "Dilawar Singh"
 __email__      = "dilawars@ncbs.res.in"
 
+
 import moose
 
 if moose._moose.__generated_by__ != "pybind11":
@@ -208,6 +209,7 @@ def test_elements():
     assert ze.isA['HHGate']
 
 def test_paths():
+    print('Testing paths')
     x = moose.Neutral('///x')
     assert x.path == '/x', x.path
 

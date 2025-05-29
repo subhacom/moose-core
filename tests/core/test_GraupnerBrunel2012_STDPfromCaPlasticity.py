@@ -12,8 +12,6 @@ import moose
 print( 'Using moose from %s' % moose.__file__ )
 import numpy as np
 
-moose.seed( 10 )
-
 def test_GB2012_STDP():
     """
     Simulate a pseudo-STDP protocol and plot the STDP kernel
@@ -21,6 +19,8 @@ def test_GB2012_STDP():
 
     Author: Aditya Gilra, NCBS, Bangalore, October, 2014.
     """
+
+    moose.seed( 10 )
 
     # ###########################################
     # Neuron models

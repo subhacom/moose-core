@@ -1,0 +1,75 @@
+<neuroml xmlns="http://www.neuroml.org/schema/neuroml2"  xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.neuroml.org/schema/neuroml2 https://raw.github.com/NeuroML/NeuroML2/development/Schemas/NeuroML2/NeuroML_v2.3.1.xsd" id="network_of_Granule_98">
+    <include href="Granule_98.cell.nml"/>
+    <pulseGenerator id="input_0nA" delay="0ms" duration="1550ms" amplitude="0nA"/>
+    <pulseGenerator id="input_0_005nA" delay="0ms" duration="1550ms" amplitude="0.005nA"/>
+    <pulseGenerator id="input_0_01nA" delay="0ms" duration="1550ms" amplitude="0.01nA"/>
+    <pulseGenerator id="input_0_015nA" delay="0ms" duration="1550ms" amplitude="0.015nA"/>
+    <pulseGenerator id="input_0_02nA" delay="0ms" duration="1550ms" amplitude="0.02nA"/>
+    <pulseGenerator id="input_0_025nA" delay="0ms" duration="1550ms" amplitude="0.025nA"/>
+    <pulseGenerator id="input_0_030000000000000002nA" delay="0ms" duration="1550ms" amplitude="0.030000000000000002nA"/>
+    <pulseGenerator id="input_0_035nA" delay="0ms" duration="1550ms" amplitude="0.035nA"/>
+    <pulseGenerator id="input_0_04nA" delay="0ms" duration="1550ms" amplitude="0.04nA"/>
+    <pulseGenerator id="input_0_045nA" delay="0ms" duration="1550ms" amplitude="0.045nA"/>
+    <pulseGenerator id="input_0_049999999999999996nA" delay="0ms" duration="1550ms" amplitude="0.049999999999999996nA"/>
+    <pulseGenerator id="input_0_05499999999999999nA" delay="0ms" duration="1550ms" amplitude="0.05499999999999999nA"/>
+    <pulseGenerator id="input_0_05999999999999999nA" delay="0ms" duration="1550ms" amplitude="0.05999999999999999nA"/>
+    <pulseGenerator id="input_0_06499999999999999nA" delay="0ms" duration="1550ms" amplitude="0.06499999999999999nA"/>
+    <pulseGenerator id="input_0_06999999999999999nA" delay="0ms" duration="1550ms" amplitude="0.06999999999999999nA"/>
+    <pulseGenerator id="input_0_075nA" delay="0ms" duration="1550ms" amplitude="0.075nA"/>
+    <pulseGenerator id="input_0_08nA" delay="0ms" duration="1550ms" amplitude="0.08nA"/>
+    <network id="network_of_Granule_98" type="networkWithTemperature" temperature="6.3degC">
+    <!-- <network id="network_of_Granule_98" type="networkWithTemperature" temperature="32degC"> -->
+        <population id="population_of_Granule_98" component="Granule_98" size="17"/>
+        <inputList id="input_0nA" population="population_of_Granule_98" component="input_0nA">
+            <input id="0" target="../population_of_Granule_98[0]" destination="synapses"/>
+        </inputList>
+        <inputList id="input_0_005nA" population="population_of_Granule_98" component="input_0_005nA">
+            <input id="0" target="../population_of_Granule_98[1]" destination="synapses"/>
+        </inputList>
+        <inputList id="input_0_01nA" population="population_of_Granule_98" component="input_0_01nA">
+            <input id="0" target="../population_of_Granule_98[2]" destination="synapses"/>
+        </inputList>
+        <inputList id="input_0_015nA" population="population_of_Granule_98" component="input_0_015nA">
+            <input id="0" target="../population_of_Granule_98[3]" destination="synapses"/>
+        </inputList>
+        <inputList id="input_0_02nA" population="population_of_Granule_98" component="input_0_02nA">
+            <input id="0" target="../population_of_Granule_98[4]" destination="synapses"/>
+        </inputList>
+        <inputList id="input_0_025nA" population="population_of_Granule_98" component="input_0_025nA">
+            <input id="0" target="../population_of_Granule_98[5]" destination="synapses"/>
+        </inputList>
+        <inputList id="input_0_030000000000000002nA" population="population_of_Granule_98" component="input_0_030000000000000002nA">
+            <input id="0" target="../population_of_Granule_98[6]" destination="synapses"/>
+        </inputList>
+        <inputList id="input_0_035nA" population="population_of_Granule_98" component="input_0_035nA">
+            <input id="0" target="../population_of_Granule_98[7]" destination="synapses"/>
+        </inputList>
+        <inputList id="input_0_04nA" population="population_of_Granule_98" component="input_0_04nA">
+            <input id="0" target="../population_of_Granule_98[8]" destination="synapses"/>
+        </inputList>
+        <inputList id="input_0_045nA" population="population_of_Granule_98" component="input_0_045nA">
+            <input id="0" target="../population_of_Granule_98[9]" destination="synapses"/>
+        </inputList>
+        <inputList id="input_0_049999999999999996nA" population="population_of_Granule_98" component="input_0_049999999999999996nA">
+            <input id="0" target="../population_of_Granule_98[10]" destination="synapses"/>
+        </inputList>
+        <inputList id="input_0_05499999999999999nA" population="population_of_Granule_98" component="input_0_05499999999999999nA">
+            <input id="0" target="../population_of_Granule_98[11]" destination="synapses"/>
+        </inputList>
+        <inputList id="input_0_05999999999999999nA" population="population_of_Granule_98" component="input_0_05999999999999999nA">
+            <input id="0" target="../population_of_Granule_98[12]" destination="synapses"/>
+        </inputList>
+        <inputList id="input_0_06499999999999999nA" population="population_of_Granule_98" component="input_0_06499999999999999nA">
+            <input id="0" target="../population_of_Granule_98[13]" destination="synapses"/>
+        </inputList>
+        <inputList id="input_0_06999999999999999nA" population="population_of_Granule_98" component="input_0_06999999999999999nA">
+            <input id="0" target="../population_of_Granule_98[14]" destination="synapses"/>
+        </inputList>
+        <inputList id="input_0_075nA" population="population_of_Granule_98" component="input_0_075nA">
+            <input id="0" target="../population_of_Granule_98[15]" destination="synapses"/>
+        </inputList>
+        <inputList id="input_0_08nA" population="population_of_Granule_98" component="input_0_08nA">
+            <input id="0" target="../population_of_Granule_98[16]" destination="synapses"/>
+        </inputList>
+    </network>
+</neuroml>

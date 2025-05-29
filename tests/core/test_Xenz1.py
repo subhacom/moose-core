@@ -73,7 +73,7 @@ def makeModel():
     stoich.compartment = compartment
     stoich.ksolve = ksolve
     stoich.dsolve = dsolve
-    stoich.path = "/model/compartment/##"
+    stoich.reacSystemPath = "/model/compartment/##"
     assert( dsolve.numPools == 2 )
     sub.vec.concInit = subInit
     enzPool.vec.concInit = eInit
@@ -82,7 +82,7 @@ def makeModel():
     estoich.compartment = endo
     estoich.ksolve = eksolve
     estoich.dsolve = edsolve
-    estoich.path = "/model/endo/##"
+    estoich.reacSystemPath = "/model/endo/##"
     assert( edsolve.numPools == 3 )
 
     edsolve.buildMeshJunctions( dsolve )
