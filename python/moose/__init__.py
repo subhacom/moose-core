@@ -24,6 +24,7 @@ import sys
 import pydoc
 import os
 import warnings
+import atexit
 
 import moose._moose as _moose
 from moose import model_utils
@@ -1027,7 +1028,9 @@ def isinstance_(el, classobj):
     subclass.
 
     Like Python's builtin `isinstance` method, this returns `True` if
-    `el` is an instance of `classobj` or one of its subclasses.
+    `el` is an instance of `classobj` or one of its subclasses. This
+    calls `Neutral.isA` with the name of the class represented by
+    `classobj` as parameter..
 
     Parameters
     ----------
@@ -1040,25 +1043,23 @@ def isinstance_(el, classobj):
     -------
     True if `classobj` is a MOOSE-baseclass of `el`, False otherwise.
 
-    Raises
-    ------
-    TypeError if `classobj` is not a MOOSE class, or
-    `el` is not a MOOSE object
-
+    See also
+    --------
+    ``moose.Neutral.isA``
 
     """
-    base_cinfo = element(f'/classes/{classobj.__name__}')
-    if base_cinfo.name == '/':
-        raise TypeError('Not a MOOSE class', classobj)
+    return el.isA(classobj.__name__)
 
-    try:
-        obj_cinfo = element(f'/classes/{el.className}')
-    except (
-        AttributeError
-    ):  # Not a MOOSE element - doesn't have className attribute
-        raise TypeError('Not a MOOSE object', el)
-    while obj_cinfo.baseClass != 'none':
-        if obj_cinfo.name == base_cinfo.name:
-            return True
-        obj_cinfo = element(f'/classes/{obj_cinfo.baseClass}')
-    return False
+
+def cleanup(verbose=False):
+    """Cleanup everything except system elements"""
+    if verbose:
+        print('Cleaning up')
+    for child in element('/').children:
+        if child.name not in ['Msgs', 'clock', 'classes', 'postmaster']:
+            if verbose:
+                print('  Deleting', child.path)
+            delete(child.path)
+
+
+atexit.register(cleanup)

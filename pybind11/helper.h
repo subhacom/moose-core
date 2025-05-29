@@ -115,7 +115,7 @@ inline ObjId mooseCreateFromPath(const string type, const string& p,
     // Check if parent exists.
     auto parent = ObjId(pp.first);
     if(parent.bad()) {
-        throw py::key_error("Parent '" + pp.first +
+        throw std::runtime_error("Parent '" + pp.first +
                             "' is not found. Not creating...");
         return Id();
     }

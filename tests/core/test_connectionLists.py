@@ -17,6 +17,7 @@ __status__           = "Development"
 
 import moose
 
+
 params = {
         'Rm': 1e10,
         'Cm': 1e-11,
@@ -165,6 +166,7 @@ def test_connection_list():
     moose.start( params['runtime'] )
     for i in range( len(iraster.vec) ):
         print( iraster.vec[i].vector )
+
 
 if __name__ == '__main__':
     test_connection_list()
