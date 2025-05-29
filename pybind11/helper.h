@@ -26,7 +26,6 @@
 namespace py = pybind11;
 using namespace std;
 
-ObjId mooseGetCweId();
 py::object mooseGetCwe();
 
 void mooseSetCwe(const py::object& arg);
@@ -59,14 +58,15 @@ inline ObjId mooseObjIdPath(const string& p)
 
     // If path is a relative path.
     if(p[0] != '/') {
-        string cwepath(mooseGetCweId().path());
+        string cwepath(getShellPtr()->getCwe().path());
         if(cwepath.back() != '/')
             cwepath.push_back('/');
         path = cwepath + p;
     }
     ObjId oid(path);
     if(oid.bad()) {
-        cerr << "moose.element: " << path << " does not exist!" << endl;
+	throw runtime_error("element with path '" + path +
+			    "' does not exist.");
     }
     return oid;
 }
@@ -100,7 +100,7 @@ inline ObjId mooseCreateFromPath(const string type, const string& p,
     auto path = moose::normalizePath(p);
 
     if(path.at(0) != '/') {
-        string cwe = mooseGetCweId().path();
+        string cwe = getShellPtr()->getCwe().path();
         if(cwe.back() != '/')
             cwe += '/';
         path = cwe + path;
@@ -115,7 +115,7 @@ inline ObjId mooseCreateFromPath(const string type, const string& p,
     // Check if parent exists.
     auto parent = ObjId(pp.first);
     if(parent.bad()) {
-        throw py::key_error("Parent '" + pp.first +
+        throw std::runtime_error("Parent '" + pp.first +
                             "' is not found. Not creating...");
         return Id();
     }
@@ -168,6 +168,11 @@ ObjId shellConnect(const ObjId& src, const string& srcField, const ObjId& tgt,
 ObjId shellConnectToVec(const ObjId& src, const string& srcField,
                         const MooseVec& tgt, const string& tgtField,
                         const string& msgType);
+
+inline bool mooseDeleteId(const Id& id)
+{
+    return getShellPtr()->doDelete(ObjId(id));
+}
 
 inline bool mooseDeleteObj(const ObjId& oid)
 {
@@ -223,8 +228,32 @@ string mooseDoc(const string& string);
 
 vector<string> mooseLe(const ObjId& obj);
 
-string mooseShowMsg(const ObjId& obj);
+/** Returns a formatted string showing the messages on object `obj`.
+    `type` == 0 for outgoing messages,
+    `type` == 1 for incoming messages,
+    `type` == 2 for all messages.
+*/
+string mooseShowMsg(const ObjId& obj, int type=2);
 
-vector<ObjId> mooseListMsg(const ObjId& obj);
+/** Returns a vector of the messages on object `obj`.
+    `type` == 0 for outgoing messages,
+    `type` == 1 for incoming messages,
+    `type` == 2 for all messages.
+*/
+vector<ObjId> mooseListMsg(const ObjId& obj, int direction=2);
+
+/** Returns a vector of neighboring elements of `obj' connected to its field
+`fieldName`, by messages of type `msgType`, and in direction `direction`.
+`direction`=0 for outgoing,
+`direction`=1 for incoming,
+`direction`=2 for both.
+
+msgType should specify the class of message: "Single", "OneToOne",
+"OneToAll", "Diagonal", and "Sparse", of "" for all types of
+messages. Default is "".
+
+   
+ */
+vector<ObjId> mooseNeighbors(const ObjId& obj, const string& fieldName, const string& msgType="", int direction=2);
 
 #endif /* end of include guard: HELPER_H */

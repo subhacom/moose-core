@@ -207,14 +207,14 @@ const Cinfo* HHGate::initCinfo()
         "y(x) = (A + B * x) / (C + exp((x + D) / F))"
         "Deprecated.",
         new EpFunc1<HHGate, vector<double>>(&HHGate::setupGate));
-    static DestFinfo tabFillExpr(
-        "tabFillExpr",
+    static DestFinfo fillFromExpr(
+        "fillFromExpr",
         "If the gating variables are specified as string expressions"
         " (alphaExpr/betaExpr/tauExpr/infExpr), then fill up the"
         " tables by evaluating the expressions. This function is"
         " for debugging. If assigned, the expressions are evaluated to fill"
         " the tables at `reinit()`",
-        new EpFunc0<HHGate>(&HHGate::tabFillExpr));
+        new EpFunc0<HHGate>(&HHGate::fillFromExpr));
 
     static Finfo* HHGateFinfos[] = {
         &A,          // ReadOnlyLookupValue
@@ -240,7 +240,7 @@ const Cinfo* HHGate::initCinfo()
         &tweakAlpha,        // Dest
         &tweakTau,          // Dest
         &setupGate,         // Dest
-        &tabFillExpr,       // Dest
+        &fillFromExpr,       // Dest
     };
 
     static string doc[] = {
@@ -446,42 +446,8 @@ void HHGate::setMinfinity(const Eref& e, vector<double> val)
     }
 }
 
-/// Utility function to fill singularities with interpolated values
-void fixSingularities(vector<double>& tab)
-{
-    int prev, next;
-    double dy;
-
-    for(int ii = 0; ii < tab.size();
-        ++ii) {  // Little chance, but look for possibly multiple patches of
-                 // discontinuity
-        if(std::isnan(tab[ii]) || std::isinf(tab[ii]) ||
-           fabs(tab[ii]) < SINGULARITY) {
-            prev = ii - 1;
-            next = ii + 1;
-            while((next < tab.size()) &&
-                  (std::isnan(tab[next]) || std::isinf(tab[next]) ||
-                   fabs(tab[next]) < SINGULARITY)) {
-                ++next;
-            }
-            if(next >= tab.size()) {  // all entries till end are invalid,
-                                      // extrapolate
-                assert(prev >= 1);
-                dy = tab[prev] - tab[prev - 1];
-            }
-            else {
-                dy = (tab[next] - tab[prev]) / (next - prev);
-            }
-            for(int jj = prev + 1; jj < next; ++jj) {
-                tab[jj] = tab[jj - 1] + dy;
-            }
-            ii = next;
-        }
-    }
-}
-
 // Fill the A/B tables by evaluating gate formulae
-void HHGate::tabFillExpr(const Eref& e)
+void HHGate::fillFromExpr(const Eref& e)
 {
     if(form_ == 0) {
         return;
@@ -498,6 +464,7 @@ void HHGate::tabFillExpr(const Eref& e)
     double tau_;
     double inf_;
     symTab_.add_variable("v", v_);
+    symTab_.add_variable("c", v_);
     symTab_.add_variable("alpha", a_);
     symTab_.add_variable("beta", b_);
     symTab_.add_variable("tau", tau_);
@@ -540,23 +507,37 @@ void HHGate::tabFillExpr(const Eref& e)
     assert(A_.size() == B_.size());
     invDx_ = static_cast<double>(xdivs) / (xmax_ - xmin_);
     double dv = (xmax_ - xmin_) / xdivs;
+    double prevA{0}, prevB{0};
     for(int ii = 0; ii <= xdivs; ++ii) {
         v_ = xmin_ + ii * dv;
         // Check singularity to avoid division by 0/nan values
         double a_{alpha_.value()}, b_{beta_.value()};
-        if(form_ == 1) {  // alpha/beta
+	// Check for nan
+	if (a_ != a_){
+	    a_ = prevA;
+	}
+	if (b_ != b_){
+	    b_ = prevB;
+	}
+        if(form_ == 1) {  // alpha/beta	    
             b_ += a_;     // B = alpha + beta
             A_[ii] = a_;
-            B_[ii] = b_;
+            B_[ii] = fabs(b_) < SINGULARITY? SINGULARITY: b_;
+	    prevA = a_;
+	    prevB = B_[ii] - a_;
         }
         else {  // form = 2, tau/inf
-            B_[ii] = 1 / a_;
-            A_[ii] = b_ / a_;
+	    if (fabs(a_) < SINGULARITY){
+		a_ = prevA;
+		b_ = prevB;
+	    } else {
+		B_[ii] = 1 / a_;
+		A_[ii] = b_ / a_;
+		prevA = a_;
+		prevB = b_;
+	    }
         }
     }
-    // interpolate out nan and inf or small values
-    fixSingularities(A_);
-    fixSingularities(B_);
 }
 
 string HHGate::getAlphaExpr(const Eref& e) const

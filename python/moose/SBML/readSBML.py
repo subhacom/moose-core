@@ -13,7 +13,7 @@
 **           copyright (C) 2003-2017 Upinder S. Bhalla. and NCBS
 Created : Thu May 13 10:19:00 2016(+0530)
 Version
-Last-Updated: Thu Nov 28 15:14:19 2024 (+0530)
+Last-Updated: Mon May 26 15:31:36 2025 (+0530)
           By: Subhasis Ray
 **********************************************************************/
 2023
@@ -70,6 +70,8 @@ Sep 8 : - functionDefinitions is read,
             -kf and kb units is not defined and if substance units is also not defined validator fails 
 Aug 9 : - a check made to for textColor while adding to Annotator
 Aug 8 : - removed "findCompartment" function to chemConnectUtil and imported the function from the same file
+
+2025-05-26 : Updated use of Function: setting numVar is deprecated. Workaround added.
 
    TODO in
     -Compartment
@@ -1098,6 +1100,7 @@ def createRules(model, specInfoMap, globparameterIdValue):
                             #only if addition then summation works, only then I create a function in moose
                             # which is need to get the summation's output to a pool
                             funcId = moose.Function(poolList + '/func')
+                            index_var_map = {}
                             objclassname = moose.element(poolList).className
                             if objclassname == "BufPool" or objclassname == "ZombieBufPool":
                                 moose.connect(funcId, 'valueOut', poolList, 'setN')
@@ -1116,12 +1119,15 @@ def createRules(model, specInfoMap, globparameterIdValue):
                                     else:
                                         if poolsCompt.name not in comptvolume:
                                             comptvolume.append(poolsCompt.name)
-                                    numVars = funcId.numVars
-                                    x = funcId.path + '/x[' + str(numVars) + ']'
-                                    #speFunXterm[i] = 'x' + str(numVars)
-                                    speFunXterm['x'+str(numVars)] = i
-                                    moose.connect(specMapList, 'nOut', x, 'input')
-                                    funcId.numVars = numVars + 1
+                                    # numVars = funcId.numVars
+                                    # x = funcId.path + '/x[' + str(numVars) + ']'
+                                    # #speFunXterm[i] = 'x' + str(numVars)
+                                    # speFunXterm['x'+str(numVars)] = i
+                                    # moose.connect(specMapList, 'nOut', x, 'input')
+                                    # funcId.numVars = numVars + 1
+                                    specFunXterm[f'x{len(index_var_map)}'] = i
+                                    index_var_map[len(index_var_map)] = (specMapList, 'nOut')
+                                    
 
                                 elif not(i in globparameterIdValue):
                                     msg = msg + "check the variable name in mathML, this object neither pool or a constant \"" + str(i)+"\" in assignmentRule " +rule.getVariable()
@@ -1147,6 +1153,8 @@ def createRules(model, specInfoMap, globparameterIdValue):
                             if exprOK:
                                 exp = exp.replace(" ", "")
                                 funcId.expr = exp.strip(" \t\n\r")
+                                for index, (src, srcField) in index_var_map.items():
+                                    moose.connect(src, srcField, funcId.x[index], 'input')
             else:
                 msg = msg +"\nAssisgment Rule has parameter as variable, currently moose doesn't have this capability so ignoring."\
                           + rule.getVariable() + " is not converted to moose."

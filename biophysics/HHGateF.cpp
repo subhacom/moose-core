@@ -30,7 +30,7 @@ const Cinfo* HHGateF::initCinfo()
         &HHGateF::lookupB);
 
     static ElementValueFinfo<HHGateF, string> alpha(
-        "alpha",
+        "alphaExpr",
         "Expression for voltage-dependent rates, forward rate `alpha`. "
         "This requires the expression for `beta` to be defined as well.\n"
         "The syntax follows exprtk, with variable name `v` for input variable"
@@ -54,14 +54,14 @@ const Cinfo* HHGateF::initCinfo()
         &HHGateF::setAlpha, &HHGateF::getAlpha);
 
     static ElementValueFinfo<HHGateF, string> beta(
-        "beta",
+        "betaExpr",
         "Expression for voltage-dependent rates, backward rate `beta`. "
         "This requires the expression for `alpha` to be defined as well. See"
         " documentation on `alpha` for details on predefined variable names.",
         &HHGateF::setBeta, &HHGateF::getBeta);
 
     static ElementValueFinfo<HHGateF, string> tau(
-        "tau",
+        "tauExpr",
         "Expression for voltage-dependent rates, time constant `tau`. "
         "This requires the expression for `inf` to be defined as well.\n"
         "See documentation for `alpha` for details on predefined variable"
@@ -76,7 +76,7 @@ const Cinfo* HHGateF::initCinfo()
         &HHGateF::setTau, &HHGateF::getTau);
 
     static ElementValueFinfo<HHGateF, string> inf(
-        "inf",
+        "infExpr",
         "Expression for voltage-dependent rates, steady state open fraction "
         "`inf`. "
         "This requires the expression for `tau` to be defined as well.",

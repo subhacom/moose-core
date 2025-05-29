@@ -5,7 +5,6 @@ tags
 *.gnuplot
 *.ps
 *.eps
-*.png
 *.pdf
 *.h.*
 *.cpp.*

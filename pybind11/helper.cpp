@@ -16,7 +16,9 @@
 
 #include <memory>
 #include <stdexcept>
+#include <unordered_set>
 #include <csignal>
+#include <algorithm>
 
 #include <pybind11/functional.h>
 #include <pybind11/numpy.h>
@@ -31,6 +33,11 @@ namespace py = pybind11;
 
 #include "../basecode/header.h"
 #include "../basecode/global.h"
+#include "../msg/OneToOneMsg.h"
+#include "../msg/OneToAllMsg.h"
+#include "../msg/SingleMsg.h"
+#include "../msg/SparseMsg.h"
+#include "../msg/DiagonalMsg.h"
 
 #include "../builtins/Variable.h"
 #include "../mpi/PostMaster.h"
@@ -172,7 +179,7 @@ ObjId loadModelInternal(const string& fname, const string& modelpath,
     }
 
     if(model == Id()) {
-        throw runtime_error("could not load model");
+        throw std::runtime_error("could not load model");
         return Id();
     }
     return ObjId(model);
@@ -192,7 +199,7 @@ ObjId getElementFieldItem(const ObjId& objid, const string& fname,
     assert(len >= 0);
 
     if(index >= len) {
-        throw runtime_error(
+        throw py::index_error(
             "ElementField.getItem: index out of bounds. "
             "Total elements=" +
             to_string(len) + ".");
@@ -204,7 +211,7 @@ ObjId getElementFieldItem(const ObjId& objid, const string& fname,
         index += len;
     }
     if(index < 0) {
-        throw runtime_error(
+        throw py::index_error(
             "ElementField.getItem: invalid index: " + to_string(index) + ".");
         return ObjId();
     }
@@ -258,21 +265,22 @@ void mooseUseClock(size_t tick, const string& path, const string& fn)
  * @Returns  cwe.
  */
 /* ----------------------------------------------------------------------------*/
-ObjId mooseGetCweId()
-{
-    return getShellPtr()->getCwe();
-}
 
 py::object mooseGetCwe()
 {
-    return py::cast(mooseGetCweId());
+    return py::cast(getShellPtr()->getCwe());
 }
 
 void mooseSetCwe(const py::object& arg)
 {
-    if(py::isinstance<py::str>(arg))
+    if(py::isinstance<py::str>(arg)){
         return getShellPtr()->setCwe(ObjId(arg.cast<string>()));
-    return getShellPtr()->setCwe(arg.cast<ObjId>());
+    }
+    else if(py::isinstance<MooseVec>(arg)) {
+	return getShellPtr()->setCwe(arg.cast<MooseVec>().obj());
+    } else {
+        return getShellPtr()->setCwe(arg.cast<ObjId>());
+    }
 }
 
 map<string, string> mooseGetFieldDict(const string& className,
@@ -359,16 +367,16 @@ void mooseReinit()
 /* ----------------------------------------------------------------------------*/
 void mooseStart(double runtime, bool notify = false)
 {
-  // TODO: handle keyboard interrupt on _WIN32
+    // TODO: handle keyboard interrupt on _WIN32
 #if !defined(_WIN32)
-  // Credit:
-  // http://stackoverflow.com/questions/1641182/how-can-i-catch-a-ctrl-c-event-c
+    // Credit:
+    // http://stackoverflow.com/questions/1641182/how-can-i-catch-a-ctrl-c-event-c
     struct sigaction sigHandler;
     sigHandler.sa_handler = handleKeyboardInterrupts;
     sigemptyset(&sigHandler.sa_mask);
     sigHandler.sa_flags = 0;
     sigaction(SIGINT, &sigHandler, NULL);
-#endif    
+#endif
     getShellPtr()->doStart(runtime, notify);
 }
 
@@ -524,7 +532,7 @@ string mooseClassDoc(const string& className)
         return ss.str();
     }
     ss << "class " << className << "\n\n"
-       << moose::textwrap(cinfo->getDocsEntry("Description"), "  ") << "\n\n"
+       << cinfo->getDocsEntry("Description") << "\n\n"
        << "Author: " << moose::textwrap(cinfo->getDocsEntry("Author"), "  ")
        << "\n\n";
     ss << moose::underlined<'='>("Attributes:");
@@ -532,7 +540,7 @@ string mooseClassDoc(const string& className)
 
     for(string f : {"value", "lookup", "src", "dest", "shared", "field"})
         ss << mooseClassFieldsDoc(cinfo, f, "");
-    
+
     return ss.str();
 }
 
@@ -563,7 +571,7 @@ vector<string> mooseLe(const ObjId& obj)
     vector<string> chPaths;
 
     if(obj.bad())
-        throw pybind11::value_error("no such element.");
+        throw std::runtime_error("no such element.");
 
     Neutral::children(obj.eref(), children);
     stringstream ss;
@@ -576,55 +584,178 @@ vector<string> mooseLe(const ObjId& obj)
     return chPaths;
 }
 
-vector<ObjId> mooseListMsg(const ObjId& obj)
+vector<ObjId> mooseListMsg(const ObjId& obj, int type)
 {
     vector<ObjId> res;
-    auto inmsgs = Field<vector<ObjId>>::get(obj, "msgIn");
-    for(const auto inobj : inmsgs) {
-        const Msg* msg = Msg::getMsg(inobj);
-        if(!msg) {
-            cerr << "No Msg found on " << obj.path() << endl;
-            continue;
+    if(type != 0) {  // Only for 0 skip INCOMING, all other cases keep it
+        auto inmsgs = Field<vector<ObjId>>::get(obj, "msgIn");
+        for(const auto inobj : inmsgs) {
+            const Msg* msg = Msg::getMsg(inobj);
+            if(!msg) {
+                cerr << "No incoming Msg found on " << obj.path() << endl;
+                continue;
+            }
+            res.push_back(msg->mid());
         }
-        res.push_back(msg->mid());
     }
-    auto outmsgs = Field<vector<ObjId>>::get(obj, "msgOut");
-    for(const auto outobj : outmsgs) {
-        const Msg* msg = Msg::getMsg(outobj);
-        res.push_back(msg->mid());
+    if(type != 1) {  // Only for 1 skip OUTGOING, all other cases keep it
+        auto outmsgs = Field<vector<ObjId>>::get(obj, "msgOut");
+        for(const auto outobj : outmsgs) {
+            const Msg* msg = Msg::getMsg(outobj);
+            if(!msg) {
+                cerr << "No outgoing Msg found on " << obj.path() << endl;
+                continue;
+            }
+            res.push_back(msg->mid());
+        }
     }
     return res;
 }
 
-string mooseShowMsg(const ObjId& obj)
+string mooseShowMsg(const ObjId& obj, int type)
 {
     stringstream ss;
-    ss << "INCOMING:" << endl;
-    auto inmsgs = Field<vector<ObjId>>::get(obj, "msgIn");
-    for(const auto inobj : inmsgs) {
-        const Msg* msg = Msg::getMsg(inobj);
-        if(!msg) {
-            cerr << "No Msg found on " << obj.path() << endl;
-            continue;
+    if(type != 0) {  // Only for 0 skip INCOMING, all other cases keep it
+        ss << "INCOMING:" << endl;
+        auto inmsgs = Field<vector<ObjId>>::get(obj, "msgIn");
+        for(const auto inobj : inmsgs) {
+            const Msg* msg = Msg::getMsg(inobj);
+            if(!msg) {
+                cerr << "No incoming Msg found on " << obj.path() << endl;
+                continue;
+            }
+            ObjId left, right;
+            vector<string> lfields, rfields;
+            left = msg->getE2();
+            if(left != obj) {
+                right = left;
+                left = obj;
+                rfields = msg->getSrcFieldsOnE2();
+                lfields = msg->getDestFieldsOnE1();
+            }
+            else {
+                right = msg->getE1();
+                rfields = msg->getSrcFieldsOnE1();
+                lfields = msg->getDestFieldsOnE2();
+            }
+
+            ss << fmt::format("  {0}, [{1}] <-- {2}, [{3}]\n", left.path(),
+                              moose::vectorToCSV<string>(lfields), right.path(),
+                              moose::vectorToCSV<string>(rfields));
         }
-        ss << fmt::format("  {0}, [{1}] <-- {2}, [{3}]\n", msg->getE2().path(),
-                          moose::vectorToCSV<string>(msg->getDestFieldsOnE2()),
-                          msg->getE1().path(),
-                          moose::vectorToCSV<string>(msg->getSrcFieldsOnE1()));
+        ss << endl;
     }
-    ss << endl;
-    auto outmsgs = Field<vector<ObjId>>::get(obj, "msgOut");
-    ss << "OUTGOING:" << endl;
-    for(const auto outobj : outmsgs) {
-        const Msg* msg = Msg::getMsg(outobj);
-        if(!msg) {
-            cerr << "No Msg found on " << obj.path() << endl;
-            continue;
+    if(type != 1) {  // Only for 1 skip OUTGOING, all other cases keep it
+        auto outmsgs = Field<vector<ObjId>>::get(obj, "msgOut");
+        ss << "OUTGOING:" << endl;
+        for(const auto outobj : outmsgs) {
+            const Msg* msg = Msg::getMsg(outobj);
+            if(!msg) {
+                cerr << "No outgoing Msg found on " << obj.path() << endl;
+                continue;
+            }
+            ObjId left, right;
+            vector<string> lfields, rfields;
+            left = msg->getE1();
+            if(left != obj) {
+                right = left;
+                left = obj;
+                lfields = msg->getSrcFieldsOnE2();
+                rfields = msg->getDestFieldsOnE1();
+            }
+            else {
+                right = msg->getE2();
+                lfields = msg->getSrcFieldsOnE1();
+                rfields = msg->getDestFieldsOnE2();
+            }
+            if(msg->getE1() == obj) {
+                ss << fmt::format("  {0}, [{1}] --> {2}, [{3}]\n", left.path(),
+                                  moose::vectorToCSV<string>(lfields),
+                                  right.path(),
+                                  moose::vectorToCSV<string>(rfields));
+            }
         }
-        ss << fmt::format("  {0}, [{1}] --> {2}, [{3}]\n", msg->getE1().path(),
-                          moose::vectorToCSV<string>(msg->getSrcFieldsOnE1()),
-                          msg->getE2().path(),
-                          moose::vectorToCSV<string>(msg->getDestFieldsOnE2()));
     }
     return ss.str();
+}
+
+vector<ObjId> getNeighbors(const ObjId& obj, const string& fieldName,
+                           string msgType, vector<ObjId> msgList, int direction)
+{
+    vector<ObjId> res;
+    for(const auto mobj : msgList) {
+        const Msg* msg = Msg::getMsg(mobj);
+        if(!msg) {
+            continue;
+        }
+        if(msgType != "") {
+	    std::transform(msgType.begin(), msgType.end(), msgType.begin(), ::tolower);
+            if((msgType == "onetoone" && typeid(*msg) != typeid(OneToOneMsg)) ||
+               (msgType == "onetoall" && typeid(*msg) != typeid(OneToAllMsg)) ||
+               (msgType == "diagonal" && typeid(*msg) != typeid(DiagonalMsg)) ||
+               (msgType == "single" && typeid(*msg) != typeid(SingleMsg)) ||
+               (msgType == "sparse" && typeid(*msg) != typeid(SparseMsg))) {
+                continue;
+            }
+        }
+        Id e1 = msg->getE1();
+        Id e2 = msg->getE2();
+        unordered_set<string> fields;
+        if(obj.id == e1) {
+            if(direction == 1) {
+                vector<string> tmp = msg->getDestFieldsOnE1();
+                fields.insert(tmp.begin(), tmp.end());
+            }
+            else {
+                vector<string> tmp = msg->getSrcFieldsOnE1();
+                fields.insert(tmp.begin(), tmp.end());
+                if(direction != 0) {  // both directions - dest and src
+                    tmp = msg->getDestFieldsOnE1();
+                    fields.insert(tmp.begin(), tmp.end());
+                }
+            }
+            if(fieldName == "*" || fields.find(fieldName) != fields.end()) {
+                res.push_back(e2);
+            }
+        }
+        else {
+            if(direction == 1) {
+                vector<string> tmp = msg->getDestFieldsOnE2();
+                fields.insert(tmp.begin(), tmp.end());
+            }
+            else {
+                vector<string> tmp = msg->getSrcFieldsOnE2();
+                fields.insert(tmp.begin(), tmp.end());
+                if(direction != 0) {  // both directions - dest and src
+                    tmp = msg->getDestFieldsOnE2();
+                    fields.insert(tmp.begin(), tmp.end());
+                }
+            }
+            if(fieldName == "*" || fields.find(fieldName) != fields.end()) {
+                res.push_back(e1);
+            }
+        }
+    }
+    return res;
+}
+
+vector<ObjId> mooseNeighbors(const ObjId& obj, const string& fieldName,
+                             const string& msgType, int direction)
+{
+    vector<ObjId> res;
+    if(direction == 1) {
+        auto inmsgs = Field<vector<ObjId>>::get(obj, "msgIn");
+        res = getNeighbors(obj, fieldName, msgType, inmsgs, direction);
+    }
+    else {
+        auto outmsgs = Field<vector<ObjId>>::get(obj, "msgOut");
+        res = getNeighbors(obj, fieldName, msgType, outmsgs, direction);
+        if(direction != 0) {
+            auto inmsgs = Field<vector<ObjId>>::get(obj, "msgIn");
+            vector<ObjId> tmp =
+                getNeighbors(obj, fieldName, msgType, inmsgs, direction);
+            res.insert(res.end(), tmp.begin(), tmp.end());
+        }
+    }
+    return res;
 }

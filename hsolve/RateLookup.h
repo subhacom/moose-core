@@ -62,6 +62,9 @@ public:
 		double& C1,
 		double& C2 );
 
+    bool empty() const {
+	return table_.empty();
+    }
 private:
 	//~ vector< bool >       interpolate_;
 	vector< double >     table_;		///< Flattened table

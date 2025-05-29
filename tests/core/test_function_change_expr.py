@@ -30,25 +30,20 @@ def makeModel():
     d = moose.BufPool( '/model/compartment/d' )
     reac = moose.Reac( '/model/compartment/reac' )
     func = moose.Function( '/model/compartment/d/func' )
-    func.numVars = 2
-    #func.x.num = 2
-
     # connect them up for reactions
 
     moose.connect( reac, 'sub', a, 'reac' )
     moose.connect( reac, 'prd', b, 'reac' )
     if useY:
+        func.expr = "y0 + 10*y1"
         moose.connect( func, 'requestOut', b, 'getN' )
         moose.connect( func, 'requestOut', c, 'getN' )
     else:
+        func.expr = "x0 + 10*x1"
         moose.connect( b, 'nOut', func.x[0], 'input' )
         moose.connect( c, 'nOut', func.x[1], 'input' )
 
     moose.connect( func, 'valueOut', d, 'setN' )
-    if useY:
-        func.expr = "y0 + 10*y1"
-    else:
-        func.expr = "x0 + 10*x1"
 
     # connect them up to the compartment for volumes
     #for x in ( a, b, c, cplx1, cplx2 ):
@@ -80,7 +75,7 @@ def test_func_change_expr():
     stoich = moose.Stoich( '/model/compartment/stoich' )
     stoich.compartment = moose.element( '/model/compartment' )
     stoich.ksolve = ksolve
-    stoich.path = "/model/compartment/##"
+    stoich.reacSystemPath = "/model/compartment/##"
     moose.reinit()
     moose.start( 100.0 )
     func = moose.element( '/model/compartment/d/func' )

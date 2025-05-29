@@ -71,7 +71,7 @@ bool setFieldGeneric(const ObjId &oid, const string &fieldName,
     auto cinfo = oid.element()->cinfo();
     auto finfo = cinfo->findFinfo(fieldName);
     if(!finfo) {
-        throw runtime_error(__func__ + string("::") + fieldName +
+        throw py::attribute_error(__func__ + string("::") + fieldName +
                             " is not found on path '" + oid.path() + "'.");
         return false;
     }
@@ -151,7 +151,7 @@ py::object getFieldGeneric(const ObjId &oid, const string &fieldName)
     auto finfo = cinfo->findFinfo(fieldName);
 
     if(!finfo) {
-        throw py::key_error(fieldName + " is not found on '" + oid.path() +
+        throw py::attribute_error(fieldName + " is not found on '" + oid.path() +
                             "'.");
     }
 
@@ -181,6 +181,18 @@ py::object getFieldGeneric(const ObjId &oid, const string &fieldName)
                         finfoType + "'");
     return py::none();
 }
+
+vector<ObjId> getChildren(const ObjId &oid)
+{
+    vector<Id> children;
+    Neutral::children(oid.eref(), children);
+    vector<ObjId> res;
+    for(auto child : children) {
+        res.push_back(ObjId(child));
+    }
+    return res;
+}
+
 
 /* --------------------------------------------------------------------------*/
 /**
@@ -235,7 +247,7 @@ PYBIND11_MODULE(_moose, m)
     py::class_<__Finfo__>(m, "Finfo", py::dynamic_attr())
         .def(py::init<const ObjId &, const Finfo *, const char *>())
         // Only for FieldElementFinfos
-        .def("__len__", &__Finfo__::getNumField)
+        .def("__len__", &__Finfo__::getNum)
         .def("__call__", &__Finfo__::operator())
         .def("__getitem__", &__Finfo__::getItem)
         .def("__setitem__", &__Finfo__::setItem)
@@ -243,14 +255,15 @@ PYBIND11_MODULE(_moose, m)
              [](__Finfo__ &f, const string &key, const py::object &val) {
                  // FIXME: `num` is a special case here.
                  if(key == "num")
-                     return f.setNumField(val.cast<unsigned int>());
+                     return f.setNum(val.cast<unsigned int>());
                  return f.getMooseVecPtr()->setAttribute(key, val);
              })
         .def("__getattr__",
              [](__Finfo__ &f, const string &key) {
                  // FIXME: `num` is a special case.
-                 if(key == "num")
-                     return py::cast(f.getNumField());
+                 if(key == "num") {
+                     return py::cast(f.getNum());
+		 }
                  return f.getMooseVecPtr()->getAttribute(key);
              })
         .def_property_readonly("type", &__Finfo__::type)
@@ -306,9 +319,10 @@ PYBIND11_MODULE(_moose, m)
 
         .def("getType",
              [](ObjId &oid) { return oid.element()->cinfo()->name(); })
+        // Thu May  8 09:27:42 IST 2025 Neutral already has a path field which correctly formats the path with fieldIndex included. - Subha
+        // .def_property_readonly("path",  
 
-        .def_property_readonly("path",
-                               [](const ObjId &oid) { return oid.id.path(); })
+        //                        [](const ObjId &oid) { return oid.path(); })
 
         /**
          *  Override __eq__ etc.
@@ -327,7 +341,7 @@ PYBIND11_MODULE(_moose, m)
         .def("__getattr__", &getFieldGeneric,
              py::return_value_policy::reference_internal)
         .def("__setattr__", &setFieldGeneric)
-
+	.def_property_readonly("children", &getChildren)
         //---------------------------------------------------------------------
         //  Connect
         //---------------------------------------------------------------------
@@ -349,7 +363,7 @@ PYBIND11_MODULE(_moose, m)
     // Vec class for vectorization over dataIndex or fieldIndex.
     py::class_<MooseVec>(m, "vec")
         .def(py::init<const string &, unsigned int, const string &>(), "path"_a,
-             "n"_a = 1, "dtype"_a = "Neutral")  // Default
+             "n"_a = 1, "dtype"_a = "")  // Default
         .def(py::init<const ObjId &>())
         .def("__eq__", [](const MooseVec &a,
                           const MooseVec &b) { return a.obj() == b.obj(); })
@@ -410,7 +424,7 @@ PYBIND11_MODULE(_moose, m)
 
     m.def("delete", &mooseDeleteStr);
     m.def("delete", &mooseDeleteObj);
-
+    m.def("delete", &mooseDeleteId);
     m.def("__create__", &mooseCreateFromPath);
     m.def("__create__", &mooseCreateFromObjId);
     m.def("__create__", &mooseCreateFromMooseVec);
@@ -441,7 +455,7 @@ PYBIND11_MODULE(_moose, m)
     m.def("le", &mooseLe);
     m.def("showmsg", &mooseShowMsg);
     m.def("listmsg", &mooseListMsg);
-
+    m.def("neighbors", &mooseNeighbors);
     m.def("loadModelInternal", &loadModelInternal);
 
     m.def("getFieldNames", &mooseGetFieldNames);

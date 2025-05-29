@@ -11,6 +11,7 @@
 #define _SPARSE_MSG_H
 
 #include "../randnum/randnum.h"
+#include "../basecode/SparseMatrix.h"
 
 /**
  * This is a parallelized sparse message.

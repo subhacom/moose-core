@@ -236,7 +236,8 @@ void HSolveActive::advanceChannels( double dt )
 
     for ( iv = V_.begin(); iv != V_.end(); ++iv )
     {
-        vTable_.row( *iv, vRow );
+	if (!vTable_.empty())
+	    vTable_.row( *iv, vRow );
         icarowcompt = caRowCompt_.begin();
         caBoundary = ica + *icacount;
         for ( ; ica < caBoundary; ++ica )
@@ -257,8 +258,8 @@ void HSolveActive::advanceChannels( double dt )
         chanBoundary = ichan + *ichannelcount;
         for ( ; ichan < chanBoundary; ++ichan )
         {
-
-            caTable_.row( *iextca, dRow );
+	    if (!caTable_.empty())
+		caTable_.row( *iextca, dRow );
 
             if ( ichan->Xpower_ > 0.0 )
             {

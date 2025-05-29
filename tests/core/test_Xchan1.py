@@ -84,14 +84,14 @@ def makeModel():
     stoich.compartment = compartment
     stoich.ksolve = ksolve
     stoich.dsolve = dsolve
-    stoich.path = "/model/compartment/##"
+    stoich.reacSystemPath = "/model/compartment/##"
     assert (dsolve.numPools == 2)
 
     estoich = moose.Stoich('/model/endo/stoich')
     estoich.compartment = endo
     estoich.ksolve = eksolve
     estoich.dsolve = edsolve
-    estoich.path = "/model/endo/##"
+    estoich.reacSystemPath = "/model/endo/##"
     assert (edsolve.numPools == 2)
 
     edsolve.buildMeshJunctions(dsolve)
