@@ -1867,7 +1867,7 @@ static void addPos( unsigned int segIndex, unsigned int eIndex,
         minSpacing = spacing * 0.1;
     if ( minSpacing > spacing * 0.5 )
         minSpacing = spacing * 0.5;
-    unsigned int n = 1 + dendLength / minSpacing;
+    unsigned int n = static_cast<unsigned int>(1 + dendLength / minSpacing);
     double dx = dendLength / n;
     for( unsigned int i = 0; i < n; ++i )
     {

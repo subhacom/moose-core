@@ -289,7 +289,7 @@ double CylMesh::getR0( const Eref& e ) const
 void CylMesh::setX1( const Eref& e, double v )
 {
 
-    unsigned int numVoxels = (v - x0_) / diffLength_;
+    unsigned int numVoxels = static_cast<unsigned int>((v - x0_) / diffLength_);
     x1_ = v;
     if( numVoxels >= SM_MAX_COLUMNS )
     {
@@ -614,7 +614,7 @@ void CylMesh::innerHandleRequestMeshStats( const Eref& e,
         const SrcFinfo2< unsigned int, vector< double > >* meshStatsFinfo
         )
 {
-    vector< double > ret( vGetEntireVolume() / numEntries_ ,1 );
+    vector< double > ret( static_cast<unsigned int>(vGetEntireVolume() / numEntries_) ,1 );
     meshStatsFinfo->send( e, 1, ret );
 }
 
@@ -976,7 +976,7 @@ double CylMesh::selectGridVolume( double h ) const
     if ( h > r1_ )
         h = r1_;
     h *= surfaceGranularity_;
-    unsigned int num = ceil( diffLength_ / h );
+    unsigned int num = static_cast<unsigned int>(ceil( diffLength_ / h ));
     h = diffLength_ / num;
 
     return h;
@@ -992,7 +992,7 @@ void fillPointsOnCircle(
     // This will cause small errors in area estimate but they will
     // be anisotropic. The alternative will have large errors toward
     // 360 degrees, but not elsewhere.
-    unsigned int numAngle = floor( 2.0 * PI * r / h + 0.5 );
+    unsigned int numAngle = static_cast<unsigned int>(floor( 2.0 * PI * r / h + 0.5 ));
     assert( numAngle > 0 );
     double dtheta = 2.0 * PI / numAngle;
     double dArea = h * dtheta * r;
@@ -1021,7 +1021,7 @@ void CylMesh::matchCubeMeshEntries( const CubeMesh* other,
 
     double h = selectGridVolume( other->getDx() );
 
-    unsigned int num = floor( 0.1 + diffLength_ / h );
+    unsigned int num = static_cast<unsigned int>(floor( 0.1 + diffLength_ / h ));
     // March along axis of cylinder.
     // q is the location of the point along axis.
     for ( unsigned int i = 0; i < numEntries_; ++i ) {
@@ -1115,7 +1115,7 @@ double CylMesh::nearest( double x, double y, double z,
         ret = -ret;
         index = numEntries_ - 1;
     } else { // Inside length of cylinder, now is it inside radius?
-        index = k * numEntries_;
+        index = static_cast<unsigned int>(k * numEntries_);
         double ri = r0_ + (index + 0.5) * rSlope_;
         if ( ret > ri )
             ret = -ret;

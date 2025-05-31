@@ -7,7 +7,7 @@ pybind11_src = ['Finfo.cpp',
                 # 'pymoose.cpp',  # this is used in top level meson build file, skip here
                 'PyRun.cpp']
 
-python_res = run_command('python', '-c', 'from sysconfig import get_paths as gp; print(gp()["include"])')
+python_res = run_command('python', '-c', 'from sysconfig import get_paths as gp; print(gp()["include"])', check: false)
 if python_res.returncode() == 0
   inc_dirs = python_res.stdout().strip()
 else

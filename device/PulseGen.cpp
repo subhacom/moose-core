@@ -6,9 +6,9 @@
 // Maintainer:
 // Created: Mon Feb 20 01:41:12 2012 (+0530)
 // Version:
-// Last-Updated: Mon May 27 11:49:31 2013 (+0530)
-//           By: subha
-//     Update #: 170
+// Last-Updated: Sat May 31 17:59:16 2025 (+0530)
+//           By: Subhasis Ray
+//     Update #: 171
 // URL:
 // Keywords:
 // Compatibility:
@@ -263,7 +263,7 @@ double PulseGen::getOutput() const
     return output_;
 }
 
-int PulseGen::getPreviousInput() const
+double PulseGen::getPreviousInput() const
 {
     return prevInput_;
 }

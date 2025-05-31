@@ -796,7 +796,7 @@ void testReMesh()
 	bool ret = SetGet2< double, unsigned int >::set(
 		cube, "buildDefaultMesh", 1.0, 1 );
 	assert( ret );
-	unsigned int vol = Field< double >::get( cube, "volume" );
+	double vol = Field< double >::get( cube, "volume" );
 	assert( doubleEq( vol, 1.0 ) );
 	Id pool = s->doCreate( "Pool", cube, "pool", 1 );
 	Id mesh( "/base/cube/mesh" );

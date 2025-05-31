@@ -1060,10 +1060,10 @@ unsigned int Gsolve::getNumPools() const
 
 void Gsolve::getBlock( vector< double >& values ) const
 {
-    unsigned int startVoxel = values[0];
-    unsigned int numVoxels = values[1];
-    unsigned int startPool = values[2];
-    unsigned int numPools = values[3];
+    unsigned int startVoxel = static_cast<unsigned int>(values[0]);
+    unsigned int numVoxels = static_cast<unsigned int>(values[1]);
+    unsigned int startPool = static_cast<unsigned int>(values[2]);
+    unsigned int numPools = static_cast<unsigned int>(values[3]);
 
     assert( startVoxel >= startVoxel_ );
     assert( numVoxels <= pools_.size() );
@@ -1083,10 +1083,10 @@ void Gsolve::getBlock( vector< double >& values ) const
 
 void Gsolve::setBlock( const vector< double >& values )
 {
-    unsigned int startVoxel = values[0];
-    unsigned int numVoxels = values[1];
-    unsigned int startPool = values[2];
-    unsigned int numPools = values[3];
+    unsigned int startVoxel = static_cast<unsigned int>(values[0]);
+    unsigned int numVoxels = static_cast<unsigned int>(values[1]);
+    unsigned int startPool = static_cast<unsigned int>(values[2]);
+    unsigned int numPools = static_cast<unsigned int>(values[3]);
 
     assert( startVoxel >= startVoxel_ );
     assert( numVoxels <= pools_.size() );

@@ -489,7 +489,7 @@ void LSODA::lsoda(LSODA_ODE_SYSTEM_TYPE f, const size_t neq, vector<double> &y,
         ewt.resize(1 + nyh, 0);
         savf.resize(1 + nyh, 0);
         acor.resize(nyh + 1, 0.0);
-        ipvt.resize(nyh + 1, 0.0);
+        ipvt.resize(nyh + 1, 0);
     }
     /*
        Check rtol and atol for legality.

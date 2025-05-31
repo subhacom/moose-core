@@ -770,7 +770,7 @@ void testSparseMatrixFill()
 void printGrid(Element* e, const string& field, double min, double max)
 {
     static string icon = " .oO@";
-    unsigned int yside = sqrt(double(e->numData()));
+    unsigned int yside = static_cast<unsigned int>(sqrt(double(e->numData())));
     unsigned int xside = e->numData() / yside;
     if(e->numData() % yside > 0)
         xside++;
@@ -781,7 +781,7 @@ void printGrid(Element* e, const string& field, double min, double max)
         Eref er(e, i);
         ObjId oid(e->id(), i);
         double Vm = Field<double>::get(oid, field);
-        int shape = 5.0 * (Vm - min) / (max - min);
+        int shape = static_cast<int>(5.0 * (Vm - min) / (max - min));
         if(shape > 4)
             shape = 4;
         if(shape < 0)

@@ -539,7 +539,7 @@ void PsdMesh::matchCubeMeshEntries( const ChemCompt* other,
  */
 vector< unsigned int > PsdMesh::getParentVoxel() const
 {
-	vector< unsigned int > ret( parent_.size(), -1U );
+	vector< unsigned int > ret( parent_.size(), ~0U );
 	return ret;
 	// return parent_;
 }
