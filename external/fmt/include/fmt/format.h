@@ -87,6 +87,10 @@
 #else
 #  define FMT_FALLTHROUGH
 #endif
+// This is to avoid deprecation warning from MSVC
+#if defined(_MSC_VER)
+#define _SILENCE_STDEXT_ARR_ITERS_DEPRECATION_WARNING
+#endif
 
 #ifndef FMT_THROW
 #  if FMT_EXCEPTIONS
