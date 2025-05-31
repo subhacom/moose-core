@@ -263,16 +263,9 @@ namespace moose {
     /*-----------------------------------------------------------------------------
      *  Log to a file, and also to console.
      *-----------------------------------------------------------------------------*/
-    inline bool isBackTick(char a)
-    {
-        if('`' == a)
-            return true;
-        return false;
-    }
-
     inline string formattedMsg(string& msg)
     {
-        remove_if(msg.begin(), msg.end(), isBackTick);
+        msg.erase(remove_if(msg.begin(), msg.end(), [] (unsigned char x){return '`' == x;}));
         return msg;
     }
 

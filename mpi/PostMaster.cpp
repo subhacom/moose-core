@@ -262,7 +262,7 @@ int innerGetVec( const Eref& e, const OpFunc* op,
 			Eref er( elm, di, j );
 			// stuff return value into buf.
 			op->opBuffer( er, buf );
-			unsigned int size = buf[0];
+			unsigned int size = static_cast<unsigned int>(buf[0]);
 			memcpy( &getReturnBuf[k], &buf[1], size * sizeof( double ) );
 			k += size;
 		}
@@ -273,7 +273,7 @@ int innerGetVec( const Eref& e, const OpFunc* op,
 			Eref er( elm, i, 0 );
 			// stuff return value into buf.
 			op->opBuffer( er, buf );
-			unsigned int size = buf[0];
+			unsigned int size = static_cast<unsigned int>(buf[0]);
 			memcpy( &getReturnBuf[k], &buf[1], size * sizeof( double ) );
 			k += size;
 		}

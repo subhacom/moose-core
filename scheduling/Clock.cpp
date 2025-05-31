@@ -466,7 +466,7 @@ Clock::Clock()
     dt_ = defaultDt_[0];
     for ( unsigned int i = 0; i < Clock::numTicks; ++i )
     {
-        ticks_[i] = round( defaultDt_[i] / dt_ );
+        ticks_[i] = static_cast<unsigned int>(round( defaultDt_[i] / dt_ ));
     }
 }
 
@@ -605,12 +605,12 @@ void Clock::setTickDt( unsigned int i, double v )
     {
         for ( unsigned int j = 0; j < numTicks; ++j )
             if ( ticks_[j] != 0 )
-                ticks_[j] = round( ( ticks_[j] * dt_ ) / v );
+                ticks_[j] = static_cast<unsigned int>(round( ( ticks_[j] * dt_ ) / v ));
         dt_ = v;
     }
 
     if ( checkTickNum( "setTickDt", i ) )
-        ticks_[i] = round( v / dt_ );
+        ticks_[i] = static_cast<unsigned int>(round( v / dt_ ));
 }
 
 double Clock::getTickDt( unsigned int i ) const
@@ -696,7 +696,7 @@ void Clock::handleStart( const Eref& e, double runtime, bool notify )
     notify_ = notify;
     if ( stride_ == 0 || stride_ == ~0U )
         stride_ = 1;
-    unsigned long n = round( runtime / ( stride_ * dt_ ) );
+    unsigned long n = static_cast<unsigned long>(round( runtime / ( stride_ * dt_ ) ));
     handleStep( e, n );
 }
 

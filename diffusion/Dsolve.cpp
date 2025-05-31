@@ -1265,10 +1265,10 @@ unsigned int Dsolve::getNumPools() const
 // July 2014: This is half-baked wrt the startPool.
 void Dsolve::getBlock( vector< double >& values ) const
 {
-    unsigned int startVoxel = values[0];
-    unsigned int numVoxels = values[1];
-    unsigned int startPool = values[2];
-    unsigned int numPools = values[3];
+    unsigned int startVoxel = static_cast<unsigned int>(values[0]);
+    unsigned int numVoxels = static_cast<unsigned int>(values[1]);
+    unsigned int startPool = static_cast<unsigned int>(values[2]);
+    unsigned int numPools = static_cast<unsigned int>(values[3]);
 
     assert( startVoxel + numVoxels <= numVoxels_ );
     assert( startPool >= poolStartIndex_ );
@@ -1301,10 +1301,10 @@ void Dsolve::setPrev()
 
 void Dsolve::setBlock( const vector< double >& values )
 {
-    unsigned int startVoxel = values[0];
-    unsigned int numVoxels = values[1];
-    unsigned int startPool = values[2];
-    unsigned int numPools = values[3];
+    unsigned int startVoxel = static_cast<unsigned int>(values[0]);
+    unsigned int numVoxels = static_cast<unsigned int>(values[1]);
+    unsigned int startPool = static_cast<unsigned int>(values[2]);
+    unsigned int numPools = static_cast<unsigned int>(values[3]);
 
     assert( startVoxel + numVoxels <= numVoxels_ );
     assert( startPool >= poolStartIndex_ );

@@ -401,9 +401,9 @@ void CubeMesh::updateCoords()
     }
     else
     {
-        nx_ = round( (x1_ - x0_) / dx_ );
-        ny_ = round( (y1_ - y0_) / dy_ );
-        nz_ = round( (z1_ - z0_) / dz_ );
+        nx_ = static_cast<unsigned int>(round( (x1_ - x0_) / dx_ ));
+        ny_ = static_cast<unsigned int>(round( (y1_ - y0_) / dy_ ));
+        nz_ = static_cast<unsigned int>(round( (z1_ - z0_) / dz_ ));
 
         if ( nx_ == 0 ) nx_ = 1;
         if ( ny_ == 0 ) ny_ = 1;
@@ -723,8 +723,8 @@ void CubeMesh::innerBuildDefaultMesh( const Eref& e,
 {
     double approxN = numEntries;
     approxN = pow( approxN, 1.0 / 3.0 );
-    unsigned int smaller = floor( approxN );
-    unsigned int bigger = ceil( approxN );
+    unsigned int smaller = static_cast<unsigned int>(floor( approxN ));
+    unsigned int bigger = static_cast<unsigned int>(ceil( approxN ));
     unsigned int numSide;
     if ( smaller != bigger )
     {
@@ -1210,9 +1210,9 @@ unsigned int CubeMesh::spaceToIndex( double x, double y, double z ) const
 {
     if ( x > x0_ && x < x1_ && y > y0_ && y < y1_ && z > z0_ && z < z1_ )
     {
-        unsigned int ix = ( x - x0_ ) / dx_;
-        unsigned int iy = ( y - y0_ ) / dy_;
-        unsigned int iz = ( z - z0_ ) / dz_;
+        unsigned int ix = static_cast<unsigned int>(( x - x0_ ) / dx_);
+        unsigned int iy = static_cast<unsigned int>(( y - y0_ ) / dy_);
+        unsigned int iz = static_cast<unsigned int>(( z - z0_ ) / dz_);
         unsigned int index = ( iz * ny_ + iy ) * nx_ + ix;
         unsigned int innerIndex = s2m_[ index ];
         return innerIndex;
@@ -1225,9 +1225,9 @@ double CubeMesh::nearest( double x, double y, double z,
 {
     if ( x > x0_ && x < x1_ && y > y0_ && y < y1_ && z > z0_ && z < z1_ )
     {
-        unsigned int ix = ( x - x0_ ) / dx_;
-        unsigned int iy = ( y - y0_ ) / dy_;
-        unsigned int iz = ( z - z0_ ) / dz_;
+        unsigned int ix = static_cast<unsigned int>(( x - x0_ ) / dx_);
+        unsigned int iy = static_cast<unsigned int>(( y - y0_ ) / dy_);
+        unsigned int iz = static_cast<unsigned int>(( z - z0_ ) / dz_);
         index = ( iz * ny_ + iy ) * nx_ + ix;
         unsigned int innerIndex = s2m_[ index ];
         if ( innerIndex != EMPTY )   // Inside filled volume
@@ -1468,15 +1468,15 @@ void CubeMesh::assignVoxels( vector< PII >& intersect,
                              double zmin, double zmax
                            ) const
 {
-    unsigned int nx = 0.5 + ( xmax - xmin ) / dx_;
-    unsigned int ny = 0.5 + ( ymax - ymin ) / dy_;
-    unsigned int nz = 0.5 + ( zmax - zmin ) / dz_;
+    unsigned int nx =static_cast<unsigned int>( 0.5 + ( xmax - xmin ) / dx_);
+    unsigned int ny = static_cast<unsigned int>(0.5 + ( ymax - ymin ) / dy_);
+    unsigned int nz = static_cast<unsigned int>(0.5 + ( zmax - zmin ) / dz_);
     // offset terms for nx, ny, nz from coord system for coarser grid.
     // Note that these can go negative if the intersect grid goes past
     // the coarse grid.
-    int ox = round( ( xmin - x0_ ) / dx_ );
-    int oy = round( ( ymin - y0_ ) / dy_ );
-    int oz = round( ( zmin - z0_ ) / dz_ );
+    int ox = static_cast<int>(round( ( xmin - x0_ ) / dx_ ));
+    int oy = static_cast<int>(round( ( ymin - y0_ ) / dy_ ));
+    int oz = static_cast<int>(round( ( zmin - z0_ ) / dz_ ));
 
     // Scan through mesh surface using coarser grid, assign cuboid voxels
     for ( vector< unsigned int >::const_iterator i = surface_.begin();
@@ -1525,9 +1525,9 @@ void CubeMesh::matchCubeMeshEntries( const CubeMesh* other,
     defineIntersection( other, xmin, xmax, ymin, ymax, zmin, zmax );
 
     // Allocate intersecting cuboid
-    unsigned int nx = 0.5 + ( xmax - xmin ) / dx_;
-    unsigned int ny = 0.5 + ( ymax - ymin ) / dy_;
-    unsigned int nz = 0.5 + ( zmax - zmin ) / dz_;
+    unsigned int nx = static_cast<unsigned int>(0.5 + ( xmax - xmin ) / dx_);
+    unsigned int ny = static_cast<unsigned int>(0.5 + ( ymax - ymin ) / dy_);
+    unsigned int nz = static_cast<unsigned int>(0.5 + ( zmax - zmin ) / dz_);
     vector< PII > intersect( nx * ny * nz, PII( EMPTY, EMPTY ) );
     assignVoxels( intersect, xmin, xmax, ymin, ymax, zmin, zmax );
 
@@ -1541,9 +1541,9 @@ void CubeMesh::matchCubeMeshEntries( const CubeMesh* other,
         if ( x >= xmin && x <= xmax && y >= ymin && y <= ymax &&
                 z >= zmin && z <= zmax )
         {
-            unsigned int ix = ( x - xmin ) / dx_;
-            unsigned int iy = ( y - ymin ) / dy_;
-            unsigned int iz = ( z - zmin ) / dz_;
+            unsigned int ix = static_cast<unsigned int>(( x - xmin ) / dx_);
+            unsigned int iy = static_cast<unsigned int>(( y - ymin ) / dy_);
+            unsigned int iz = static_cast<unsigned int>(( z - zmin ) / dz_);
             unsigned int meshIndex = other->s2m_[ *i ];
             checkAbut( intersect, ix, iy, iz, nx, ny, nz, meshIndex, ret );
         }

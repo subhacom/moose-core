@@ -18,6 +18,9 @@
 ******************************************************************/
 
 #include "getopt.h"
+ // Workaround to ignore warning: "... winbase.h(9531): warning C5105:
+ // macro expansion producing 'defined' has undefined behavior
+#define _SILENCE_CXX20_CISO646_REMOVED_WARNING 1
 #include <windows.h>
 
 char* optarg = NULL;

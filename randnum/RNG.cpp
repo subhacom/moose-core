@@ -46,7 +46,7 @@ void RNG::setSeed( const unsigned long seed )
         MOOSE_RANDOM_DEVICE rd_;
         seed_ = rd_();
     }
-    rng_.seed( seed_ );
+    rng_.seed( seed);
 }
 
 /**
