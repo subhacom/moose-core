@@ -5,6 +5,11 @@
 //
 // For the license information refer to format.h.
 
+// This is to avoid deprecation warning from MSVC
+#if defined(_MSC_VER)
+#define _SILENCE_STDEXT_ARR_ITERS_DEPRECATION_WARNING
+#endif
+
 #include "fmt/format-inl.h"
 
 FMT_BEGIN_NAMESPACE
