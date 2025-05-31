@@ -352,7 +352,7 @@ void NeuroMesh::updateCoords()
         if ( !i->isDummyNode() )
         {
             double len = i->getLength();
-            unsigned int numDivs = floor( 0.5 + len / diffLength_ );
+            unsigned int numDivs = static_cast<unsigned int>(floor( 0.5 + len / diffLength_ ));
             if ( numDivs < 1 )
                 numDivs = 1;
             i->setNumDivs( numDivs );
@@ -1314,7 +1314,7 @@ double NeuroMesh::nearest( double x, double y, double z,
                 if ( best > near )
                 {
                     best = near;
-                    index = linePos * nn.getNumDivs() + nn.startFid();
+                    index = static_cast<unsigned int>(linePos * nn.getNumDivs() + nn.startFid());
                 }
             }
         }

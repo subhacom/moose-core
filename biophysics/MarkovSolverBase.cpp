@@ -533,7 +533,7 @@ void MarkovSolverBase::fillupTable()
 
 	//Set constant rates in the Q matrix, if any.
 	innerFillupTable( listOfConstantRates, "constant",
-										0.0, 0.0 );
+										0, 0 );
 
 	//xIndex loops through all voltages, yIndex loops through all
 	//ligand concentrations.

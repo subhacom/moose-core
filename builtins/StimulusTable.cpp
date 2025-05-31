@@ -154,7 +154,7 @@ void StimulusTable::process( const Eref& e, ProcPtr p )
 
 	double lookupPosition = stepPosition_;
 	if ( doLoop_ && ( stepPosition_ > start_ + loopTime_ ) ) {
-		unsigned int i = floor( ( stepPosition_ - start_ ) / loopTime_ );
+	    unsigned int i = static_cast<unsigned int>(floor( ( stepPosition_ - start_ ) / loopTime_ ));
 			lookupPosition = stepPosition_ - loopTime_ * i;
 	}
 

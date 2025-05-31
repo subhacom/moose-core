@@ -337,7 +337,7 @@ void EndoMesh::innerHandleRequestMeshStats( const Eref& e,
 		const SrcFinfo2< unsigned int, vector< double > >* meshStatsFinfo
 	)
 {
-	vector< double > ret( vGetEntireVolume() / parent_->getNumEntries(), 1);
+    vector< double > ret( static_cast<unsigned int>(vGetEntireVolume() / parent_->getNumEntries()), 1);
 	meshStatsFinfo->send( e, 1, ret );
 }
 
@@ -381,7 +381,7 @@ vector< unsigned int > EndoMesh::getParentVoxel() const
 	if ( doAxialDiffusion_ )
 		return parent_->getParentVoxel();
 
-	vector< unsigned int > ret( parent_->innerGetNumEntries(), -1U );
+	vector< unsigned int > ret( parent_->innerGetNumEntries(), ~0U );
 	return ret;
 }
 

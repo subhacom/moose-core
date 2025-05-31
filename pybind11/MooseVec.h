@@ -70,13 +70,13 @@ public:
         if (rttType == "double")
             return Field<double>::set(getItem(i), name, val);
         if (rttType == "int")
-            return Field<int>::set(getItem(i), name, val);
+            return Field<int>::set(getItem(i), name, static_cast<int>(val));
         if (rttType == "unsigned long")
-            return Field<unsigned long>::set(getItem(i), name, val);
+            return Field<unsigned long>::set(getItem(i), name, static_cast<unsigned long>(val));
         if (rttType == "unsigned int")
-            return Field<unsigned int>::set(getItem(i), name, val);
+            return Field<unsigned int>::set(getItem(i), name, static_cast<unsigned int>(val));
         if (rttType == "bool")
-            return Field<bool>::set(getItem(i), name, val);
+            return Field<bool>::set(getItem(i), name, static_cast<bool>(val));
         return false;
     }
 

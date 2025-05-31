@@ -6,9 +6,9 @@
 // Maintainer:
 // Created: Mon Feb 20 01:21:32 2012 (+0530)
 // Version:
-// Last-Updated: Mon Feb 20 16:42:41 2012 (+0530)
+// Last-Updated: Sat May 31 17:59:27 2025 (+0530)
 //           By: Subhasis Ray
-//     Update #: 60
+//     Update #: 62
 // URL:
 // Keywords:
 // Compatibility:
@@ -95,7 +95,7 @@ public:
     unsigned int getTrigMode() const;
     double getOutput() const;
     double getTrigTime() const;
-    int getPreviousInput() const;
+    double getPreviousInput() const;
     void setCount(unsigned int count);
     unsigned int getCount() const;
     void setLevel(unsigned int pulseNo, double level);
@@ -129,8 +129,8 @@ protected:
     unsigned int trigMode_;
     bool secondPulse_;
 
-    int prevInput_;
-    int input_;
+    double prevInput_;
+    double input_;
 };
 
 #endif  // _PULSEGEN_H
