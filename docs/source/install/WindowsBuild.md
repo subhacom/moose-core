@@ -35,7 +35,7 @@ conda activate moose
 
 ## Build and install moose using `pip`
 ```
-pip install git=https://github.com/MooseNeuro/moose-core
+pip install git+https://github.com/MooseNeuro/moose-core
 ```
 
 ## Build moose for development
