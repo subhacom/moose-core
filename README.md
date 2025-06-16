@@ -42,15 +42,6 @@ https://github.com/MooseNeuro/moose-examples.
 - A set of jupyter notebooks with step by step examples with explanation are available here:
 https://github.com/MooseNeuro/moose-notebooks.
 
-# Build 
-
-To build `pymoose`, follow instructions given in
-[INSTALL.md](INSTALL.md) and for platform specific
-information see:
-- Linux: [UbuntuBuild.md](UbuntuBuild.md)
-- MacOSX: [AppleM1Build.md](AppleM1Build.md)
-- Windows: [WindowsBuild.md](WindowsBuild.md)
-
 # ABOUT VERSION 4.1.1, `Jhangri`
 
 [`Jhangri`](https://en.wikipedia.org/wiki/Imarti) is an Indian sweet
