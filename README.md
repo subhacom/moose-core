@@ -33,10 +33,14 @@ details about MOOSE simulator, visit https://moose.ncbs.res.in .
 ----------
 # Installation
 
-See [INSTALL.md](INSTALL.md) for instructions on installation.
+See [docs/source/install/INSTALL.md](docs/source/install/INSTALL.md) for instructions on installation.
 
-Have a look at examples, tutorials and demo here
-https://github.com/BhallaLab/moose-examples.
+# Examples and Tutorials
+- Have a look at examples, tutorials and demo scripts here
+https://github.com/MooseNeuro/moose-examples.
+
+- A set of jupyter notebooks with step by step examples with explanation are available here:
+https://github.com/MooseNeuro/moose-notebooks.
 
 # Build 
 
