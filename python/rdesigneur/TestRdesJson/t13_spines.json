@@ -1,0 +1,17 @@
+{
+	"filetype": "rdesigneur",
+	"version": "1.0",
+	"cellProto" : { "type": "ballAndStick", "somaDia":10, "somaLen": 20, "dendDia": 2, "dendLen": 500, "numDendSeg": 10 },
+	"passiveDistrib": [
+			{"path": "#", "Em": -0.065}
+	],
+	"spineProto" : [
+		{ "type": "builtin", "source": "activeSpine", "name":"aspine", "shaftDia": 1e-7, "shaftLen": 1e-6, "headDia": 1e-6, "headLen": 0.5e-6, "gluGbar": 200.0, "nmdaGbar": 100.0 },
+		{ "type": "builtin", "source": "passiveSpine", "name":"pspine", "shaf    tDia": 2e-7, "shaftLen": 1e-6, "headDia": 0.5e-6, "headLen": 0.4e-6 }
+	],
+	"spineDistrib": [
+		{"proto": "aspine", "path": "dend#", "spacing": 2e-6, "minSpacing": 1e-6, "sizeScale": 1.0, "sizeSdev": 0.5},
+		{"proto": "pspine", "path": "dend#", "spacing": 2e-6, "sizeScale": 2.0, "sizeSdev": 0.5, "angle": "6.28*p/maxP", "angleSdev": 0.5}
+	]
+}
+

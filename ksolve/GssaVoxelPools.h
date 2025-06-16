@@ -48,7 +48,7 @@ public:
     /**
      * Builds the gssa system as needed.
      */
-    void reinit( const GssaSystem* g );
+    void reinit( const GssaSystem* g, int rngSeedOffset );
 
     void updateAllRateTerms( const vector< RateTerm* >& rates,
             unsigned int numCoreRates	);

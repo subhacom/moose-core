@@ -1,0 +1,43 @@
+My Json file can take one of the following forms:
+{
+	"filetype": "rdesigneur",
+	"version": "1.0",
+	"cellProto" : { "type": "file", "source": "fname.swc" }
+}
+or
+{
+	"filetype": "rdesigneur",
+	"version": "1.0",
+	"cellProto" : { "type": "func", "source": "funcname" }
+}
+or
+{
+	"filetype": "rdesigneur",
+	"version": "1.0",
+	"cellProto" : { "type": "soma", "dia": 10, "len": 20 }
+}
+or
+{
+	"filetype": "rdesigneur",
+	"version": "1.0",
+	"cellProto" : { "type": "soma", "dia": 10 }
+}
+or
+{
+	"filetype": "rdesigneur",
+	"version": "1.0",
+	"cellProto" : { "type": "soma" }
+}
+or
+{
+	"filetype": "rdesigneur",
+	"version": "1.0",
+	"cellProto" : { "type": "ballAndStick", "somaDia":10, "somaLen": 20, "dendDia": 2, "dendLen": 500, "numDendCompt": 10  }
+}
+or
+{
+	"filetype": "rdesigneur",
+	"version": "1.0",
+	"cellProto" : { "type": "ballAndStick", "somaDia":10, "somaLen": 20, "dendDia": 2, "dendLen": 500 }
+}
+Please provide a Json schema for this range of options for my Json file.

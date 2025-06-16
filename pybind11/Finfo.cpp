@@ -47,6 +47,9 @@ py::object getFieldValue(const ObjId &oid, const Finfo *f)
     else if(rttType == "vector<unsigned int>") {
         r = getFieldNumpy<unsigned int>(oid, fname);
     }
+    else if(rttType == "vector<int>") {
+        r = getFieldNumpy<int>(oid, fname);
+    }
     else if(rttType == "string")
         r = py::str(getField<string>(oid, fname));
     else if(rttType == "char")

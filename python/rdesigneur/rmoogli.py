@@ -8,7 +8,11 @@ from __future__ import absolute_import, print_function, division
 # This program is licensed under the GNU Public License version 3.
 
 import numpy as np
-import rdesigneur.moogul as moogul
+try:
+    import rdesigneur.moogul as moogul
+except ModuleNotFoundError:
+    raise
+
 import moose
 mooViews = []
 
@@ -22,8 +26,22 @@ class MooseNeuronDataWrapper( moogul.DataWrapper ):
         elif field in ["Ik","Gk", "Ek", "Gbar", "modulation"]:
             self.dummyObj = moose.SynChan( "/dummyCa" )
 
+        self.objClass = "Compartment"
         compts = moose.wildcardFind( neuronId.path + "/#[ISA=CompartmentBase]" )
-        self.coords_ = np.array( [ii.coords for ii in compts] )
+        if len(compts) > 0:
+            self.coords_ = np.array( [ii.coords for ii in compts] )
+        else:
+            compts = moose.wildcardFind( neuronId.path + "/#[ISA=IntFire]" )
+            if len( compts ) > 0:
+                self.objClass = "IntFire"
+                self.coords_ = []
+                coords = moose.vec( compts[0].path + "/coords" )
+                assert( len( coords ) == len( compts ) )
+                self.coords_ = [ cc.vector for cc in coords ]
+            else:
+                print( "Error: NeuronDataWrapper should be either class CompartmentBase or IntFire." )
+                quit()
+
         self.getMinMax()
         if relativeObjPath == ".":
             self.objList_ = compts
@@ -140,9 +158,12 @@ def notifySimulationEnd():
     if len( mooViews ) > 0:
         mooViews[0].notifySimulationEnd()
 
-def displayMoogli( rd, _dt, _runtime, rotation = 0.0, fullscreen = False, azim = 0.0, elev = 0.0, mergeDisplays = False, center = [0.0, 0.0, 0.0], colormap = 'jet', bg = 'default' ):
+def displayMoogli( rd, _dt, _runtime, rotation = 0.0, fullscreen = False, azim = 0.0, elev = 0.0, mergeDisplays = False, center = [0.0, 0.0, 0.0], colormap = 'jet', bg = 'default', animation = [], movieFrame = [] ):
     global mooViews
     mooViews = rd.moogNames
     for view in rd.moogNames:
-        view.firstDraw( mergeDisplays, rotation = rotation, azim = azim, elev = elev, center = center, colormap = colormap, bg = bg )
+        view.firstDraw( mergeDisplays, rotation = rotation, azim = azim, 
+            elev = elev, center = center, colormap = colormap, bg = bg, 
+            animation = animation, movieFrame = movieFrame )
+        movieFrame = [] # Only initialize for the first one.
         # rotation in radians/frame, azim, elev in radians.

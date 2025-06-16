@@ -162,9 +162,11 @@ const Cinfo* SeqSynHandler::initCinfo()
         "Vector of  weight scaling for each synapse",
         &SeqSynHandler::getWeightScaleVec
     );
-    static ReadOnlyValueFinfo< SeqSynHandler, vector< double > > kernel(
+    static ValueFinfo< SeqSynHandler, vector< double > > kernel(
         "kernel",
-        "All entries of kernel, as a linear vector",
+        "All entries of kernel, as a linear vector. numHist_x_width. "
+		"Organized as successive blocks of 'width' entries.",
+        &SeqSynHandler::setKernel,
         &SeqSynHandler::getKernel
     );
     static ReadOnlyValueFinfo< SeqSynHandler, vector< double > > history(
@@ -347,7 +349,7 @@ void SeqSynHandler::refillSynapseOrder( unsigned int newSize )
 
 void SeqSynHandler::updateKernel()
 {
-    if ( kernelEquation_ == "" || seqDt_ < 1e-9 || historyTime_ < 1e-9 )
+    if ( kernelEquation_ == "" || kernelEquation_ == "assigned using setKernel" || seqDt_ < 1e-9 || historyTime_ < 1e-9 )
         return;
     double x = 0;
     double t = 0;
@@ -467,6 +469,25 @@ vector< double >SeqSynHandler::getWeightScaleVec() const
     return weightScaleVec_;
 }
 
+void SeqSynHandler::setKernel( vector< double > kern)
+{
+    int nh = numHistory();
+	if ( kern.size() != nh * kernelWidth_ ) {
+		cout << "Warning: Kernel size must be numHistory X width (" << nh << " X " << kernelWidth_ << "). Assignment not done.\n";
+		return;
+	}
+	kernelEquation_ = "assigned using setKernel";
+    kernel_.resize( nh );
+    for ( int i = 0; i < nh; ++i )
+    {
+        kernel_[i].resize( kernelWidth_ );
+        for ( unsigned int j = 0; j < kernelWidth_; ++j )
+        {
+            kernel_[i][j] = kern[ i*kernelWidth_ + j];
+        }
+    }
+}
+
 vector< double > SeqSynHandler::getKernel() const
 {
     int nh = numHistory();
@@ -555,6 +576,7 @@ void SeqSynHandler::dropSynapse( unsigned int msgLookup )
 }
 
 /////////////////////////////////////////////////////////////////////
+
 void SeqSynHandler::vProcess( const Eref& e, ProcPtr p )
 {
     // Here we look at the correlations and do something with them.
@@ -579,26 +601,28 @@ void SeqSynHandler::vProcess( const Eref& e, ProcPtr p )
             history_.sumIntoRow( latestSpikes_, 0 );
             latestSpikes_.assign( vGetNumSynapses(), 0.0 );
 
-			// I don't understand why we iterate over nh here.
-			// We just want the current correlation.
-			/**
+			/** Reinstated 12 Oct 2022.
+			*/
             // Build up the sum of correlations over time
             vector< double > correlVec( vGetNumSynapses(), 0.0 );
-            for ( int i = 0; i < nh; ++i )
+            for ( int i = 0; i < nh; ++i ) {
                 history_.correl( correlVec, kernel_[i], i );
+				// The correl function does a sweep of dot products
+				// across all columns, ie, all synapses.
+			}
             if ( sequenceScale_ > 0.0 )   // Sum all responses, send to chan
             {
                 seqActivation_ = 0.0;
-                // for ( vector< double >::iterator y = correlVec.begin(); y != correlVec.end(); ++y )
-                //   seqActivation_ += pow( *y, sequencePower_ );
 				for (const auto y : correlVec )
                     seqActivation_ += pow( y, sequencePower_ );
 
                 // We'll use the seqActivation_ to send a special msg.
                 seqActivation_ *= sequenceScale_;
             }
-			*/
 
+			/** This version works across history but does not move the
+			 * kernel across the range of different synapses
+			 * Removed 12 Oct 2022.
             seqActivation_ = 0.0;
             if ( sequenceScale_ > 0.0 )   // Sum all responses, send to chan
             {
@@ -606,6 +630,7 @@ void SeqSynHandler::vProcess( const Eref& e, ProcPtr p )
                 	seqActivation_ += pow( history_.dotProduct( kernel_[i], i, 0 ), sequencePower_ );
                 seqActivation_ *= sequenceScale_;
             }
+			*/
 
 			/*
 			 * I think this is altering the correl vec for next cycle.
