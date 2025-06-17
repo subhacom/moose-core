@@ -30,7 +30,8 @@ contains C++ codebase and python interface called `pymoose`. For more
 details about MOOSE simulator, visit https://moose.ncbs.res.in .
 
 
-----------
+-------------
+  
 # Installation
 
 See [docs/source/install/INSTALL.md](docs/source/install/INSTALL.md) for instructions on installation.
