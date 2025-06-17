@@ -1,0 +1,9 @@
+{
+	"filetype": "rdesigneur",
+	"version": "1.0",
+	"cellProto" : { "type": "branchedCell", "somaDia":10, "somaLen": 20, "dendDia": 2, "dendLen": 500, "numDendSeg": 10, "branchDia": 1, "branchLen": 100, "branchNumSeg": 2 },
+	"passiveDistrib": [
+			{"path": "soma", "CM":0.01, "Em": -0.065, "RM":1.0},
+			{"path": "dend#", "CM":0.02, "Em": -0.065, "RM":1.0}
+	]
+}

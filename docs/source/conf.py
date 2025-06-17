@@ -86,7 +86,7 @@ copyright = u'2025, Upinder Bhalla, Niraj Dudani, Subhasis Ray, ' + \
 # The short X.Y version.
 version = '4.1'
 # The full version, including alpha/beta/rc tags.
-release = 'jhangri (4.1.0)'
+release = 'jhangri (4.1.1)'
 
 breathe_projects = {
     project: '../build/_doxygen/xml'

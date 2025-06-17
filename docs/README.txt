@@ -9,9 +9,6 @@ pip install sphinx breathe exhale
 
 The source code of documentation is in `./source` directory.
 
-
-
-
 This directory contains MOOSE user documentation in reST format that can be
 compiled into various formats by sphinx. To build the documentation in HTML,
 format  enter the command:

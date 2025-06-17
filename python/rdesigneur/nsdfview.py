@@ -106,6 +106,7 @@ class NsdfChemDataWrapper( moogul.DataWrapper ):
         self.idx_ = 0
         self.dt_= nsdf["/data/uniform/{}/{}/{}".format( self.objBase_, self.objRel_, field)].attrs['dt']
         self.coords_ = np.array( nsdf['/data/static/{}/{}/coords'.format(self.objBase_, self.objRel_) ] )
+        self.meshType_ = nsdf['/data/static/{}/{}/coords'.format(self.objBase_, self.objRel_) ].attrs['meshType'].decode('utf-8')
         if self.coords_.shape[1] == 10:
             self.coords_[:,6] = self.coords_[:,9] # Temp hack to get radius correctly
         objPaths = nsdf["/map/static/{}/{}/coords".format( self.objBase_, self.objRel_)]
@@ -128,8 +129,7 @@ class NsdfChemDataWrapper( moogul.DataWrapper ):
         return self.coords_
 
     def meshType( self ):
-        #return self.meshType_
-        return "NeuroMesh"
+        return self.meshType_
 
     def getShape( self ):
         npath = "/data/uniform/{}/{}/{}".format( self.objBase_, self.objRel_, self.field_ )

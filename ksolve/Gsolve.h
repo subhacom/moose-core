@@ -124,6 +124,11 @@ public:
     /// Flag: set true if randomized round to integers is to be done.
     void setRandInit( bool val );
 
+    /// return rngSeedOffset used to give distinct rand seeds to each voxel
+    int getRngSeedOffset() const;
+    /// assign rngSeedOffset used to give distinct rand seeds to each voxel
+    void setRngSeedOffset( int val );
+
     /// Flag: returns true if randomized round to integers is done.
     bool getClockedUpdate() const;
     /// Flag: set true if randomized round to integers is to be done.
@@ -173,6 +178,9 @@ private:
 
     // private rng.
     moose::RNG rng_;
+
+	/// Offset * voxIdx is added to rng seed for each voxel to get indept.
+	int rngSeedOffset_;
 };
 
 #endif	// _GSOLVE_H

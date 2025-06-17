@@ -31,6 +31,7 @@ Python, graphical displays with Matplotlib, PyQt, and OpenGL, and support for
 many model formats. These include SBML, NeuroML, GENESIS kkit and cell.p
 formats, HDF5 and NSDF for data writing.
 
+
 How to navigate this documentation?
 -----------------------------------
 This documentation is organized into three parts:

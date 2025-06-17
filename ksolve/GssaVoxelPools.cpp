@@ -210,9 +210,9 @@ void GssaVoxelPools::advance( const ProcInfo* p, const GssaSystem* g )
     }
 }
 
-void GssaVoxelPools::reinit( const GssaSystem* g )
+void GssaVoxelPools::reinit( const GssaSystem* g, int rngSeedOffset )
 {
-    rng_.setSeed( moose::getGlobalSeed() );
+    rng_.setSeed( moose::getGlobalSeed() + rngSeedOffset );
     VoxelPoolsBase::reinit(); // Assigns S = NA * vol * Cinit;
     unsigned int numVarPools = g->stoich->getNumVarPools();
     g->stoich->updateFuncs( varS(), 0 );
@@ -228,12 +228,14 @@ void GssaVoxelPools::reinit( const GssaSystem* g )
         {
             _prev = n[i];
             n[i] = approximateWithInteger(_prev, rng_);
-            error += (_prev - n[i]);
+            error += fabs(_prev - n[i]);
         }
 
         // Show warning to user if extra molecules in the system after
-        // converting flots to integer is larger 1%.
-        if( std::abs(error) >= 1.0 )
+        // converting floats to integer is larger than 1.0. 
+		// Jan 2024: Disable until I come up with a good way to handle.
+		// Note also that this is likely when we have more pools.
+        if( 0 && std::abs(error) >= 1.0 )
         {
             MOOSE_WARN( "Extra " << error
                         << " molecules in system after converting fractional to integer."

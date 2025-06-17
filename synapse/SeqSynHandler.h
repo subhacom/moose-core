@@ -71,6 +71,7 @@ class SeqSynHandler: public SynHandlerBase
  		double getSequencePower() const;
  		vector< double > getWeightScaleVec() const;
  		vector< double > getKernel() const;
+ 		void setKernel( vector< double > );
  		vector< double > getHistory() const;
 
 		////////////////////////////////////////////////////////////////
