@@ -80,7 +80,8 @@ dist = ['--include-subprojects']
 build = '*-macosx_* *-manylinux_x86_64 *-win_amd64 *-win_arm64'
 skip = "*-win32"
 test-skip = ""
-free-threaded-support = false
+
+# free-threaded-support = false
 
 archs = ["auto"]
 build-frontend = "default"
