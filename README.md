@@ -74,7 +74,13 @@ This release has the following changes:
 8. Attempt to access paths with non-existent element now consistently raises RuntimeError.
 9. `moose.delete` now accepts vec (Id) as argument.
 
+# Installation
+Installing released version from PyPI using `pip`
 
+This version is now available for installation via `pip`. To install the latest release, run
+```
+pip install pymoose
+```
 
 # Documentation
 1. Updated `Ubuntu` build instructions for better clarity.
