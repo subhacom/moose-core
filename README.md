@@ -43,6 +43,9 @@ https://github.com/MooseNeuro/moose-examples.
 - A set of jupyter notebooks with step by step examples with explanation are available here:
 https://github.com/MooseNeuro/moose-notebooks.
 
+# v4.1.1 – Incremental Release over v4.1.0 "Jhangri"
+This version builds upon the v4.1.0 (Jhangri) release and includes important internal improvements, documentation enhancements, and binding support.
+
 # ABOUT VERSION 4.1.1, `Jhangri`
 
 [`Jhangri`](https://en.wikipedia.org/wiki/Imarti) is an Indian sweet
@@ -52,6 +55,33 @@ body, which is then soaked in sugar syrup lightly flavoured with
 spices.
 
 This release has the following changes:
+
+# Installation
+Installing released version from PyPI using `pip`
+
+This version is now available for installation via `pip`. To install the latest release, run
+```
+pip install pymoose
+```
+## Post installation
+
+You can check that moose is installed and initializes correctly by running:
+```
+$ python -c "import moose; ch = moose.HHChannel('ch'); moose.le()"
+```
+This should show 
+```
+Elements under /
+    /Msgs
+    /clock
+    /classes
+    /postmaster
+    /ch	
+```
+
+Now you can import moose in a Python script or interpreter with the statement:
+
+    >>> import moose
 
 # New Features
 1.  Formula-based versions of HH-type channels 
@@ -63,9 +93,9 @@ This release has the following changes:
 # API Updates
 1. API changes in  `moose.vec` and `moose.element,` including updated documentation.
 2. `moose.showfields` updated to 
- - skip system fields like `fieldIndex`, `numData` etc. These can now be printed using `sysfields` function.
- -  print common but informative fields like `name`, className`, `tick` and `dt` at the top.
- - return `None` instead of the output string to avoid cluttering the interactive session.
+   - skip system fields like `fieldIndex`, `numData` etc. These can now be printed using `sysfields` function.
+   -  print common but informative fields like `name`, `className`, `tick` and `dt` at the top.
+   - return `None` instead of the output string to avoid cluttering the interactive session.
 3. `moose.pwe()` returns `None` to avoid output clutter. Use `moose.getCwe()` for retrieving the current working element.
 4. `children` field of moose elements (ObjId) now return a list of elements instead of vecs (Id). This brings consistency between `parent` and `children` fields.
 5. `moose.le()` returns `None` to avoid output clutter. Use `element.children` field to access the list of children.
@@ -74,19 +104,6 @@ This release has the following changes:
 8. Attempt to access paths with non-existent element now consistently raises RuntimeError.
 9. `moose.delete` now accepts vec (Id) as argument.
 
-# Installation
-Installing released version from PyPI using `pip`
-
-This version is now available for installation via `pip`. To install the latest release, run
-```
-pip install pymoose
-```
-
-# Documentation
-1. Updated `Ubuntu` build instructions for better clarity.
-2. Enhanced documentation for `HHGate`, including additional warnings.
-3. Updated documentation for `Stoich,` with improved code comments and clarifications.
-
 # Bug Fixes
 1. `bool` attribute handling added to `moose.vec`
 2. More informative error message for unhandled attributes in `moose.vec`
@@ -94,7 +111,10 @@ pip install pymoose
 4. `moose.setCwe()` now handles str, element (ObjId) and vec (Id) parameters correctly
 5. fixed `moose.showmsg()` mixing up incoming and outgoing messages.
 
-
+# Documentation
+1. Updated `Ubuntu` build instructions for better clarity.
+2. Enhanced documentation for `HHGate`, including additional warnings.
+3. Updated documentation for `Stoich,` with improved code comments and clarifications.
    
 # LICENSE
 
