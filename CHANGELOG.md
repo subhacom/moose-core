@@ -4,6 +4,21 @@
 ## Unreleased
 *Unreleased changes go here*
 
+## [4.1.1] - 2025-06-23
+Jhangri
+
+### Added 
+- Added `HHChannelF` and `HHGateF` for formula-based evaluation of Hodgkin-Huxley type gating parameters
+- Added a formula interface for `HHGate`: Users can now assign string formula in `exprtk` syntax to `alphaExpr`, `betaExpr`, `tauExpr` and `infExpr` to fill up the               tables. These can take either `v` for voltage or `c` for concentration as independent variable names in the formula.
+- Added `moose.sysfields` to display system fields like `fieldIndex`, `numData` etc.
+
+### FIXED
+1. `bool` attribute handling added to `moose.vec`
+2. More informative error message for unhandled attributes in `moose.vec`
+3. Fixed issue #505
+4. `moose.setCwe()` now handles str, element (ObjId) and vec (Id) parameters correctly
+5. fixed `moose.showmsg()` mixing up incoming and outgoing messages.
+
 ## [4.1.0] - 2024-11-28
 Jhangri
 ### Added
