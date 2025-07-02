@@ -53,6 +53,45 @@ PREDEFINED_RATEFN_MAP = {
 }
 
 
+PREDEFINED_GATE_DYN_PARAMS = [
+    "forward_rate",
+    "reverse_rate",
+    "time_course",
+    "steady_state",
+]
+
+VOLTAGE_DEP_COMPONENTTYPES = [
+    "baseVoltageDepTime",
+    "fixedTimeCourse",
+    "baseVoltageDepRate",
+    "baseHHRate",
+    "HHExpRate",
+    "HHExpLinearRate",
+    "baseVoltageDepVariable",
+    "baseHHVariable",
+    "HHExpVariable",
+    "HHSigmoidVariable",
+    "HHExpLinearVariable",
+]
+
+VOLTAGE_CA_DEP_COMPONENTTYPES = [
+    "baseVoltageConcDepRate",
+    "baseVoltageConcDepVariable" "baseVoltageConcDepTime",
+]
+
+
+def pythonize_expr(expr):
+    """Convert NeuroML2 expression `expr` into valid Python"""
+    py_expr = (
+        expr.replace(".neq.", "!=")
+        .replace(".eq.", "==")
+        .replace(".gt.", ">")
+        .replace(".lt.", "<")
+        .replace("^", "**")
+    )
+    return py_expr
+
+
 def array_eval_component(comp_type, req_vars, params={}):
     """Use numpy vectorization for faster evaluation of component formula.
 
@@ -108,6 +147,7 @@ def array_eval_component(comp_type, req_vars, params={}):
     # print("#" * 80, "\n", exec_str, "\n", "#" * 80, "\n")
     exec_str = "\n".join(exec_str)
     # print("*" * 80, "\n", exec_str, "\n", "*" * 80)
+    logger_.debug(f'Excuting string "{exec_str}"\nlocals: {local_vars}')
     exec(exec_str, np.__dict__, local_vars)
     return local_vars["return_vals"]
 
@@ -149,6 +189,36 @@ def _gates_sorted(all_gates):
             sortedGates.append(allGatesDict.get(gid))
         return sortedGates
     return all_gates
+
+
+def _isVarInExpr(expr, var):
+    """Returns `True` if variable `var` is present in the expression `expr`.
+
+    Paramaters
+    ----------
+    expr: str
+        expression to check
+    var: str
+        variable id to look for
+    Returns
+    -------
+    bool:
+        `True` is `var` is in `expr`, otherwise `False`
+    """
+    parsed = ast.parse(expr)
+    for node in ast.walk(parsed):
+        if isinstance(node, ast.Name):
+            if node.id == var:
+                return True
+    return False
+
+
+def _getPredefinedGateDynamicParams(ngate):
+    """Returns a dict of predefined parameters for gate dynamics listed in `PREDEFINED_GATE_DYN_PARAMS`"""
+    return {
+        param: getattr(ngate, param, None)
+        for param in PREDEFINED_GATE_DYN_PARAMS
+    }
 
 
 def _isConcDep(ct):
@@ -922,16 +992,23 @@ class NML2Reader(object):
             ComponentType object
 
         """
+        if ct.extends in VOLTAGE_CA_DEP_COMPONENTTYPES:
+            return True
+
+        ca_id = 'caConc'  # the name of the variable representing [Ca2+]
         for dyn in ct.Dynamics:
-            for dv in dyn.DerivedVariable + dyn.ConditionalDerivedVariable:
-                parsed = ast.parse(dv.value)
-                # If any identifier (represented by class ast.Name) in
-                # the derived variable expression is "caConc", the
-                # gate is Ca concentration dependent.
-                for node in ast.walk(parsed):
-                    if isinstance(node, ast.Name):
-                        if node.id == "caConc":
-                            return True
+            for dv in dyn.DerivedVariable:
+                if _isVarInExpr(pythonize_expr(dv.value), ca_id):
+                    return True
+            for cdv in dyn.ConditionalDerivedVariable:
+                for case_ in cdv.Case:
+                    if (
+                        (case_.condition is not None)
+                        and _isVarInExpr(
+                            pythonize_expr(case_.condition), ca_id
+                        )
+                    ) or _isVarInExpr(pythonize_expr(case_.value), ca_id):
+                        return True
         return False
 
     def isDynamicsVoltageDependent(self, ct):
@@ -946,17 +1023,27 @@ class NML2Reader(object):
         ct : nml.ComponentType
             ComponentType object
 
+        Returns
+        -------
+        bool:
+            `True` if the variable identifier 'v' appears anywhere in
+            the expressions for the dynamics, `False` otherwise.
+
         """
+        v_var = 'v'
         for dyn in ct.Dynamics:
-            for dv in dyn.DerivedVariable + dyn.ConditionalDerivedVariable:
-                parsed = ast.parse(dv.value)
-                # If any identifier (represented by class ast.Name) in
-                # the derived variable expression is "caConc", the
-                # gate is Ca concentration dependent.
-                for node in ast.walk(parsed):
-                    if isinstance(node, ast.Name):
-                        if node.id == "v":
-                            return True
+            for dv in dyn.DerivedVariable:
+                if _isVarInExpr(pythonize_exp(dv.value), v_var):
+                    return True
+            for cdv in dyn.ConditionalDerivedVariable:
+                for case_ in cdv.Case:
+                    if (
+                        (case_.condition is not None)
+                        and _isVarInExpr(
+                            pythonize_expr(case_.condition), v_var
+                        )
+                    ) or _isVarInExpr(pythonize_expr(case_.value), v_var):
+                        return True
         return False
 
     def isDynamicsVoltageCaDependent(self, ct):
@@ -979,22 +1066,29 @@ class NML2Reader(object):
             ComponentType object
 
         """
+        ca_var = 'caConc'
+        v_var = 'v'
         ca_dep = False
         v_dep = False
         for dyn in ct.Dynamics:
-            for dv in dyn.DerivedVariable + dyn.ConditionalDerivedVariable:
-                parsed = ast.parse(dv.value)
-                # If any identifier (represented by class ast.Name) in
-                # the derived variable expression is "caConc", the
-                # gate is Ca concentration dependent. If any
-                # identifier is "v", it is voltage dependent.
-                for node in ast.walk(parsed):
-                    if isinstance(node, ast.Name):
-                        if node.id == "caConc":
-                            ca_dep = True
-                        if node.id == "v":
-                            v_dep = True
-        return (ca_dep is True) and (v_dep is True)
+            for dv in dyn.DerivedVariable:
+                expr = pythonize_expr(dv.value)
+                ca_dep = _isVarInExpr(expr, ca_var)
+                v_dep = _isVarInExpr(expr, v_var)
+            for dv in dyn.ConditionalDerivedVariable:
+                for case_ in dv.Case:
+                    if case_.condition is None:
+                        cond_expr = ''
+                    else:
+                        cond_expr = pythonize_expr(case_.condition)
+                    v_expr = pythonize_expr(case_.value)
+                    ca_dep = _isVarInExpr(cond_expr, ca_var) or _isVarInExpr(
+                        v_expr, ca_var
+                    )
+                    v_dep = _isVarInExpr(cond_expr, v_var) or _isVarInExpr(
+                        v_expr, v_var
+                    )
+        return ca_dep and v_dep
 
     def isChannelCaDependent(self, chan):
         """Returns True if `chan` is dependent on calcium concentration.
@@ -1011,23 +1105,8 @@ class NML2Reader(object):
 
         """
         for gate in chan.gates + chan.gate_hh_rates:
-            dynamics = [
-                gate.forward_rate,
-                gate.reverse_rate,
-                gate.time_course,
-                gate.steady_state,
-            ]
-            for dyn in dynamics:
-                if dyn is not None:
-                    ct = self.getComponentType(dyn)
-                    if ct is None:
-                        continue
-                    if (
-                        ct.extends == "baseVoltageConcDepRate"
-                        or ct.extends == "baseVoltageConcDepVariable"
-                    ):
-                        if self.isDynamicsCaDependent(ct):
-                            return True
+            if self.isGateCaDependent(gate):
+                return True
         return False
 
     def isChannel2D(self, chan):
@@ -1059,16 +1138,14 @@ class NML2Reader(object):
             Gate description element in neuroml
 
         """
-        dynamics = [
-            getattr(ngate, "forward_rate", None),
-            getattr(ngate, "reverse_rate", None),
-            getattr(ngate, "time_course", None),
-            getattr(ngate, "steady_state", None),
-        ]
-        for dyn in dynamics:
+        dynamics = _getPredefinedGateDynamicParams(ngate)
+        for _, dyn in dynamics.items():
             if dyn is not None:
                 ct = self.getComponentType(dyn)
-                if (ct is not None) and self.isDynamicsCaDependent(ct):
+                if (ct is not None) and (
+                    (ct.extends in VOLTAGE_CA_DEP_COMPONENTTYPES)
+                    or self.isDynamicsCaDependent(ct)
+                ):
                     return True
         return False
 
@@ -1081,16 +1158,15 @@ class NML2Reader(object):
             Gate description element in neuroml
 
         """
-        dynamics = [
-            getattr(ngate, "forward_rate", None),
-            getattr(ngate, "reverse_rate", None),
-            getattr(ngate, "time_course", None),
-            getattr(ngate, "steady_state", None),
-        ]
-        for dyn in dynamics:
+        dynamics = _getPredefinedGateDynamicParams(ngate)
+        for _, dyn in dynamics.items():
             if dyn is not None:
+                if dyn.type in VOLTAGE_DEP_COMPONENTTYPES:
+                    return True
                 ct = self.getComponentType(dyn)
-                if (ct is not None) and self.isDynamicsCaDependent(ct):
+                if (ct is not None) and (
+                    ct.extends in VOLTAGE_DEP_COMPONENTTYPES + VOLTAGE_CA_DEP_COMPONENTTYPES
+                ):
                     return True
         return False
 
@@ -1104,22 +1180,13 @@ class NML2Reader(object):
             Gate description element in neuroml
 
         """
-        dynamics = [
-            getattr(ngate, "forward_rate", None),
-            getattr(ngate, "reverse_rate", None),
-            getattr(ngate, "time_course", None),
-            getattr(ngate, "steady_state", None),
-        ]
-        for dyn in dynamics:
+        dynamics = _getPredefinedGateDynamicParams(ngate)
+        for _, dyn in dynamics.items():
             if dyn is not None:
                 ct = self.getComponentType(dyn)
-                if (
-                    (ct is not None)
-                    and (
-                        ct.extends == "baseVoltageConcDepRate"
-                        or ct.extends == "baseVoltageConcDepVariable"
-                    )
-                    and self.isDynamicsVoltageCaDependent(ct)
+                if (ct is not None) and (
+                    (ct.extends in VOLTAGE_CA_DEP_COMPONENTTYPES)
+                    or self.isDynamicsVoltageCaDependent(ct)
                 ):
                     return True
         return False
@@ -1227,7 +1294,17 @@ class NML2Reader(object):
         return q10_scale
 
     def updateHHGate(
-        self, ngate, mgate, mchan, vmin, vmax, vdivs, useInterpolation=True
+        self,
+        ngate,
+        mgate,
+        mchan,
+        vmin,
+        vmax,
+        vdivs,
+        cmin=1e-9,
+        cmax=1.0,
+        cdivs=3000,
+        useInterpolation=True,
     ):
         """Update moose `HHGate` mgate from NeuroML gate description
         element `ngate`.
@@ -1269,14 +1346,21 @@ class NML2Reader(object):
         q10_scale = self._computeQ10Scale(ngate)
         alpha, beta, tau, inf = (None, None, None, None)
         param_tabs = {}
-        vtab = np.linspace(vmin, vmax, vdivs)
+        if self.isGateVoltageDependent(ngate):
+            vtab = np.linspace(vmin, vmax, vdivs)
+        else:
+            vtab = None
+        if self.isGateCaDependent(ngate):
+            ctab = np.linspace(cmin, cmax, cdivs)
+        else:
+            ctab = None
         # First try computing alpha and beta from fwd and rev rate
         # specs. Set the gate tables using alpha and beta by default.
         fwd = ngate.forward_rate
         rev = ngate.reverse_rate
         if (fwd is not None) and (rev is not None):
-            alpha = self.calculateRateFn(fwd, vtab)
-            beta = self.calculateRateFn(rev, vtab)
+            alpha = self.calculateRateFn(fwd, vtab, ctab=ctab)
+            beta = self.calculateRateFn(rev, vtab, ctab=ctab)
             param_tabs = {"alpha": Q_(alpha, "1/s"), "beta": Q_(beta, "1/s")}
 
         # Beware of a peculiar cascade of evaluation below: In some
@@ -1293,6 +1377,7 @@ class NML2Reader(object):
             tau = self.calculateRateFn(
                 ngate.time_course,
                 vtab,
+                ctab=ctab,
                 param_tabs=param_tabs,
             )
         elif (alpha is not None) and (beta is not None):
@@ -1305,6 +1390,7 @@ class NML2Reader(object):
             inf = self.calculateRateFn(
                 ngate.steady_state,
                 vtab,
+                ctab=ctab,
                 param_tabs=param_tabs,
             )
         elif (alpha is not None) and (beta is not None):
@@ -1351,8 +1437,8 @@ class NML2Reader(object):
             NeuroML gate description to be implemented
         mgate : HHGate
             Moose HHGate object to be updated
-        mchan : HHChannel
-            Moose HHCHannel object whose part the `mgate` is
+        mchan : HHChannel2D
+            Moose HHCHannel2D object whose part the `mgate` is
         vmin : str
             minimum voltage (or concentration) for gate interpolation tables
         vmax : str
@@ -1375,8 +1461,8 @@ class NML2Reader(object):
             mchan.Ypower = ngate.instances
         elif mgate.name.endswith("Z"):
             mchan.Zpower = ngate.instances
-        # TODO: HHGate2D and and HHChannel2D should be updated in
-        # MOOSE to avoid this redundant setting for the two tables
+        # Since HHGate2D can have different concentration inputs, we
+        # cannot set all gates to same ranges
         mgate.xmin = vmin
         mgate.xmax = vmax
         mgate.xdivs = vdivs
@@ -1630,6 +1716,7 @@ class NML2Reader(object):
         logger_.info(f"{self.filename}: Importing the ion channels")
 
         for chan in doc.ion_channel + doc.ion_channel_hhs:
+            logger_.debug(f'Processing channel {chan.id}')
             if self.isPassiveChan(chan):
                 mchan = self.createPassiveChannel(chan)
             elif self.isChannel2D(chan):

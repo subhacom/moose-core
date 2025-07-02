@@ -97,7 +97,8 @@ public:
 
     double Diff( const double a, const double b) const;
 
-    Parser::varmap_type GetConst( ) const;
+    bool IsConst(const string& name) const;
+    double GetConst(const string& name) const;
     double GetVarValue(const string& name) const;
 
 
@@ -121,8 +122,6 @@ private:
 
     /* data */
     string expr_;
-
-    Parser::varmap_type const_map_;
 
     Parser::expression_t expression_;     /* expression type */
 

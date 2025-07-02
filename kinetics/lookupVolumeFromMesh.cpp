@@ -173,7 +173,7 @@ double convertConcToNumRateUsingVol( const Eref& e, const SrcFinfo* pools,
         if ( doPartialConversion || mfb->size() > 1 )
         {
             conversion = scale * NA * volume;
-            double power = doPartialConversion + mfb->size() - 1;
+            double power = static_cast<double>(doPartialConversion + mfb->size() - 1);
             if ( power > 1.0 )
             {
                 conversion = pow( conversion, power );

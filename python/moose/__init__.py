@@ -23,22 +23,44 @@ References:
 import sys
 import pydoc
 import os
+import warnings
+import atexit
 
 import moose._moose as _moose
 from moose import model_utils
 
+
 __moose_classes__ = {}
+
+#: These fields are system fields and should not be displayed unless
+#: user requests explicitly
+_sys_fields = {
+    'fieldIndex',
+    'idValue',
+    'index',
+    'numData',
+    'numField',
+    'path',
+    'this',
+    'me',
+}
+
+# ==============================================
+# CONSTANTS
+# ==============================================
+OUTMSG = 0  #: Outgoing messages
+INMSG = 1  #: Incoming messages
+ALLMSG = 2  #: All messages"""
 
 
 class melement(_moose.ObjId):
-    """Base class for all moose classes.
-    """
+    """Base class for all moose classes."""
 
     __type__ = "UNKNOWN"
     __doc__ = ""
 
-    def __init__(self, x, ndata=1, **kwargs):
-        obj = _moose.__create__(self.__type__, x, ndata)
+    def __init__(self, x, n=1, **kwargs):
+        obj = _moose.__create__(self.__type__, x, n)
         if sys.version_info.major > 2:
             super().__init__(obj)
             for k, v in kwargs.items():
@@ -76,7 +98,10 @@ def version():
     """Returns moose version string."""
     return _moose.__version__
 
+
+#: MOOSE version string
 __version__ = version()
+
 
 def version_info():
     """Return detailed version information.
@@ -110,7 +135,7 @@ def about():
         path=os.path.dirname(__file__),
         version=_moose.__version__,
         docs="https://moose.readthedocs.io/en/latest/",
-        development="https://github.com/BhallaLab/moose-core",
+        development="https://github.com/MooseNeuro/moose-core",
     )
 
 
@@ -119,7 +144,7 @@ def wildcardFind(pattern):
 
     Parameters
     ----------
-    pattern: str
+    pattern : str
        Wildcard (see note below)
 
     .. note:: Wildcard
@@ -128,8 +153,12 @@ def wildcardFind(pattern):
     {PATH}/{WILDCARD}[{CONDITION}].
 
     {PATH} is valid path in the element tree, {WILDCARD} can be
-    # or ##. # causes the search to be restricted to the children
-    of the element specified by {PATH}. ## makes the search to
+    # or `##`.
+
+    `#` causes the search to be restricted to the children
+    of the element specified by {PATH}.
+
+    `##` makes the search to
     recursively go through all the descendants of the {PATH} element.
 
     {CONDITION} can be:
@@ -152,67 +181,90 @@ def wildcardFind(pattern):
     Following returns a list of all the objects under /mymodel whose Vm field
     is >= -65.
 
-    >>> moose.wildcardFind("/mymodel/##[FIELD(Vm)>=-65]")
+    >>> moose.wildcardFind('/mymodel/##[FIELD(Vm)>=-65]')
+
+
+    List of all objects of type `Compartment` under '/neuron'
+
+    >>> moose.wildcardFind('/neuron/#[ISA=Compartment]')
+
+
+    List all elements under '/library' whose name start with 'Ca':
+
+    >>> moose.wildcardFind('/library/##/Ca#')
+
+    List all elements under '/library' whose names start with 'Ca':
+
+    >>> moose.wildcardFind('/library/##/Ca#')
+
+    List all elements directly under library whose names end with 'Stellate':
+
+    >>> moose.wildcardFind('/library/#Stellate')
+
+    Note that if there is an element called 'SpinyStellate' (a
+    celltype in the cortex) under '/library' this will find it, but
+    the following will return an empty list:
+
+    >>> moose.wildcardFind('/library/##/#Stellate')
+
     """
     return [__to_melement(x) for x in _moose.wildcardFind(pattern)]
 
 
 def connect(src, srcfield, dest, destfield, msgtype="Single"):
     """Create a message between `srcfield` on `src` object to
-     `destfield` on `dest` object.
+    `destfield` on `dest` object.
 
-     This function is used mainly, to say, connect two entities, and
-     to denote what kind of give-and-take relationship they share.
-     It enables the 'destfield' (of the 'destobj') to acquire the
-     data, from 'srcfield'(of the 'src').
+    This function is used mainly, to say, connect two entities, and
+    to denote what kind of give-and-take relationship they share.
+    It enables the 'destfield' (of the 'destobj') to acquire the
+    data, from 'srcfield'(of the 'src').
 
-     Parameters
-     ----------
-     src : element/vec/string
-         the source object (or its path) the one that provides information.
-     srcfield : str
-         source field on self (type of the information).
-     destobj : element
-         Destination object to connect to (The one that need to get
-         information).
-     destfield : str
-         field to connect to on `destobj`
-     msgtype : str
-         type of the message. It ca be one of the following (default Single).
-         - Single
-         - OneToAll
-         - AllToOne
-         - OneToOne
-         - Reduce
-         - Sparse
+    Parameters
+    ----------
+    src : element/vec/string
+        the source object (or its path) the one that provides information.
+    srcfield : str
+        source field on self (type of the information).
+    destobj : element
+        Destination object to connect to (The one that need to get
+        information).
+    destfield : str
+        field to connect to on `destobj`
+    msgtype : str {'Single', 'OneToAll', 'AllToOne', 'OneToOne', 'Reduce', 'Sparse'}
+        type of the message. It can be one of the following (default Single).
 
-     Returns
-     -------
-     msgmanager: melement
-         message-manager for the newly created message.
+    Returns
+    -------
+    msgmanager: melement
+        message-manager for the newly created message.
 
-     Note
-     -----
-     Alternatively, one can also use the following form::
+    Note
+    -----
+    Alternatively, one can also use the following form::
 
-     >>> src.connect(srcfield, dest, destfield, msgtype)
+    >>> src.connect(srcfield, dest, destfield, msgtype)
 
 
-     Examples
-     --------
-     Connect the output of a pulse generator to the input of a spike generator::
+    Examples
+    --------
+    Connect the output of a pulse generator to the input of a spike generator::
 
-     >>> pulsegen = moose.PulseGen('pulsegen')
-     >>> spikegen = moose.SpikeGen('spikegen')
-     >>> moose.connect(pulsegen, 'output', spikegen, 'Vm')
-     Or,
-     >>> pulsegen.connect('output', spikegen, 'Vm')
+    >>> pulsegen = moose.PulseGen('pulsegen')
+    >>> spikegen = moose.SpikeGen('spikegen')
+    >>> moose.connect(pulsegen, 'output', spikegen, 'Vm')
+    Or,
+    >>> pulsegen.connect('output', spikegen, 'Vm')
     """
-    src = _moose.element(src)
-    dest = _moose.element(dest)
+    if isinstance(src, str):
+        src = element(src)
+    if isinstance(dest, str):
+        dest = element(dest)
     msg = src.connect(srcfield, dest, destfield, msgtype)
     if msg.name == '/':
-        raise RuntimeError(f'Could not connect {src}.{srcfield} with {dest}.{destfield}')
+        raise RuntimeError(
+            f'Could not connect {src}.{srcfield} with {dest}.{destfield}'
+        )
     return msg
 
 
@@ -230,6 +282,12 @@ def delete(arg):
     -------
     None, Raises ValueError if given path/object does not exists.
     """
+    if isinstance(arg, str) and not exists(arg):
+        warnings.warn(
+            f'Attempt to delete nonexistent path {arg}: ignoring',
+            warnings.RuntimeWarning,
+        )
+        return
     _moose.delete(arg)
 
 
@@ -247,14 +305,16 @@ def element(arg):
     melement
         MOOSE element (object) corresponding to the `arg` converted to write
         subclass.
+
+    Raises
+    ------
+    RunTimeError if `args` is a string path, but no such element exists.
     """
-    if isinstance(arg, str) and not _moose.exists(arg):
-        raise RuntimeError(f'{arg}: element at path does not exist')
     return _moose.element(arg)
 
 
 def exists(path):
-    """Returns True if an object with given path already exists."""
+    """Returns `True` if an object with given path already exists."""
     return _moose.exists(path)
 
 
@@ -268,9 +328,20 @@ def getCwe():
     return _moose.getCwe()
 
 
-def getField(classname, fieldname):
-    """Get specified field of specified class."""
-    return _moose.getField(classname, fieldname)
+def getField(el, fieldname):
+    """Get field `fieldname` of element `el`.
+
+    Parameters
+    ----------
+    el: melement
+        object to retrieve field of.
+    fieldname: str
+        name of the field to be retrieved
+    Returns
+    -------
+    field value or a Finfo depending on the type of the field
+    """
+    return _moose.getField(el, fieldname)
 
 
 def getFieldDict(classname, finfoType=""):
@@ -287,7 +358,7 @@ def getFieldDict(classname, finfoType=""):
     Returns
     -------
     dict
-        field names and their respective types as key-value pair. 
+        field names and their respective types as key-value pair.
 
     Notes
     -----
@@ -392,7 +463,7 @@ def setCwe(arg):
 
     Parameters
     ----------
-    arg: str, melement, vec
+    arg : str, melement, vec
         moose element or path to be set as cwe.
 
     See also
@@ -401,9 +472,14 @@ def setCwe(arg):
     """
     _moose.setCwe(arg)
 
+
 def ce(arg):
-    """Alias for setCwe"""
+    """Set the current element to `arg`
+
+    This is an alias for ``setCwe``
+    """
     _moose.setCwe(arg)
+
 
 def useClock(tick, path, fn):
     """Schedule `fn` function of every object that matches `path` on tick no
@@ -510,9 +586,9 @@ def copy(src, dest, name="", n=1, toGlobal=False, copyExtMsg=False):
         newly copied vec
     """
     if isinstance(src, str):
-        src = _moose.element(src)
+        src = element(src)
     if isinstance(dest, str):
-        dest = _moose.element(dest)
+        dest = element(dest)
     if not name:
         name = src.name
     return _moose.copy(src.id, dest, name, n, toGlobal, copyExtMsg)
@@ -574,8 +650,7 @@ def pwe():
 
     Returns
     ------
-    melement
-        current MOOSE element
+    None
 
     Example
     -------
@@ -583,8 +658,7 @@ def pwe():
     '/'
     """
     pwe_ = _moose.getCwe()
-    print(pwe_.path)
-    return pwe_
+    print(f'{pwe_.path}')
 
 
 def le(el=None):
@@ -600,15 +674,14 @@ def le(el=None):
 
     Returns
     -------
-    List[str]
-        path of all children
+    None
     """
     el = _moose.getCwe() if el is None else el
     if isinstance(el, str):
-        el = _moose.element(el)
+        el = element(el)
     elif isinstance(el, _moose.vec):
         el = el[0]
-    return _moose.le(el)
+    _moose.le(el)
 
 
 def showfields(el, field="*", showtype=False):
@@ -629,52 +702,77 @@ def showfields(el, field="*", showtype=False):
 
     Returns
     -------
-    string
+    None
 
     """
-    if isinstance(el, str):
-        if not _moose.exists(el):
-            raise ValueError(f"no such element: {el}")
-        el = _moose.element(el)
+    el = element(el)
     result = []
     if field == "*":
         value_field_dict = _moose.getFieldDict(el.className, "valueFinfo")
         max_type_len = max(len(dtype) for dtype in value_field_dict.values())
         max_field_len = max(len(dtype) for dtype in value_field_dict.keys())
         result.append("\n[" + el.path + "]\n")
-        for key, dtype in sorted(value_field_dict.items()):
+        # Maintain the common fields first
+        common_fields = ['name', 'className', 'tick', 'dt']
+        flist = [
+            (field, value_field_dict[field], el.getField(field))
+            for field in common_fields
+        ]
+        for field, dtype in sorted(value_field_dict.items()):
             if (
-                dtype == "bad"
-                or key == "this"
-                or key == "dummy"
-                or key == "me"
+                (dtype == "bad")
                 or dtype.startswith("vector")
-                or "ObjId" in dtype
+                or ("ObjId" in dtype)
+                or (field in _sys_fields)
+                or (field in common_fields)
             ):
                 continue
-            value = el.getField(key)
+            flist.append((field, dtype, el.getField(field)))
+        # Extract the length of the longest type name
+        max_type_len = len(max(flist, key=lambda x: len(x[1]))[1])
+        # Extract the length of the longest field name
+        max_field_len = len(max(flist, key=lambda x: len(x[0]))[0])
+        for field, dtype, value in flist:
             if showtype:
-                typestr = dtype.ljust(max_type_len + 4)
-                ## The following hack is for handling both Python 2 and
-                ## 3. Directly putting the print command in the if/else
-                ## clause causes syntax error in both systems.
-                result.append(typestr + " ")
-            result.append(key.ljust(max_field_len + 4) + "=" + str(value) + "\n")
+                result.append(f'{dtype:<{max_type_len+4}} ')
+            result.append(f'{field:<{max_field_len + 4}} = {value}\n')
     else:
         try:
             result.append(field + "=" + el.getField(field))
         except AttributeError:
             pass  # Genesis silently ignores non existent fields
     print("".join(result))
-    return "".join(result)
 
 
 def showfield(el, field="*", showtype=False):
     """Alias for showfields."""
-    return showfields(el, field, showtype)
+    showfields(el, field, showtype)
 
 
-def listmsg(arg):
+def sysfields(el, showtype=False):
+    """This function shows system fields which are suppressed by `showfields`."""
+    el = element(el)
+    result = []
+    value_field_dict = _moose.getFieldDict(el.className, "valueFinfo")
+    max_type_len = max(len(dtype) for dtype in value_field_dict.values())
+    max_field_len = max(len(dtype) for dtype in value_field_dict.keys())
+    result.append("\n[" + el.path + "]\n")
+    for key in sorted(_sys_fields):
+        dtype = value_field_dict[key]
+        if dtype == "bad" or dtype.startswith("vector") or ("ObjId" in dtype):
+            continue
+        value = el.getField(key)
+        if showtype:
+            typestr = dtype.ljust(max_type_len + 4)
+            ## The following hack is for handling both Python 2 and
+            ## 3. Directly putting the print command in the if/else
+            ## clause causes syntax error in both systems.
+            result.append(typestr + " ")
+        result.append(key.ljust(max_field_len + 4) + "=" + str(value) + "\n")
+    print("".join(result))
+
+
+def listmsg(arg, direction=ALLMSG):
     """Return a list containing the incoming and outgoing messages of
     `el`.
 
@@ -682,7 +780,10 @@ def listmsg(arg):
     ----------
     arg : melement/vec/str
         MOOSE object or path of the object to look into.
-
+    direction : int {ALLMSG=2, OUTMSG=0, INMSG=1}
+        0 (`OUTMSG`) for outgoing (and shared) messages
+        1 (`INMSG`) for incoming (and shared) messages
+        2 (`ALLMSG`) for all messages
     Returns
     -------
     msg : list
@@ -690,25 +791,60 @@ def listmsg(arg):
         of `arg`.
 
     """
-    obj = _moose.element(arg)
+    obj = element(arg)
     assert obj
-    return _moose.listmsg(obj)
+    return _moose.listmsg(obj, direction)
 
 
-def showmsg(el):
+def showmsg(el, direction=ALLMSG):
     """Print the incoming and outgoing messages of `el`.
 
     Parameters
     ----------
     el : melement/vec/str
         Object whose messages are to be displayed.
-
+    direction : int {ALLMSG=2, OUTMSG=0, INMSG=1}
+        0 (`OUTMSG`) for outgoing (and shared) messages
+        1 (`INMSG`) for incoming (and shared) messages
+        2 (`ALLMSG`) for all messages
     Returns
     -------
     None
 
     """
-    print(_moose.showmsg(_moose.element(el)))
+    print(_moose.showmsg(element(el), direction))
+
+
+def neighbors(el, field='*', msgtype='', direction=ALLMSG):
+    """Get a list of neighbors connected on the specifield field
+
+    Parameters
+    ----------
+    el: melement/vec/str
+    el : melement/vec/str
+        Object whose messages are to be displayed.
+    field: str {'*'}
+        Name of the field on which to look for connections. If  '*' (default)
+        get all neighbors connected on all fields.
+    msgtype: str {'', 'Single', 'OneToOne', 'OneToAll', 'Sparse', 'Diagonal'}
+        If specified, select neighbors connected by this type of message only.
+        This is case-insensitive.
+    direction : int {ALLMSG=2, OUTMSG=0, INMSG=1}
+        0 (`OUTMSG`) for outgoing (and shared) messages
+        1 (`INMSG`) for incoming (and shared) messages
+        2 (`ALLMSG`) for all messages
+    Returns
+    -------
+    list of melements
+        The elements that are connected to `el` by messages
+        in the direction spcified by `direction`.
+    """
+    return [
+        __to_melement(x)
+        for x in _moose.neighbors(
+            element(el), field, msgtype, direction
+        )
+    ]
 
 
 def doc(arg, paged=True):
@@ -726,7 +862,7 @@ def doc(arg, paged=True):
         or there subclasses). In that case, the builtin documentation
         for the corresponding moose class is displayed.
 
-    paged: bool
+    paged : bool
         Whether to display the docs via builtin pager or print and
         exit. If not specified, it defaults to False and
         moose.doc(xyz) will print help on xyz and return control to
@@ -744,7 +880,7 @@ def doc(arg, paged=True):
     """
     text = _moose.__generatedoc__(arg)
     if pydoc.pager:
-        pydoc.pager(text) 
+        pydoc.pager(text)
     else:
         print(text)
 
@@ -755,7 +891,7 @@ def readSBML(filepath, loadpath, solver="ee", validate=True):
 
     Parameters
     ----------
-    filepath: str
+    filepath : str
         filepath to be loaded.
     loadpath : str
         Root path for this model e.g. /model/mymodel
@@ -764,7 +900,7 @@ def readSBML(filepath, loadpath, solver="ee", validate=True):
         Available options are "ee", "gsl", "stochastic", "gillespie"
             "rk", "deterministic"
             For full list see ??
-    validate: bool
+    validate : bool
         When True, run the schema validation.
     """
     return model_utils.mooseReadSBML(filepath, loadpath, solver, validate)
@@ -824,8 +960,7 @@ def readNML2(modelpath, verbose=False):
 
 
 def writeNML2(outfile):
-    """Write model to NML2. (Not implemented)
-    """
+    """Write model to NML2. (Not implemented)"""
     raise NotImplementedError("Writing to NML2 is not supported yet")
 
 
@@ -888,41 +1023,43 @@ def mergeChemModel(modelpath, dest):
     return model_utils.mooseMergeChemModel(modelpath, dest)
 
 
-def isinstance_(element, classobj):
-    """Returns True if `element` is an instance of `classobj` or its
+def isinstance_(el, classobj):
+    """Returns True if `el` is an instance of `classobj` or its
     subclass.
 
     Like Python's builtin `isinstance` method, this returns `True` if
-    `element` is an instance of `classobj` or one of its subclasses.
+    `el` is an instance of `classobj` or one of its subclasses. This
+    calls `Neutral.isA` with the name of the class represented by
+    `classobj` as parameter..
 
     Parameters
     ----------
-    element : moose.melement
+    el : moose.melement
         moose object
     classobj : class
         moose class
 
     Returns
     -------
-    True if `classobj` is a MOOSE-baseclass of `element`, False otherwise.
+    True if `classobj` is a MOOSE-baseclass of `el`, False otherwise.
 
-    Raises
-    ------
-    TypeError if `classobj` is not a MOOSE class, or
-    `element` is not a MOOSE object
-
+    See also
+    --------
+    ``moose.Neutral.isA``
 
     """
-    base_cinfo = _moose.element(f'/classes/{classobj.__name__}')
-    if base_cinfo.name == '/':
-        raise TypeError('Not a MOOSE class', classobj)
+    return el.isA(classobj.__name__)
 
-    try:
-        obj_cinfo = _moose.element(f'/classes/{element.className}')
-    except AttributeError:  # Not a MOOSE element - doesn't have className attribute
-        raise TypeError('Not a MOOSE object', element)
-    while obj_cinfo.baseClass != 'none':
-        if obj_cinfo.name == base_cinfo.name:
-            return True
-        obj_cinfo = _moose.element(f'/classes/{obj_cinfo.baseClass}')
-    return False
+
+def cleanup(verbose=False):
+    """Cleanup everything except system elements"""
+    if verbose:
+        print('Cleaning up')
+    for child in element('/').children:
+        if child.name not in ['Msgs', 'clock', 'classes', 'postmaster']:
+            if verbose:
+                print('  Deleting', child.path)
+            delete(child.path)
+
+
+atexit.register(cleanup)

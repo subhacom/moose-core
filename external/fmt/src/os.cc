@@ -10,6 +10,12 @@
 #  define _CRT_SECURE_NO_WARNINGS
 #endif
 
+// This is to avoid deprecation warning from MSVC
+#if defined(_MSC_VER)
+#define _SILENCE_STDEXT_ARR_ITERS_DEPRECATION_WARNING
+#endif
+
+
 #include "fmt/os.h"
 
 #include <climits>

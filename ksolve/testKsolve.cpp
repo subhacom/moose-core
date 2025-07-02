@@ -72,7 +72,8 @@ Id makeReacTest()
     s->doAddMsg( "Single", r1, "sub", A, "reac" );
     s->doAddMsg( "Single", r1, "prd", B, "reac" );
 
-    Field< unsigned int >::set( sum, "numVars", 2 );
+    // Field< unsigned int >::set( sum, "numVars", 2 ); // no longer effective
+    Field< string >::set( sum, "expr", "x0+x1" );
     s->doAddMsg( "Single", A, "nOut", ObjId( sumInput, 0, 0 ), "input" );
     s->doAddMsg( "Single", B, "nOut", ObjId( sumInput, 0, 1 ), "input" );
     s->doAddMsg( "Single", sum, "valueOut", tot1, "setN" );
@@ -94,7 +95,6 @@ Id makeReacTest()
     Field< double >::set( A, "concInit", 2 );
     Field< double >::set( e1Pool, "concInit", 1 );
     Field< double >::set( e2Pool, "concInit", 1 );
-    Field< string >::set( sum, "expr", "x0+x1" );
     Field< double >::set( r1, "Kf", 0.2 );
     Field< double >::set( r1, "Kb", 0.1 );
     Field< double >::set( r2, "Kf", 0.1 );

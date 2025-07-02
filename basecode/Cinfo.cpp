@@ -406,6 +406,15 @@ string Cinfo::getDocs() const
     return doc.str();
 }
 
+string Cinfo::getDocsEntry(string key) const
+{
+    if (auto result = doc_.find(key); result != doc_.end()){
+	return result->second;
+    } else {
+	return "";
+    }
+}
+
 static DestFinfo dummy("dummy",
                        "This Finfo is a dummy. If you are reading this you "
                        "have used an invalid index",

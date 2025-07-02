@@ -48,33 +48,6 @@ const Cinfo *HHChannel2D::initCinfo()
     static ElementValueFinfo<HHChannel2D, double> Zpower(
         "Zpower", "Power for Z gate", &HHChannel2D::setZpower,
         &HHChannel2D::getZpower);
-    // static ValueFinfo< HHChannel2D, int > instant( "instant",
-    // 	"Bitmapped flag: bit 0 = Xgate, bit 1 = Ygate, bit 2 = Zgate"
-    // 	"When true, specifies that the lookup table value should be"
-    // 	"used directly as the state of the channel, rather than used"
-    // 	"as a rate term for numerical integration for the state",
-    // 	&HHChannel2D::setInstant,
-    // 	&HHChannel2D::getInstant
-    // );
-    // static ValueFinfo< HHChannel2D, double > X( "X",
-    // 	"State variable for X gate",
-    // 	&HHChannel2D::setX,
-    // 	&HHChannel2D::getX
-    // );
-    // static ValueFinfo< HHChannel2D, double > Y( "Y",
-    // 	"State variable for Y gate",
-    // 	&HHChannel2D::setY,
-    // 	&HHChannel2D::getY
-    // );
-    // static ValueFinfo< HHChannel2D, double > Z( "Z",
-    // 	"State variable for Y gate",
-    // 	&HHChannel2D::setZ,
-    // 	&HHChannel2D::getZ
-    // );
-
-    ///////////////////////////////////////////////////////
-    // MsgSrc definitions
-    ///////////////////////////////////////////////////////
 
     ///////////////////////////////////////////////////////
     // MsgDest definitions
@@ -137,7 +110,7 @@ const Cinfo *HHChannel2D::initCinfo()
     };
 
     static Dinfo<HHChannel2D> dinfo;
-    static Cinfo HHChannel2DCinfo("HHChannel2D", ChanBase::initCinfo(),
+    static Cinfo HHChannel2DCinfo("HHChannel2D", HHChannelBase::initCinfo(),
                                   HHChannel2DFinfos,
                                   sizeof(HHChannel2DFinfos) / sizeof(Finfo *),
                                   &dinfo, doc, sizeof(doc) / sizeof(string));

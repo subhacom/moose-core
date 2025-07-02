@@ -127,6 +127,14 @@ const Cinfo* Gsolve::initCinfo()
         &Gsolve::getRandInit
     );
 
+    static ValueFinfo< Gsolve, int > rngSeedOffset(
+        "rngSeedOffset",
+        "Get rng sequence independence by adding rngSeedOffset*(1+voxIdx)"
+		" to the global rngSeed in each voxel, upon reinit.",
+        &Gsolve::setRngSeedOffset,
+        &Gsolve::getRngSeedOffset
+    );
+
     static ValueFinfo< Gsolve, bool > useClockedUpdate(
         "useClockedUpdate",
         "Flag: True to cause all reaction propensities to be updated "
@@ -234,7 +242,8 @@ Gsolve::Gsolve() :
     startVoxel_( 0 ),
     dsolve_(),
     dsolvePtr_(nullptr),
-    useClockedUpdate_( false )
+    useClockedUpdate_( false ),
+	rngSeedOffset_( 1031 )
 {
     // Initialize with global seed.
     rng_.setSeed(moose::getGlobalSeed());
@@ -371,6 +380,17 @@ bool Gsolve::getRandInit() const
 void Gsolve::setRandInit( bool val )
 {
     sys_.useRandInit = val;
+}
+
+
+int Gsolve::getRngSeedOffset() const
+{
+    return rngSeedOffset_;
+}
+
+void Gsolve::setRngSeedOffset( int val )
+{
+    rngSeedOffset_ = val;
 }
 
 bool Gsolve::getClockedUpdate() const
@@ -571,9 +591,10 @@ void Gsolve::reinit( const Eref& e, ProcPtr p )
     if ( !sys_.isReady )
         rebuildGssaSystem();
 
-    // First reinit concs.
-    for (auto i = pools_.begin(); i != pools_.end(); ++i )
-        i->reinit( &sys_ );
+    // First reinit concs. We also assign distinct rng seeds per voxel
+	for( unsigned int i = 0; i < pools_.size(); ++i ) {
+		pools_[i].reinit( &sys_, (i+1) * rngSeedOffset_ );
+	}
 
     // Second, update the atots.
     for ( auto i = pools_.begin(); i != pools_.end(); ++i )
@@ -605,7 +626,7 @@ void Gsolve::initReinit( const Eref& e, ProcPtr p )
         return;
 
     for( size_t i = 0 ; i < pools_.size(); ++i )
-        pools_[i].reinit( &sys_ );
+        pools_[i].reinit( &sys_, i * rngSeedOffset_ );
 }
 //////////////////////////////////////////////////////////////
 // Solver setup
@@ -1039,10 +1060,10 @@ unsigned int Gsolve::getNumPools() const
 
 void Gsolve::getBlock( vector< double >& values ) const
 {
-    unsigned int startVoxel = values[0];
-    unsigned int numVoxels = values[1];
-    unsigned int startPool = values[2];
-    unsigned int numPools = values[3];
+    unsigned int startVoxel = static_cast<unsigned int>(values[0]);
+    unsigned int numVoxels = static_cast<unsigned int>(values[1]);
+    unsigned int startPool = static_cast<unsigned int>(values[2]);
+    unsigned int numPools = static_cast<unsigned int>(values[3]);
 
     assert( startVoxel >= startVoxel_ );
     assert( numVoxels <= pools_.size() );
@@ -1062,10 +1083,10 @@ void Gsolve::getBlock( vector< double >& values ) const
 
 void Gsolve::setBlock( const vector< double >& values )
 {
-    unsigned int startVoxel = values[0];
-    unsigned int numVoxels = values[1];
-    unsigned int startPool = values[2];
-    unsigned int numPools = values[3];
+    unsigned int startVoxel = static_cast<unsigned int>(values[0]);
+    unsigned int numVoxels = static_cast<unsigned int>(values[1]);
+    unsigned int startPool = static_cast<unsigned int>(values[2]);
+    unsigned int numPools = static_cast<unsigned int>(values[3]);
 
     assert( startVoxel >= startVoxel_ );
     assert( numVoxels <= pools_.size() );

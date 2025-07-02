@@ -1,0 +1,5 @@
+{
+	"filetype": "rdesigneur",
+	"version": "1.0",
+	"cellProto" : { "type": "branchedCell", "dendDia": 2, "dendLen": 500, "numDendSeg": 10, "branchDia": 1, "branchLen": 100, "branchNumSeg": 2 }
+}

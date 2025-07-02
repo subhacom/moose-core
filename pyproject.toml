@@ -9,14 +9,14 @@ requires = [
 [project]
 name = 'pymoose'
 # dynamic = ['version']
-version = '4.1.0'
+version = '4.1.1'
 description = 'Python scripting interface of MOOSE Simulator (https://moose.ncbs.res.in)'
 readme = 'README.md'
 classifiers = [
     'Development Status :: 5 - Production/Stable',
     'Intended Audience :: Science/Research',
     'Intended Audience :: Developers',
-    'License :: OSI Approved :: GPL 3',
+    'License :: OSI Approved :: GNU General Public License v3 (GPLv3)',
     'Programming Language :: C',
     'Programming Language :: C++',
     'Programming Language :: Python',
@@ -60,9 +60,9 @@ maintainers = [
 dependencies = ['numpy>=1.23', 'matplotlib', 'vpython', 'python-libsbml', 'pyneuroml']
 
 [project.urls]
-homepage = 'https://moose.ncbs.res.in'
+homepage = 'https://mooseneuro.github.io/'
 documentation = 'https://moose.ncbs.res.in/readthedocs/index.html'
-repository = 'https://github.com/BhallaLab/moose-core'
+repository = 'https://github.com/MooseNeuro/moose-core.git'
 
 [project.optional-dependencies]
 test = [
@@ -80,7 +80,7 @@ dist = ['--include-subprojects']
 build = '*-macosx_* *-manylinux_x86_64 *-win_amd64 *-win_arm64'
 skip = "*-win32"
 test-skip = ""
-free-threaded-support = false
+#free-threaded-support = false
 
 archs = ["auto"]
 build-frontend = "default"

@@ -1,0 +1,39 @@
+{
+	"filetype": "rdesigneur",
+	"version": "1.0",
+	"cellProto" : { "type": "ballAndStick", "somaDia":10, "somaLen": 20, "dendDia": 2, "dendLen": 500, "numDendSeg": 10 },
+	"passiveDistrib": [
+			{"path": "#", "Em": -0.065}
+	],
+	"spineProto" : [
+		{ "type": "builtin", "source": "activeSpine", "name":"aspine", "shaftDia": 1e-7, "shaftLen": 1e-6, "headDia": 1e-6, "headLen": 0.5e-6, "gluGbar": 200.0, "nmdaGbar": 100.0 },
+		{ "type": "builtin", "source": "passiveSpine", "name":"pspine", "shaf    tDia": 2e-7, "shaftLen": 1e-6, "headDia": 0.5e-6, "headLen": 0.4e-6 }
+	],
+	"spineDistrib": [
+		{"proto": "aspine", "path": "dend#", "spacing": 2e-6, "minSpacing": 0, "sizeScale": 1.0, "sizeSdev": 0.5},
+		{"proto": "pspine", "path": "dend#", "spacing": 2e-6, "minSpacing": 0, "sizeScale": 2.0, "sizeSdev": 0.5}
+	],
+	"chemProto" : [
+		{ "type": "kkit", "source": "Models/BothPresyn86.g", "name":"chem" },
+		{ "type": "kkit", "source": "Models/MAPK.g", "name":"mapk" },
+		{ "type": "sbml", "source": "Models/mtor.xml", "name":"mTOR" }
+	],
+	"chemDistrib": [
+		{"proto": "glu", "path": "head#", "type": "presyn_spine", "radiusScale": 1.5, "radiusSdev": 0.5},
+		{"proto": "GABA", "path": "dend#", "type": "presyn_dend", "radius": 1.5e-6, "radiusSdev": 0.5e-6, "spacing": 2e-6 },
+		{"proto": "mapk", "path": "dend#", "type": "dend", "diffusionLength": 1.5e-6 },
+		{"proto": "Ca4CaM", "path": "dend#", "type": "dend", "diffusionLength": 2.5e-6 },
+		{"proto": "Ca4CaM", "path": "head#", "type": "spine", "parentDend": "DEND" },
+		{"proto": "Ca4CaM", "path": "head#", "type": "psd", "parentDend": "DEND" },
+		{"proto": "Ca", "path": "dend#", "type": "endo", "wrapper": "DEND", "radiusFrac": 0.8 }
+	],
+	"stims": [
+		{ "type": "periodicsyn", "path": "head#", "field": "glu", 
+			"weight": 0.5, "expr": "1 + 40*(t>10 && t<11)"},
+		{ "type": "randsyn", "path": "head#", "field": "NMDA", 
+			"weight": 0.5, "expr": "0.3" },
+		{ "type": "field", "path": "soma", "field": "inject", 
+			"expr": "(1+cos(t/10))*(t>31.4 && t<94)* 0.5e-9"}
+	]
+}
+

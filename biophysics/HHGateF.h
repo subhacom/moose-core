@@ -58,7 +58,7 @@ public:
     /// compiler generated copy assignment operator for HHGateF, which
     /// raises error with Dinfo, which tries to reference the copy
     /// operator.
-    HHGateF& operator=(const HHGateF&); 
+    HHGateF& operator=(const HHGateF&);
     //////////////////////////////////////////////////////////
     // LookupValueFinfos
     //////////////////////////////////////////////////////////
@@ -93,16 +93,16 @@ public:
     /// Set the expression for evaluating tau
     void setTau(const Eref& e, const string expr);
     string getTau(const Eref& e) const;
-    /// Set the expression for evaluating mInfinity
-    void setMinfinity(const Eref& e, const string expr);
-    string getMinfinity(const Eref& e) const;
+    /// Set the expression for evaluating inf
+    void setInf(const Eref& e, const string expr);
+    string getInf(const Eref& e) const;
 
     /////////////////////////////////////////////////////////////////
     // Utility funcs
     /////////////////////////////////////////////////////////////////
     static const Cinfo* initCinfo();
 
-private:
+protected:
     /// Whether the gate is expressed in tau-inf form. If false, it is
     /// alpha-beta form
     bool tauInf_;
@@ -111,6 +111,13 @@ private:
     exprtk::expression<double> beta_;
     exprtk::parser<double> parser_;
     mutable double v_;
+    /// to allow intermediate expressions for cases where there
+    /// is conditional on alpha/beta or tau/inf values
+    mutable double alphav_; 
+    mutable double betav_;
+    mutable double tauv_;
+    mutable double infv_;
+    
     /// Store the user-specified expression strings
     string alphaExpr_;
     string betaExpr_;

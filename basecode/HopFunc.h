@@ -436,7 +436,7 @@ template < class A > class GetHopFunc: public OpFunc1Base< A* >
 			vector< double > buf;
 			remoteFieldGetVec( e, hopIndex_.bindIndex(), buf );
 			assert( buf.size() > 0 );
-			unsigned int numField = buf[0];
+			unsigned int numField = static_cast<unsigned int>(buf[0]);
 			double* val = &buf[1]; // zeroth entry is numField.
 			for ( unsigned int j = 0; j < numField; ++j ) {
 				ret.push_back( Conv< A >::buf2val( &val ) );

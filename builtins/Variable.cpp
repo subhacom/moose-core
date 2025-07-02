@@ -8,6 +8,7 @@
 #include "Variable.h"
 #include "Function.h"
 
+
 const Cinfo * Variable::initCinfo()
 {
     static ValueFinfo< Variable, double > value(

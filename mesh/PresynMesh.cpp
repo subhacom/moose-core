@@ -504,7 +504,7 @@ void PresynMesh::innerBuildDefaultMesh( const Eref& e,
  */
 vector< unsigned int > PresynMesh::getParentVoxel() const
 {
-	vector< unsigned int > ret( boutons_.size(), -1U);
+	vector< unsigned int > ret( boutons_.size(), ~0U);
 	return ret;
 }
 

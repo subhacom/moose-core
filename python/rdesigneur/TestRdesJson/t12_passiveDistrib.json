@@ -1,0 +1,8 @@
+{
+	"filetype": "rdesigneur",
+	"version": "1.0",
+	"cellProto" : { "type": "ballAndStick", "somaDia":10, "somaLen": 20, "dendDia": 2, "dendLen": 500, "numDendSeg": 10 },
+	"passiveDistrib": [
+			{"path": "#", "Em": -0.065}
+	]
+}

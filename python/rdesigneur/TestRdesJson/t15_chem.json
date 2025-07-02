@@ -1,0 +1,12 @@
+{
+	"filetype": "rdesigneur",
+	"version": "1.0",
+	"diffusionLength": 2e-6,
+	"turnOffElec": true,
+	"chemProto" : [
+		{ "type": "builtin", "source": "makeChemOscillator", "name":"osc" }
+	],
+	"chemDistrib": [
+		{"proto": "osc", "path": "soma", "type": "dend"}
+	]
+}

@@ -48,20 +48,6 @@ public:
     void setZindex(string index);
     string getZindex() const;
 
-    // void setXpower(const Eref& e, double Xpower);
-    // double getXpower(const Eref& e) const;
-    // void setYpower(const Eref& e, double Ypower);
-    // double getYpower(const Eref& e) const;
-    // void setZpower(const Eref& e, double Zpower);
-    // double getZpower(const Eref& e) const;
-    // void setInstant(int Instant);
-    // int getInstant() const;
-    // void setX(double X);
-    // double getX() const;
-    // void setY(double Y);
-    // double getY() const;
-    // void setZ(double Z);
-    // double getZ() const;
 
     /// Access function used for the X gate. The index is ignored.
     HHGate2D* getXgate(unsigned int i);
@@ -174,23 +160,6 @@ private:
     HHGate2D* yGate_;  /// HHGate2D for the yGate
     HHGate2D* zGate_;  /// HHGate2D for the zGate
 
-    static double power1(double x, double p)
-    {
-        return x;
-    }
-    static double power2(double x, double p)
-    {
-        return x * x;
-    }
-    static double power3(double x, double p)
-    {
-        return x * x * x;
-    }
-    static double power4(double x, double p)
-    {
-        return power2(x * x, p);
-    }
-    static double powerN(double x, double p);
 };
 
 #endif  // _HHChannel2D_h

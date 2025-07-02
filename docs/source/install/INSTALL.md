@@ -62,10 +62,10 @@ Briefly,
    - python-setuptools
    - pkg-config
 
-2. Now use `pip` to download and install `pymoose` from the [github repository](https://github.com/BhallaLab/moose-core).
+2. Now use `pip` to download and install `pymoose` from the [github repository](https://github.com/MooseNeuro/moose-core).
 
 ```
-$ pip install git+https://github.com/BhallaLab/moose-core --user
+$ pip install git+https://github.com/MooseNeuro/moose-core --user
 ```
 
 This will install the `master` branch of MOOSE. If you want a specific fork/branch, modify the address:

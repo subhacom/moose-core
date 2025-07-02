@@ -102,7 +102,7 @@ class Ecol {
 		}
 
 		double e_;
-		double col_;
+		unsigned int col_;
 };
 
 #endif	// _MESH_COMPT_H

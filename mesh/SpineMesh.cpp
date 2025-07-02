@@ -182,7 +182,7 @@ SpineMesh::~SpineMesh()
  */
 vector< unsigned int > SpineMesh::getParentVoxel() const
 {
-	vector< unsigned int > ret( spines_.size(), -1U );
+	vector< unsigned int > ret( spines_.size(), ~0U );
 	// for ( unsigned int i = 0; i < spines_.size(); ++i )
 	// 	ret[i] = spines_[i].parent(); // Wrong, returns voxel on NeuroMesh
 	return ret;
@@ -193,7 +193,7 @@ vector< unsigned int > SpineMesh::getParentVoxel() const
  */
 vector< unsigned int > SpineMesh::getNeuronVoxel() const
 {
-	vector< unsigned int > ret( spines_.size(), -1U );
+	vector< unsigned int > ret( spines_.size(), ~0U );
 	for ( unsigned int i = 0; i < spines_.size(); ++i )
 		ret[i] = spines_[i].parent();
 	return ret;

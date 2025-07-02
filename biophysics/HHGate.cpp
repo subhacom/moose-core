@@ -7,6 +7,9 @@
  ** See the file COPYING.LIB for the full notice.
  **********************************************************************/
 
+#include <cmath>
+#include "../utility/strutil.h"
+#include "exprtk.hpp"
 #include "../basecode/header.h"
 #include "../basecode/ElementValueFinfo.h"
 #include "../builtins/MooseParser.h"
@@ -28,7 +31,7 @@ const Cinfo* HHGate::initCinfo()
         "Alternatively uses linear interpolation."
         "The range of the double is predefined based on knowledge of"
         "voltage or conc ranges, and the granularity is specified by"
-        "the xmin, xmax, and xdivs fields.",
+        "the min, max, and divs fields.",
         &HHGate::lookupA);
     static ReadOnlyLookupValueFinfo<HHGate, double, double> B(
         "B",
@@ -61,12 +64,53 @@ const Cinfo* HHGate::initCinfo()
         &HHGate::setTau, &HHGate::getTau);
 
     static ElementValueFinfo<HHGate, vector<double>> mInfinity(
-        "mInfinity",
-        "Parameters for voltage-dependent rates, mInfinity:"
-        "Set up mInfinity curve using 5 parameters, as follows:"
+        "mInfinity", "Deprecated. Use `inf` instead.", &HHGate::setMinfinity,
+        &HHGate::getMinfinity);
+
+    static ElementValueFinfo<HHGate, vector<double>> inf(
+        "inf",
+        "Parameters for voltage-dependent rates, inf:"
+        "Set up inf curve using 5 parameters, as follows:"
         "y(x) = (A + B * x) / (C + exp((x + D) / F))"
         "The original HH equations can readily be cast into this form",
         &HHGate::setMinfinity, &HHGate::getMinfinity);
+
+    static ElementValueFinfo<HHGate, string> alphaExpr(
+        "alphaExpr",
+        "Explicit expression for computing `alpha`."
+        " For using this, `betaExpr` must be set as well.\n"
+        " SYNTAX: The expression evaluation uses exprtk syntax,"
+        " with predefined variables `alpha`, `beta`, `tau`, `inf`, and `v`."
+        " `v` is the input variable, the others can be used as"
+        " local variables for intermediate computations.\n"
+        "Example:\n"
+        "~(alpha:=0.3 * exp(-80 * (v -(-46e-3))) + 3.5,"
+        "alpha < 3.8? 3.8: alpha)\n"
+        " first computes a local variable `alpha` by the first formula,"
+        " and if it is < 3.8 then returns 3.8, otherwise returns the"
+        " computed value.",
+        &HHGate::setAlphaExpr, &HHGate::getAlphaExpr);
+
+    static ElementValueFinfo<HHGate, string> betaExpr(
+        "betaExpr",
+        "Explicit expression for computing `beta`."
+        " For using this, `alphaExpr` must be set as well."
+        " See `alphaExpr` and `HHChannelF` documentation.",
+        &HHGate::setBetaExpr, &HHGate::getBetaExpr);
+
+    static ElementValueFinfo<HHGate, string> tauExpr(
+        "tauExpr",
+        "Explicit expression for computing `tau`."
+        " For using this, `infExpr` must be set as well."
+        " See `alphaExpr` and `HHChannelF` documentation.",
+        &HHGate::setTauExpr, &HHGate::getTauExpr);
+
+    static ElementValueFinfo<HHGate, string> infExpr(
+        "infExpr",
+        "Explicit expression for computing `inf`."
+        " When using this, `tauExpr` must be set as well."
+        " See `alphaExpr` and `HHChannelF` documentation.",
+        &HHGate::setInfExpr, &HHGate::getInfExpr);
 
     static ElementValueFinfo<HHGate, double> min(
         "min", "Minimum range for lookup", &HHGate::setMin, &HHGate::getMin);
@@ -89,6 +133,15 @@ const Cinfo* HHGate::initCinfo()
         "useInterpolation",
         "Flag: use linear interpolation if true, else direct lookup",
         &HHGate::setUseInterpolation, &HHGate::getUseInterpolation);
+
+    static ReadOnlyValueFinfo<HHGate, int> form(
+        "form",
+        "Form of the gate specification:\n 0 for old-style tables,\n"
+        " 1 for expression string in alpha-beta form, and\n"
+        " 2 for expression string in tau-inf form.\n"
+        "This is set automatically when the user assigns the gate"
+        " tables or the expressions.",
+        &HHGate::getForm);
 
     static ElementValueFinfo<HHGate, vector<double>> alphaParms(
         "alphaParms",
@@ -141,7 +194,7 @@ const Cinfo* HHGate::initCinfo()
     static DestFinfo tweakTau(
         "tweakTau",
         "Dummy function for backward compatibility. It used to convert"
-        "the tables from tau, minf values to alpha, alpha+beta"
+        "the tables from tau, inf values to alpha, alpha+beta"
         "because the internal calculations used these forms. Not"
         "needed now, deprecated.",
         new OpFunc0<HHGate>(&HHGate::tweakTau));
@@ -154,13 +207,27 @@ const Cinfo* HHGate::initCinfo()
         "y(x) = (A + B * x) / (C + exp((x + D) / F))"
         "Deprecated.",
         new EpFunc1<HHGate, vector<double>>(&HHGate::setupGate));
+    static DestFinfo fillFromExpr(
+        "fillFromExpr",
+        "If the gating variables are specified as string expressions"
+        " (alphaExpr/betaExpr/tauExpr/infExpr), then fill up the"
+        " tables by evaluating the expressions. This function is"
+        " for debugging. If assigned, the expressions are evaluated to fill"
+        " the tables at `reinit()`",
+        new EpFunc0<HHGate>(&HHGate::fillFromExpr));
+
     static Finfo* HHGateFinfos[] = {
-        &A,                 // ReadOnlyLookupValue
-        &B,                 // ReadOnlyLookupValue
-        &alpha,             // ElementValue
-        &beta,              // ElementValue
-        &tau,               // ElementValue
-        &mInfinity,         // ElementValue
+        &A,          // ReadOnlyLookupValue
+        &B,          // ReadOnlyLookupValue
+        &alpha,      // ElementValue
+        &beta,       // ElementValue
+        &tau,        // ElementValue
+        &mInfinity,  // ElementValue
+        &inf,        // ElementValue
+        &alphaExpr,
+        &betaExpr,
+        &tauExpr,
+        &infExpr,
         &min,               // ElementValue
         &max,               // ElementValue
         &divs,              // ElementValue
@@ -173,19 +240,32 @@ const Cinfo* HHGate::initCinfo()
         &tweakAlpha,        // Dest
         &tweakTau,          // Dest
         &setupGate,         // Dest
+        &fillFromExpr,       // Dest
     };
 
     static string doc[] = {
         "Name",
         "HHGate",
         "Author",
-        "Upinder S. Bhalla, 2011, NCBS",
+        "Upinder S. Bhalla, 2011, NCBS. Updates by Subhasis Ray, 2025, CHINTA",
         "Description",
-        "HHGate: Gate for Hodkgin-Huxley type channels, equivalent to the "
-        "m and h terms on the Na squid channel and the n term on K. "
-        "This takes the voltage and state variable from the channel, "
-        "computes the new value of the state variable and a scaling, "
-        "depending on gate power, for the conductance.",
+        "HHGate: Gate for Hodkgin-Huxley type channels, equivalent to the"
+        " m and h terms on the Na squid channel and the n term on K."
+        " This takes the voltage and state variable from the channel,"
+        " computes the new value of the state variable and a scaling,"
+        " depending on gate power, for the conductance.\n"
+	"This class uses a pair of lookup tables to quickly"
+	" find the gating terms for a given voltage.\n"
+	"To populate the tables one can directly assign precomputed arrays"
+	" to `tableA` and `tableB` fields, or use specify string equations"
+	" for `alphaExpr/betaExpr` or `tauExpr/infExpr`."
+	" This requires the fields the range of input voltages be specified"
+	" through the fields `min`, `max` and `divs`.\n"
+	" When the gate equations can be expressed in the standard form"
+	" `y(x) = (A + B * x) / (C + exp((x + D) / F))` one can "
+	" set `alphaParms` or call `setupAlpha()` or `setupTau()`"
+	" functions with the proper arguments to setup the tables."
+	,
     };
 
     static Dinfo<HHGate> dinfo;
@@ -205,6 +285,9 @@ HHGate::HHGate()
       xmin_(0),
       xmax_(1),
       invDx_(1),
+      form_(0),
+      alphaExpr_(""),
+      betaExpr_(""),
       lookupByInterpolation_(0),
       isDirectTable_(0)
 {
@@ -218,6 +301,9 @@ HHGate::HHGate(Id originalChanId, Id originalGateId)
       xmin_(0),
       xmax_(1),
       invDx_(1),
+      form_(0),
+      alphaExpr_(""),
+      betaExpr_(""),
       lookupByInterpolation_(0),
       isDirectTable_(0)
 {
@@ -360,6 +446,157 @@ void HHGate::setMinfinity(const Eref& e, vector<double> val)
     }
 }
 
+// Fill the A/B tables by evaluating gate formulae
+void HHGate::fillFromExpr(const Eref& e)
+{
+    if(form_ == 0) {
+        return;
+    }
+    exprtk::symbol_table<double> symTab_;
+    exprtk::expression<double> alpha_;
+    exprtk::expression<double> beta_;
+    exprtk::parser<double> parser_;
+    double v_;
+    // Add extra variables to allow intermediate expressions for cases
+    // where there is conditional on alpha/beta or tau/inf values
+    double a_;
+    double b_;
+    double tau_;
+    double inf_;
+    symTab_.add_variable("v", v_);
+    symTab_.add_variable("c", v_);
+    symTab_.add_variable("alpha", a_);
+    symTab_.add_variable("beta", b_);
+    symTab_.add_variable("tau", tau_);
+    symTab_.add_variable("inf", inf_);
+    symTab_.add_constants();
+    alpha_.register_symbol_table(symTab_);
+    beta_.register_symbol_table(symTab_);
+
+    if(moose::trim(alphaExpr_).length() == 0) {
+        cerr << "Error: Element: " << e.objId().path()
+             << ": HHGate::tabFillExpr: empty expression for A" << endl;
+        return;
+    }
+    if(!parser_.compile(alphaExpr_, alpha_)) {
+        cerr << "Error: Element: " << e.objId().path()
+             << ": HHGate::tabFillExpr: cannot compile expression!\n"
+             << alphaExpr_ << endl
+             << parser_.error() << endl;
+        return;
+    }
+    if(moose::trim(alphaExpr_).length() == 0) {
+        cerr << "Error: Element: " << e.objId().path()
+             << ": HHGate::tabFillExpr: empty expression for B" << endl;
+        return;
+    }
+    if(!parser_.compile(betaExpr_, beta_)) {
+        cerr << "Error: Element: " << e.objId().path()
+             << ": HHGate::tabFillExpr: cannot compile expression!\n"
+             << betaExpr_ << endl
+             << parser_.error() << endl;
+        return;
+    }
+    if((xmax_ == 1) && (xmin_ == 0)) {
+        cout << "Warning: " << e.objId().path()
+             << ": HHGate::tabFillExpr: `min` and `max` have default values. "
+                "Did you forget to"
+             << " set them?" << endl;
+    }
+    unsigned int xdivs = A_.size() - 1;
+    assert(A_.size() == B_.size());
+    invDx_ = static_cast<double>(xdivs) / (xmax_ - xmin_);
+    double dv = (xmax_ - xmin_) / xdivs;
+    double prevA{0}, prevB{0};
+    for(int ii = 0; ii <= xdivs; ++ii) {
+        v_ = xmin_ + ii * dv;
+        // Check singularity to avoid division by 0/nan values
+        double a_{alpha_.value()}, b_{beta_.value()};
+	// Check for nan
+	if (a_ != a_){
+	    a_ = prevA;
+	}
+	if (b_ != b_){
+	    b_ = prevB;
+	}
+        if(form_ == 1) {  // alpha/beta	    
+            b_ += a_;     // B = alpha + beta
+            A_[ii] = a_;
+            B_[ii] = fabs(b_) < SINGULARITY? SINGULARITY: b_;
+	    prevA = a_;
+	    prevB = B_[ii] - a_;
+        }
+        else {  // form = 2, tau/inf
+	    if (fabs(a_) < SINGULARITY){
+		a_ = prevA;
+		b_ = prevB;
+	    } else {
+		B_[ii] = 1 / a_;
+		A_[ii] = b_ / a_;
+		prevA = a_;
+		prevB = b_;
+	    }
+        }
+    }
+}
+
+string HHGate::getAlphaExpr(const Eref& e) const
+{
+    return form_ == 1 ? alphaExpr_ : "";
+}
+
+void HHGate::setAlphaExpr(const Eref& e, string expr)
+{
+    if(checkOriginal(e.id(), "alphaExpr")) {
+        form_ = 1;
+        alphaExpr_ = expr;
+    }
+}
+
+string HHGate::getBetaExpr(const Eref& e) const
+{
+    return form_ == 1 ? betaExpr_ : "";
+}
+
+void HHGate::setBetaExpr(const Eref& e, string expr)
+{
+    if(checkOriginal(e.id(), "betaExpr")) {
+        form_ = 1;
+        betaExpr_ = expr;
+    }
+}
+
+string HHGate::getTauExpr(const Eref& e) const
+{
+    return form_ == 2 ? alphaExpr_ : "";
+}
+
+void HHGate::setTauExpr(const Eref& e, string expr)
+{
+    if(checkOriginal(e.id(), "tauExpr")) {
+        form_ = 2;
+        alphaExpr_ = expr;
+    }
+}
+
+string HHGate::getInfExpr(const Eref& e) const
+{
+    return form_ == 2 ? betaExpr_ : "";
+}
+
+void HHGate::setInfExpr(const Eref& e, string expr)
+{
+    if(checkOriginal(e.id(), "infExpr")) {
+        form_ = 2;
+        betaExpr_ = expr;
+    }
+}
+
+int HHGate::getForm() const
+{
+    return form_;
+}
+
 double HHGate::getMin(const Eref& e) const
 {
     return xmin_;
@@ -445,6 +682,7 @@ void HHGate::setTableA(const Eref& e, vector<double> v)
         A_ = v;
         unsigned int xdivs = A_.size() - 1;
         invDx_ = static_cast<double>(xdivs) / (xmax_ - xmin_);
+        form_ = 0;
     }
 }
 
@@ -464,6 +702,7 @@ void HHGate::setTableB(const Eref& e, vector<double> v)
             return;
         }
         B_ = v;
+        form_ = 0;
     }
 }
 
@@ -492,6 +731,7 @@ void HHGate::setupAlpha(const Eref& e, vector<double> parms)
             alpha_[i] = parms[i];
         for(unsigned int i = 5; i < 10; ++i)
             beta_[i - 5] = parms[i];
+        form_ = 0;
     }
 }
 
@@ -518,6 +758,7 @@ void HHGate::setupTau(const Eref& e, vector<double> parms)
             return;
         }
         setupTables(parms, true);
+        form_ = 0;
     }
 }
 
@@ -635,11 +876,12 @@ void HHGate::setupTables(const vector<double>& parms, bool doTau)
             prevBentry = B_[i];
         }
     }
+    form_ = 0;
 }
 
 /**
  * Tweaks the A and B entries in the tables from the original
- * alpha/beta or minf/tau values. See code in
+ * alpha/beta or inf/tau values. See code in
  * GENESIS/src/olf/new_interp.c, function tweak_tab_values
  */
 void HHGate::tweakTables(bool doTau)
@@ -739,6 +981,7 @@ void HHGate::setupGate(const Eref& e, vector<double> parms)
         // Then we do the tweaking to convert to HHChannel form.
         tweakTables(0);
     }
+    form_ = 0;
 }
 
 ///////////////////////////////////////////////////////////////////////
@@ -771,7 +1014,6 @@ void HHGate::tabFill(vector<double>& table, unsigned int newXdivs,
 
     lookupByInterpolation_ = origLookupMode;
 }
-
 
 void HHGate::updateAlphaBeta()
 {

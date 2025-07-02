@@ -50,6 +50,7 @@ public:
 
     // get function eval result
     double getValue() const;
+    double getEval() const;
     double getRate() const;
 
     // get/set operation mode

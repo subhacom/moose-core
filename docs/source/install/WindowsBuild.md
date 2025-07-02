@@ -35,14 +35,14 @@ conda activate moose
 
 ## Build and install moose using `pip`
 ```
-pip install git=https://github.com/BhallaLab/moose-core
+pip install git+https://github.com/MooseNeuro/moose-core
 ```
 
 ## Build moose for development
 *Note: The commands below are designed for PowerShell.*
 * Get moose source code by cloning `moose-core` source code using git
 ```
-git clone https://github.com/BhallaLab/moose-core --depth 50 
+git clone https://github.com/MooseNeuro/moose-core --depth 50 
 ```
 
 * If you have not already set the path to LLVM binaries, run 

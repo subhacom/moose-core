@@ -483,7 +483,7 @@ const
     if ( fraction < 0 )
         return vec_[0];
 
-    unsigned int j = xdivs * fraction;
+    unsigned int j = static_cast<unsigned int>(xdivs * fraction);
     if ( j >= ( vec_.size() - 1 ) )
         return vec_.back();
 

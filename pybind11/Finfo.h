@@ -86,15 +86,16 @@ vector<pair<string, string>> finfoNames(const Cinfo *cinfo,
 ////////////////////////////////////////////////////////////
 
 class __Finfo__ {
-  public:
+public:
+    /// oid is the ObjId of the owner, f is this finfoType is one of "FieldElementFinfo", "LookupValueFinfo"
     __Finfo__(const ObjId &oid, const Finfo *f, const string &finfoType);
 
     // ObjId of the fieldElement
     ObjId getObjId() const;
   
     // Get attribute (python api);
-    unsigned int getNumField();
-    bool setNumField(unsigned int);
+    unsigned int getNum();
+    bool setNum(unsigned int);
     
     // Exposed to python as __getitem__
     py::object getItem(const py::object &key);

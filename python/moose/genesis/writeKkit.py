@@ -155,7 +155,7 @@ def mooseWriteKkit( modelpath, filename, sceneitems={},deletedanglingObj=True):
             writeFooter1(f)
             writeNotes(modelpath,f)
             writeFooter2(f)
-            print('Written to file '+filename)
+            #print('Written to file '+filename)
             return errors, True
         else:
             print("Warning: writeKkit:: No model found on " , modelpath)

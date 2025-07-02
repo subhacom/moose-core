@@ -33,7 +33,6 @@ std::function<bool(T)> getSetGetFunc1(const ObjId &oid, const string &fname)
     return func;
 }
 
-
 py::object getFieldValue(const ObjId &oid, const Finfo *f)
 {
     auto rttType = f->rttiType();
@@ -47,6 +46,9 @@ py::object getFieldValue(const ObjId &oid, const Finfo *f)
     }
     else if(rttType == "vector<unsigned int>") {
         r = getFieldNumpy<unsigned int>(oid, fname);
+    }
+    else if(rttType == "vector<int>") {
+        r = getFieldNumpy<int>(oid, fname);
     }
     else if(rttType == "string")
         r = py::str(getField<string>(oid, fname));
@@ -85,12 +87,14 @@ py::cpp_function getDestFinfoSetterFunc(const ObjId &oid, const Finfo *finfo)
     const auto rttType = finfo->rttiType();
     vector<string> types;
     moose::tokenize(rttType, ",", types);
-
-    if(types.size() == 1)
+    if(types.size() == 1){
         return getDestFinfoSetterFunc1(oid, finfo, types[0]);
+    }
+    if (types.size() == 2) {
+        return getDestFinfoSetterFunc2(oid, finfo, types[0], types[1]);
+    }
+    throw runtime_error("getDestFinfoSetterFunc: Not implemented: More than 2 parameters."); 
 
-    assert(types.size() == 2);
-    return getDestFinfoSetterFunc2(oid, finfo, types[0], types[1]);
 }
 
 // Get DestFinfo1.
@@ -195,7 +199,7 @@ py::list getElementFinfo(const ObjId &objid, const Finfo *f)
 }
 
 py::object getElementFinfoItem(const ObjId &oid, const Finfo *f, int index)
-{    
+{
     size_t numFields = getNumField(oid, f);
     size_t i = (index < 0) ? (int)numFields + index : index;
     if(i >= numFields)
@@ -285,14 +289,12 @@ py::object getLookupValueFinfoItemInner(const ObjId &oid, const Finfo *f,
 
     py::print(__func__, ":: warning: Could not find", fname, "for key", key,
               "(type", tgtType, ") on path ", oid.path());
-    throw py::key_error("Attribute error.");
+    throw py::key_error("Could not find lookup entry.");
     return py::none();
 }
 
-
-bool setLookupValueFinfoItem(const ObjId& oid, const py::object& key,
-                                        const py::object& val,
-                                        const Finfo* finfo)
+bool setLookupValueFinfoItem(const ObjId &oid, const py::object &key,
+                             const py::object &val, const Finfo *finfo)
 {
     auto rttType = finfo->rttiType();
     auto fieldName = finfo->name();
@@ -318,7 +320,8 @@ bool setLookupValueFinfoItem(const ObjId& oid, const py::object& key,
     if(srcType == "string") {
         if(destType == "vector<double>")
             return LookupField<string, vector<double>>::set(
-                oid, fieldName, py::cast<string>(key), py::cast<vector<double>>(val));
+                oid, fieldName, py::cast<string>(key),
+                py::cast<vector<double>>(val));
     }
     if(srcType == "string") {
         if(destType == "long")
@@ -328,7 +331,8 @@ bool setLookupValueFinfoItem(const ObjId& oid, const py::object& key,
     if(srcType == "string") {
         if(destType == "vector<long>")
             return LookupField<string, vector<long>>::set(
-                oid, fieldName, py::cast<string>(key), py::cast<vector<long>>(val));
+                oid, fieldName, py::cast<string>(key),
+                py::cast<vector<long>>(val));
     }
     if(srcType == "string") {
         if(destType == "string")
@@ -338,7 +342,8 @@ bool setLookupValueFinfoItem(const ObjId& oid, const py::object& key,
     if(srcType == "string") {
         if(destType == "vector<string>")
             return LookupField<string, vector<string>>::set(
-                oid, fieldName, py::cast<string>(key), py::cast<vector<string>>(val));
+                oid, fieldName, py::cast<string>(key),
+                py::cast<vector<string>>(val));
     }
 
     py::print("NotImplemented::setLookupValueFinfoItem:", key, "to value", val,
@@ -405,30 +410,33 @@ vector<pair<string, string>> finfoNames(const Cinfo *cinfo,
 __Finfo__::__Finfo__(const ObjId &oid, const Finfo *f, const string &finfoType)
     : oid_(oid), f_(f), finfoType_(finfoType), pVec_(nullptr)
 {
-     // why LookupFinfo for DestFinfo??? Pretty sure this was a mistake! - Subha
+    // why LookupFinfo for DestFinfo??? Pretty sure this was a mistake! - Subha
     // if(finfoType == "DestFinfo")
     //     func_ = [oid, f](const py::object &key) {
     // 	    cout << "Creating LookupFinfo for DestFinfo" << endl; // DEBUG
     //         return getLookupValueFinfoItem(oid, f, key);
     //     };
     // else
-        if(finfoType == "FieldElementFinfo")
+    if(finfoType == "FieldElementFinfo") {
         func_ = [oid, f](const py::object &index) {
             // this is essential of make this function static.
             // Cast to int because we support negative indexing.
             return getElementFinfoItem(oid, f, py::cast<int>(index));
         };
-    else if(finfoType == "LookupValueFinfo")
+    }
+    else if(finfoType == "LookupValueFinfo") {
         func_ = [oid, f, this](const py::object &key) {
             // Assigning is essential or make these functions static.
             return getLookupValueFinfoItem(oid, f, key);
         };
-    else
+    }
+    else {
         func_ = [this](const py::object &key) {
             throw runtime_error("Not supported for Finfo type '" + finfoType_ +
                                 "'");
             return py::none();
         };
+    }
 }
 
 ObjId __Finfo__::getObjId() const
@@ -436,15 +444,14 @@ ObjId __Finfo__::getObjId() const
     return getFieldObjId(oid_, f_);
 }
 
-unsigned int __Finfo__::getNumField()
+unsigned int __Finfo__::getNum()
 {
-
-    return Field<unsigned int>::get(oid_, "numField");
+    return getNumField(oid_, f_);
 }
 
-bool __Finfo__::setNumField(unsigned int num)
+bool __Finfo__::setNum(unsigned int num)
 {
-    return Field<unsigned int>::set(oid_, "numField", num);
+    return setNumField(oid_, f_, num);
 }
 
 py::object __Finfo__::getItem(const py::object &key)
@@ -476,15 +483,6 @@ MooseVec *__Finfo__::getMooseVecPtr()
     return pVec_.get();
 }
 
-// py::object __Finfo__::getElementFinfoItem(int index)
-// {
-//     size_t numFields = this->getNumField();
-//     size_t i = (index < 0) ? (int)numFields + index : index;
-//     if(i >= numFields)
-//         throw py::index_error("Index " + to_string(i) + " out of range.");
-//     auto oid = this->getObjId()
-//     return py::cast(ObjId(oid.path(), oid.dataIndex, i));
-// }
 
 string __Finfo__::type() const
 {

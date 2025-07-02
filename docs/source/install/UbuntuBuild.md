@@ -9,17 +9,17 @@ sudo apt install build-essential
 
 1. Install the dependencies
 ```
-sudo apt-get install ninja meson pkg-config python-pip python-numpy libgsl-dev g++ pybind11 
+sudo apt-get install ninja meson pkg-config python-pip python-numpy libgsl-dev g++ pybind11 libz-dev
 pip install meson-python
 pip install python-libsbml
 pip install pyneuroml
 pip install vpython
 ```
 
-2. Now use `pip` to download and install `pymoose` from the [github repository](https://github.com/BhallaLab/moose-core).
+2. Now use `pip` to download and install `pymoose` from the [github repository](https://github.com/MooseNeuro/moose-core).
 
 ```
-$ pip install git+https://github.com/BhallaLab/moose-core --user
+$ pip install git+https://github.com/MooseNeuro/moose-core --user
 ```
 
 ## Building with conda or variants
@@ -40,21 +40,33 @@ conda activate moose
 ## After the above steps, for both system Python and conda environment
 4. Clone `moose-core` source code using git
 ```
-    $ git clone https://github.com/BhallaLab/moose-core --depth 50 
+    $ git clone https://github.com/MooseNeuro/moose-core --depth 50 
 ```
 5. Build moose
 ```
 cd moose-core
 
-meson setup --wipe _build --prefix=`pwd`/_build_install -Duse_mpi=false -Dbuildtype=release
+meson setup --wipe _build -Duse_mpi=false -Dbuildtype=release
 meson compile -v -C _build 
 meson install -C _build
 ```
 
-This will create `moose` module inside `moose-core/_build_install` directory. To make moose importable from any terminal, add this directory to your `PYTHONPATH` environment variable. For standard installation you can simply run `pip install .` in the `moose-core` directory.
+This will install `moose` module inside your environment's default module installation (usually `site-packages`) directory. This  requires write permission on the target directory. See below for local installation.
+
+For standard installation you can also simply run `pip install .` (for system-wide installation if you have the permission) or `pip install . --user` (for local installation) in the `moose-core` directory.
 
 Meson provides many builtin options: https://mesonbuild.com/Builtin-options.html. Meson options are supplied in the command line to `meson setup` in the format `-Doption=value`.
 
+  - **Installation prefix**
+    To install MOOSE in a custom location, you can pass the `--prefix` argument to `meson setup`. For example, if you are in the `moose-core` directory, and want to have it installed in `_build_install` subdirectory, you can use
+	```
+    meson setup --wipe _build --prefix=`pwd`/_build_install -Duse_mpi=false -Dbuildtype=release
+	```
+	But then to let Python find this custom location, you must add the directory containing `moose` under `_build_install` in your `PYTHONPATH` environment variable. In `bash` shell, this would be:
+	```
+	export PYTHONPATH="$PYTHONPATH:`pwd`/_buid_install/Lib/site-packages"
+	```
+	
   - **Buildtype**
 
 	If you want a developement build with debug enabled, pass `-Dbuildtype=debug` in the `meson setup ...` command line.
@@ -95,16 +107,16 @@ Install the required dependencies and download the latest source code of moose
 from github.
 
 ```
-    $ git clone https://github.com/BhallaLab/moose-core --depth 50 
+    $ git clone https://github.com/MooseNeuro/moose-core --depth 50 
     $ cd moose-core
     $ meson setup --wipe _build --prefix=`pwd`/_build_install -Duse_mpi=false -Dbuildtype=release
     $ ninja -v -C _build 
 	$ meson install -C _build
 ```
 
-This will build moose, in `moose-core/_build`  directory and install it as Python package in the `moose-core/_build_install` directory.
+This will build moose in `moose-core/_build` directory and install it as a Python package in the `moose-core/_build_install` directory.
 
-To rebuild, delete the `_build` directory and the generated `_build_install/` directory and continue the steps above starting with `meson setup ...`.
+To do a clean rebuild, delete the `_build` directory and the generated `_build_install/` directory and continue the steps above starting with `meson setup ...`.
 
 To make in debug mode replace the option `-Dbuildtype=release` with `-Dbuildtype=debug`
 
