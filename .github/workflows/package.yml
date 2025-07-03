@@ -105,7 +105,7 @@ jobs:
           python -m cibuildwheel --output-dir wheelhouse
           dir wheelhouse
       - name: Upload packages
-        if: github.ref == 'refs/heads/development'
+        if: github.ref == 'refs/heads/master'
         uses: xresloader/upload-to-github-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
