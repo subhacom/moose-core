@@ -1,3 +1,4 @@
+
 name: Build install test
 
 on: [push]
@@ -8,17 +9,26 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-22.04, macos-14, windows-latest]
+        os: [ubuntu-22.04, macos-14, macos-15, windows-latest]
         build_type: [Release]
         c_compiler: [clang]
         python-version: ["3.12"]
         include:
           - os: ubuntu-22.04
-            apt: 10
+            apt: 10  # Linux will install the latest GSL version
           - os: macos-14
-            brew: 20
+            brew: 20  # macOS will install the latest GSL version
+          - os: macos-15
+            brew: 20  
           - os: windows-latest
             winget: 30
+            gsl_version: "2.6"
+          - os: windows-latest
+            winget: 30
+            gsl_version: "2.7"
+          - os: windows-latest
+            winget: 30
+            gsl_version: "2.8"
     steps:
       - name: mamba-setup
         uses: mamba-org/setup-micromamba@v1
@@ -56,7 +66,8 @@ jobs:
           sudo apt-get -y install libgsl0-dev libgsl-dev libhdf5-dev
       - if: ${{ matrix.brew }}
         run: |
-          brew install gsl
+          brew list pkg-config && brew uninstall pkg-config || echo "pkg-config not installed, skipping uninstall."
+          brew install gsl  # Always install the latest GSL version on macOS
           brew install hdf5
       - name: checkout
         uses: actions/checkout@v4          
