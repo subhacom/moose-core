@@ -239,6 +239,21 @@ py::object getLookupValueFinfoItem(const ObjId &oid, const Finfo *f,
     if(srcType == "unsigned int")
         return getLookupValueFinfoItemInner<unsigned int>(
             oid, f, key.cast<unsigned int>(), tgtType);
+    if(srcType == "unsigned long")
+        return getLookupValueFinfoItemInner<unsigned long>(
+            oid, f, key.cast<unsigned long>(), tgtType);
+    if(srcType == "long")
+        return getLookupValueFinfoItemInner<long>(
+            oid, f, key.cast<long>(), tgtType);
+    if(srcType == "int")
+        return getLookupValueFinfoItemInner<int>(
+            oid, f, key.cast<int>(), tgtType);
+    if(srcType == "float")
+        return getLookupValueFinfoItemInner<float>(
+            oid, f, key.cast<float>(), tgtType);
+    if(srcType == "double")
+        return getLookupValueFinfoItemInner<double>(
+            oid, f, key.cast<double>(), tgtType);
     if(srcType == "ObjId")
         return getLookupValueFinfoItemInner<ObjId>(oid, f, key.cast<ObjId>(),
                                                    tgtType);
