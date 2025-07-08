@@ -1,7 +1,17 @@
 # Installing MOOSE
 
 ## Installing released version from PyPI using `pip`
-MOOSE is available on PyPI. To install the latest release, run `pip install pymoose`.
+MOOSE is available on PyPI. But it depends on GSL (GNU Scientific Library) and HDF5 libraries, which are not easily available on all platforms. If you are using **Linux** or **MacOS**, you can install these on your system, and then to install the latest release of MOOSE for your system Python, run: 
+
+`pip install pymoose`
+
+If you are using **MS Windows** or want to keep things separate from your system Python, it is better to create a separate environment with conda/mamaba/micromamba/miniforge. The channel `conda-forge` has these libraries for all three platforms. The commands are
+
+```
+conda  create -n moose gsl hdf5 numpy vpython matplotlib -c conda-forge
+conda activate moose
+pip install pymoose
+```
 
 ## Installing from a binary wheel using `pip`
 Binary wheels for MOOSE are available on its github page under `Releases`. You can download a wheel suitable for your platform and install it directly with `pip`. The last three components of the wheel filename indicate what platform it was built for: `*-{python-version}-{operating-system}_{architecture}.whl`.
