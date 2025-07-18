@@ -48,7 +48,7 @@ This wheel is built for:
 
 1. **Create a matching environment:**
    ```bash
-   conda create -n moose python=3.12 gsl=2.7 numpy vpython matplotlib -c conda-forge
+   conda create -n moose python=3.12 gsl=2.7 hdf5 numpy vpython matplotlib -c conda-forge
    ```
    
    > **Note**: Replace `conda` with `mamba` or `micromamba` if you prefer those tools for faster installation.
