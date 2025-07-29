@@ -2,14 +2,9 @@
    sphinx-quickstart on Tue Jan 31 14:57:39 2017.
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
-
-Welcome to MOOSE Documentation
-==============================
-
 .. toctree::
    :maxdepth: 2
 
-   ../build/api/library_root	      
    /introduction/index_introduction
    /install/index_install
    /user/py/quickstart/index_qs
