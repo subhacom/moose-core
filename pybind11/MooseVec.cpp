@@ -99,7 +99,7 @@ ObjId MooseVec::getItem(const int index) const
 {
     // Negative indexing.
     size_t i = (index < 0) ? size() + index : index;
-    if(i > size()) {
+    if(i >= size()) {
         throw py::index_error("Index " + to_string(i) + " out of range.");
     }
     if(oid_.element()->hasFields()) {
