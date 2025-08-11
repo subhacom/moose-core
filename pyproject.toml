@@ -78,9 +78,9 @@ dist = ['--include-subprojects']
 
 [tool.cibuildwheel]
 build = '*-macosx_* *-manylinux_x86_64 *-win_amd64 *-win_arm64'
-skip = "*-win32"
+skip = "*-win32 cp313t-* cp314t-*"
 test-skip = ""
-free-threaded-support = false
+#free-threaded-support = false
 
 archs = ["auto"]
 build-frontend = "default"
