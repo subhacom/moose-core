@@ -1,268 +1,121 @@
-Use pre-built packages
------------------------
+# Installing MOOSE
 
-pip
-^^^^
+## Installing released version from PyPI using `pip`
+MOOSE is available on PyPI. But it depends on GSL (GNU Scientific Library) and HDF5 libraries, which are not easily available on all platforms. If you are using **Linux** or **MacOS**, you can install these on your system, and then to install the latest release of MOOSE for your system Python, run: 
 
-If you only need `python` interface, the recommended way is via `pip`. 
-::
-     pip install pymoose --user
-     
-To install nightly version
-::
-     pip install pymoose --pre --upgrade --user
-     
+`pip install pymoose`
 
-We also have moose package with additional components such as gui and `moogli`. 
+If you are using **MS Windows** or want to keep things separate from your system Python, it is better to create a separate environment with conda/mamaba/micromamba/miniforge. The channel `conda-forge` has these libraries for all three platforms. The commands are
 
-Linux
-^^^^^^
+```
+conda  create -n moose gsl hdf5 numpy vpython matplotlib -c conda-forge
+conda activate moose
+pip install pymoose
+```
 
-We recommend that you use our repositories hosted at `Open Build Service
-<https://build.opensuse.org/package/show/home:moose/moose>`_.  Packages for most 
-linux distributions are available. Visit `this page
-<https://software.opensuse.org/download.html?project=home:moose&package=moose>`_
-to pick your distribution and follow instructions.
+## Installing from a binary wheel using `pip`
+Binary wheels for MOOSE are available on its github page under `Releases`. You can download a wheel suitable for your platform and install it directly with `pip`. The last three components of the wheel filename indicate what platform it was built for: `*-{python-version}-{operating-system}_{architecture}.whl`.
 
-.. note::
-    ``moogli`` (tool to visualize network activity) is not available for CentOS-6.
 
-.. todo:: Packages for gentoo
+For example, 
 
-Mac OSX
-^^^^^^^^
+```
+pymoose-4.1.0.dev0-cp312-cp312-manylinux_2_28_x86_64.whl
+```
 
-MacOSX support for moose-gui is not complete yet because moose-gui depends on PyQt4 but that 
-world has moved onto PyQt5 (See the status here: https://github.com/BhallaLab/moose-gui/issues/16). 
-However, the python-scripting interface can be installed on OSX using ``homebrew``
-::
-    $ brew tap BhallaLab/moose
-    $ brew install moose
+is built for CPython version 3.12 on Linux for 64 bit Intel CPU (x86_64). MOOSE also depends on GSL, and the specific version should match. This should be available in the release description. The above was with GSL 2.7. So you will need an environment with these. 
 
-Or alternatively, via pip 
-::
-    $ pip install pymoose --user 
+The easiest way to setup a custom environment is with Anaconda (or similar tools like mamba, miniforge, micromamba, etc.) See https://docs.conda.io/projects/conda/en/latest/user-guide/install/linux.html to find how to install conda or its variants. The channel `conda-forge` provides binary `gsl` package for all major platforms.
+
+To create an environment named `moose` with these using conda run (*Note: in the commands below replace `conda` with `mamba` or `micromamba` if you are using one of those*):
+
+```
+conda  create -n moose python=3.12 gsl numpy vpython matplotlib -c conda-forge
+```
+
+in the terminal, and then activate this environment with
+
+```
+conda activate moose
+```
+
+Now install the wheel file with
+
+```
+pip install pymoose-4.1.0.dev0-cp312-cp312-manylinux_2_28_x86_64.whl
+```
+
+assuming you have the file in the current directory.
+
+## Installing from source-code in github repository
+
+To build `MOOSE` from source, you need `meson`, `ninja`, `pkg-config`, and `python-setuptools`. We
+recommend to use Python 3.9 or higher.  To build and install with `pip`, you also need `meson-python`.
+
+For platform specific instructions, see:
+- Linux: [UbuntuBuild.md](UbuntuBuild.md)
+- MacOSX: [AppleM1Build.md](AppleM1Build.md)
+- Windows: [WindowsBuild.md](WindowsBuild.md)
+
+Briefly,
+1. Build environment: make sure that the following packages are installed on your system.
+
+   - gsl-1.16 or higher.
+   - python-numpy
+   - pybind11 (if the setup fails to find pybind11, try running `pip install pybind11[global]`)
+   - python-libsbml
+   - pyneuroml
+   - clang compiler 18 or newer
+   - meson
+   - ninja
+   - meson-python
+   - python-setuptools
+   - pkg-config
+
+2. Now use `pip` to download and install `pymoose` from the [github repository](https://github.com/MooseNeuro/moose-core).
+
+```
+$ pip install git+https://github.com/MooseNeuro/moose-core --user
+```
+
+This will install the `master` branch of MOOSE. If you want a specific fork/branch, modify the address:
+
+```
+$ pip install git+https://github.com/subhacom/moose-core@fix495merge --user
+```
+
+will install the fix495merge branch from `subhacom`'s fork of `moose-core`.
+
+## Post installation
+
+You can check that moose is installed and initializes correctly by running:
+```
+$ python -c "import moose; ch = moose.HHChannel('ch'); moose.le()"
+```
+This should show 
+```
+Elements under /
+    /Msgs
+    /clock
+    /classes
+    /postmaster
+    /ch	
+```
+
+Now you can import moose in a Python script or interpreter with the statement:
+
+    >>> import moose
+
+## Uninstall
+
+To uninstall moose, run
+
+    $ pip uninstall pymoose
     
+If you are building moose from source, make sure to get out of the source directory, or you may encounter a message like this:
 
-Docker Images
-^^^^^^^^^^^^^^
+    Found existing installation: pymoose {version}
+    Can't uninstall 'pymoose'. No files were found to uninstall.
 
-Docker images of stable version are available from public repository.
-::
-      $ docker pull bhallalab/moose
-      $ docker run -it --rm -v /tmp/.X11-unix:/tmp/.X11-unix -e DISPLAY=$DISPLAY bhallalab/moose
-      
-This will launch `xterm`; run `moosegui` in terminal to lauch the GUI. 
 
 
-Building MOOSE
---------------
-
-In case your distribution is not listed on `our repository page
-<https://software.opensuse.org/download.html?project=home:moose&package=moose>`_
-, or if you want to build the latest development code, read on.
-
-First, you need to get the source code. You can use ``git`` (clone the
-repository) or download snapshot of github repo by clicking on `this link
-<https://github.com/BhallaLab/moose/archive/master.zip>`__.
-::
-
-    $ git clone https://github.com/BhallaLab/moose
-
-(This will create folder called "moose")
-Or,
-::
-
-    $ wget https://github.com/BhallaLab/moose/archive/master.zip
-    $ unzip master.zip
-
-If you don't want latest snapshot of ``MOOSE``, you can download other released
-versions from `here <https://github.com/BhallaLab/moose/releases>`__.
-
-Install dependencies
-^^^^^^^^^^^^^^^^^^^^
-
-Next, you need to install required dependencies. Depending on your OS, names of
-following packages may vary.
-
-Core MOOSE
-""""""""""
-- Required:
-    - cmake (version 2.8 or higher)
-    - g++ or clang (with `c++11` support).
-    - gsl-1.16 or higher.
-
-- Optional
-    - HDF5 (>=1.8.x) For reading and writing data into HDF5 based formats. Disabled by default.
-
-Python interface for core MOOSE API (pymoose)
-"""""""""""""""""""""""""""""""""""""""""""""
-- Required
-    - python (Both 2.7 and 3.x versions are supported).
-    - python-dev. Python development headers and libraries, e.g. `python-dev` or `python-devel`
-    - NumPy ( >= 1.6.x) For array interface, e.g. `python-numpy` or `numpy`
-
-- Optional
-    - networkx (>=1.x) For automatical layout
-    - pygraphviz. For automatic layout for chemical models
-    - matplotlib (>=2.x). For plotting simulation results
-    - python-libsbml. For reading and writing chemical models from and into SBML format
-    - pylibsbml 
-
-All of these dependencies can be installed using `pip` or your package manager.
-
-On ``Debian/Ubuntu``
-::
-
-    $ sudo apt-get install libhdf5-dev cmake libgsl0-dev libpython-dev python-numpy
-
-
-On ``CentOS/Fedora/RHEL/Scientific Linux``
-::
-
-    $ sudo yum install hdf5-devel cmake libgsl-dev python-devel python-numpy
-
-On ``OpenSUSE``
-::
-
-  $ sudo zypper install hdf5-devel cmake libgsl-dev python-devel python-numpy
-
-Build moose
-^^^^^^^^^^^
-
-.. code-block:: bash
-
-   $ cd /to/moose_directory/moose-core/ 
-   $ mkdir _build
-   $ cd _build
-   $ cmake  ..
-   $ make
-   $ ctest --output-on-failure  # optional
-   $ sudo make install 
-
-This will build pyMOOSE (MOOSE's python extention), `ctest` will run few tests to
-check if build process was successful.
-
-.. note::
-
-  To install MOOSE into non-standard directory, pass additional argument
-  `-DCMAKE_INSTALL_PREFIX=path/to/install/dir` to cmake
-  ::
-
-    $ cmake -DCMAKE_INSTALL_PREFIC=$HOME/.local ..
-
-  To use different version of python
-  ::
-
-    $ cmake -DPYTHON_EXECUTABLE=/opt/python3/bin/python3 ..
-
-After that installation is pretty easy
-::
-
-  $ sudo make install
-
-If everything went fine, you should be able to import moose in python shell.
-
-.. code-block::  python
-
-   >>> import moose
-
-Graphical User Interface (GUI)
-------------------------------
-
-If you have installed the pre-built package, then you already have the GUI.
-You can launch it by runnung `moosegui` command in terminal.
-
-You can get the source of ``moose-gui`` from `here
-<https://github.com/BhallaLab/moose-gui>`__. You can download it either by
-clicking on `this link <https://github.com/BhallaLab/moose-gui/archive/master.zip>`__
-or by using ``git`` ::
-
-    $ git clone https://github.com/BhallaLab/moose-gui
-
-
-Alternatively the moose-gui folder exists within the moose folder downloaded and built earlier in the installation process. It can be found under ``location_of_moose_folder/moose/moose-gui/``.
-
-Below are packages which you may want to install to use MOOSE Graphical User Interface.
-
-- Required:
-    - PyQt4 (4.8.x). For Python GUI
-    - Matplotlib ( >= 2.x). For plotting simulation results
-    - NetworkX (1.x). For automatical layout
- 
-- Optional:
-    - python-libsbml. For reading and writing signalling models from and into SBML format
-
-On ``Ubuntu/Debian``, these can be installed with
-::
-
-    $ sudo apt-get install python-matplotlib python-qt4
-
-On ``CentOS/Fedora/RHEL``
-::
-
-    $ sudo yum install python-matplotlib python-qt4
-
-Now you can fire up the GUI
-::
-
-    $ cd /to/moose-gui
-    $ python mgui.py
-
-.. note::
-
-    If you have installed ``moose`` package, then GUI is launched by
-    running following commnad::
-
-    $ moosegui
-
-Building moogli
----------------
-
-``moogli`` is subproject of ``MOOSE`` for visualizing models. More details can
-be found `here <http://moose.ncbs.res.in/moogli>`__.
-
-`Moogli` is part of `moose` package. Building moogli can be tricky because of
-multiple depednecies it has.
-
-- Required
-    - OSG (3.2.x) For 3D rendering and simulation of neuronal models
-    - Qt4 (4.8.x) For C++ GUI of Moogli
-
-To get the latest source code of ``moogli``, click on `this link <https://github.com/BhallaLab/moogli/archive/master.zip>`__.
-
-Moogli depends on ``OpenSceneGraph`` (version 3.2.0 or higher) which may not
-be easily available for your operating system.
-For this reason, we distribute required ``OpenSceneGraph`` with ``moogli``
-source code.
-
-Depending on distribution of your operating system, you would need following
-packages to be installed.
-
-On ``Ubuntu/Debian``
-::
-
-    $ sudo apt-get install python-qt4-dev python-qt4-gl python-sip-dev libqt4-dev
-
-On ``Fedora/CentOS/RHEL``
-::
-
-    $ sudo yum install sip-devel PyQt4-devel qt4-devel libjpeg-devel PyQt4
-
-On ``openSUSE``
-::
-
-    $ sudo zypper install python-sip python-qt4-devel libqt4-devel python-qt4
-
-After this, building and installing ``moogli`` should be as simple as
-::
-
-    $ cd /path/to/moogli
-    $ mkdir _build
-    $ cd _build
-    $ cmake ..
-    $ make -j3
-    $ sudo make install
-
-If you run into troubles, please report it on our `github repository
-<https://github.com/BhallaLab/moose/issues>`_.
