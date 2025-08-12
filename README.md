@@ -43,10 +43,10 @@ https://github.com/MooseNeuro/moose-examples.
 - A set of jupyter notebooks with step by step examples with explanation are available here:
 https://github.com/MooseNeuro/moose-notebooks.
 
-# v4.1.1 – Incremental Release over v4.1.0 "Jhangri"
-This version builds upon the v4.1.0 (Jhangri) release and includes important internal improvements, documentation enhancements, and binding support.
+# v4.1.3 – Incremental Release over v4.1.0 "Jhangri"
+Patch release focusing on accurate version reporting, bug fixes, and documentation improvements.
 
-# ABOUT VERSION 4.1.1, `Jhangri`
+# ABOUT VERSION 4.1.3, `Jhangri`
 
 [`Jhangri`](https://en.wikipedia.org/wiki/Imarti) is an Indian sweet
 in the shape of a flower. It is made of white-lentil (*Vigna mungo*)
@@ -83,38 +83,14 @@ Now you can import moose in a Python script or interpreter with the statement:
 
     >>> import moose
 
-# New Features
-1.  Formula-based versions of HH-type channels 
-     - Added `HHChannelF` and `HHGateF` for formula-based evaluation of Hodgkin-Huxley type gating parameters
-     - Added a formula interface for `HHGate`: Users can now assign string formula in `exprtk` syntax to `alphaExpr`, `betaExpr`, `tauExpr` and `infExpr` to fill up the               tables. These can take either `v` for voltage or `c` for concentration as independent variable names in the formula.
-2. Added `moose.sysfields` to display system fields like `fieldIndex`, `numData` etc. 
-3. Reintroduced `moose.neighbors()` function to retrieve neighbors on a particular field. This allows more flexibility than `element.neighbors[fieldName]` by allowing the user to specify the message type ("Single", "OneToOne", etc.) and direction (1 for incoming 0 for outgoing, otherwise both directions).
+# Fixes
+1. Version mismatch resolved: `moose.__version__` and `moose.version()` now correctly report 4.1.3 (previous 4.1.2 could still show 4.1.1).
+2. Fixed vec index issue: Resolved an issue where accessing the last element in a `vector` could incorrectly raise an `“index out of range”` error.
+3. Embedded C/C++ macro `(MOOSE_VERSION`) and build metadata are kept in sync with `pyproject.toml.`
 
-# API Updates
-1. API changes in  `moose.vec` and `moose.element,` including updated documentation.
-2. `moose.showfields` updated to 
-   - skip system fields like `fieldIndex`, `numData` etc. These can now be printed using `sysfields` function.
-   -  print common but informative fields like `name`, `className`, `tick` and `dt` at the top.
-   - return `None` instead of the output string to avoid cluttering the interactive session.
-3. `moose.pwe()` returns `None` to avoid output clutter. Use `moose.getCwe()` for retrieving the current working element.
-4. `children` field of moose elements (ObjId) now return a list of elements instead of vecs (Id). This brings consistency between `parent` and `children` fields.
-5. `moose.le()` returns `None` to avoid output clutter. Use `element.children` field to access the list of children.
-6. `path` field for elements (ObjId) now includes the index in brackets, as in the core C++. This avoids confusion with vec (Id) objects.
-7. `moose.copy()` now accepts either `str` path or `element` or `vec` for `src` and `dest` parameters.
-8. Attempt to access paths with non-existent element now consistently raises RuntimeError.
-9. `moose.delete` now accepts vec (Id) as argument.
-
-# Bug Fixes
-1. `bool` attribute handling added to `moose.vec`
-2. More informative error message for unhandled attributes in `moose.vec`
-3. Fixed issue #505
-4. `moose.setCwe()` now handles str, element (ObjId) and vec (Id) parameters correctly
-5. fixed `moose.showmsg()` mixing up incoming and outgoing messages.
 
 # Documentation
-1. Updated `Ubuntu` build instructions for better clarity.
-2. Enhanced documentation for `HHGate`, including additional warnings.
-3. Updated documentation for `Stoich,` with improved code comments and clarifications.
+INSTALL.md rewritten for clearer, up-to-date installation instructions (PyPI and from-source code installation).
    
 # LICENSE
 
