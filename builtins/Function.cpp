@@ -504,17 +504,14 @@ void Function::addXByIndex(const unsigned int index)
 {
     // We have only xi's in xs_.
     string name = 'x'+to_string(index);
-    if(symbolExists(name))
+    if(varIndex_.find(name) != varIndex_.end())
         return;
-
-    if(index >= xs_.size())
+    for(unsigned int i = xs_.size(); i <= index; i++) 
     {
-        for(unsigned int i = xs_.size(); i <= index; i++) 
-        {
-            xs_.push_back(shared_ptr<Variable>(new Variable('x'+to_string(i))));
-            varIndex_[name] = xs_.size()-1;
-        }
+	xs_.push_back(shared_ptr<Variable>(new Variable('x'+to_string(i))));
+	varIndex_[name] = xs_.size()-1;
     }
+    
     parser_->DefineVar(name, xs_[index]->ref());
     varIndex_[name] = xs_.size()-1;
     numVar_ = varIndex_.size();
@@ -522,7 +519,7 @@ void Function::addXByIndex(const unsigned int index)
 
 void Function::addXByName(const string& name)
 {
-    if(symbolExists(name))
+    if(varIndex_.find(name) != varIndex_.end())
         return;
     xs_.push_back(shared_ptr<Variable>(new Variable(name)));
     parser_->DefineVar(name, xs_.back()->ref());
@@ -557,45 +554,28 @@ void Function::addVariable(const string& name)
     // Names starting with x are variables, everything else is constant.
     VarType vtype = getVarType(name);
 
-    if(XVAR_INDEX == vtype)
-    {
-        addXByIndex(stoul(name.substr(1)));
-        return;
-    }
-    if(XVAR_NAMED == vtype)
-    {
+    switch (vtype){
+    case VarType::XVAR_INDEX:
+	addXByIndex(stoul(name.substr(1)));
+	break;
+    case VarType::XVAR_NAMED:
         addXByName(name);
-        return;
-    }
-
-    if(YVAR == vtype)
-    {
+	break;	
+    case VarType::YVAR:    
         addY(stoul(name.substr(1)));
-        return;
-    }
-
-    if (TVAR == vtype)
-    {
+	break;
+    case VarType::TVAR:    
         parser_->DefineVar("t", &t_);
-        return;
-    }
-
-    if(CONSTVAR == vtype)
-    {
+        break;
+    case VarType::CONSTVAR:
         // These are constants. Don't add them. We don't know there value just
-        // yet. 
-        return;
+        // yet.
+        break;
+    default:
+        throw runtime_error(name + " is not supported or invalid name.");
     }
-
-    throw runtime_error(name + " is not supported or invalid name.");
 }
 
-void Function::callbackAddSymbol(const string& name)
-{
-    // Add only if doesn't exist.
-    if(varIndex_.find(name) == varIndex_.end())
-        addXByName(name);
-}
  
 /* --------------------------------------------------------------------------*/
 /**
@@ -609,17 +589,17 @@ void Function::callbackAddSymbol(const string& name)
 VarType Function::getVarType(const string& name) const
 {
     if(regex_match(name, regex("x\\d+")))
-        return XVAR_INDEX;
+        return VarType::XVAR_INDEX;
     if(regex_match(name, regex("y\\d+")))
-        return YVAR;
+        return VarType::YVAR;
     if (regex_match(name, regex("c\\d+")))
-        return CONSTVAR;
+        return VarType::CONSTVAR;
     if (allowUnknownVar_ && parser_->IsConst(name)){ // if user already defined named constants 
-	return CONSTVAR;
+	return VarType::CONSTVAR;
     }
     if(name == "t")
-        return TVAR;
-    return XVAR_NAMED;
+        return VarType::TVAR;
+    return VarType::XVAR_NAMED;
 }
 
 /* --------------------------------------------------------------------------*/
@@ -636,7 +616,7 @@ void Function::setExpr(const Eref& eref, const string expression)
     string expr = moose::trim(expression);
     if(expr.empty())
         return;
-
+    expr = moose::Parser::Reformat(expr);
     if(valid_ && expr == parser_->GetExpr())
     {
         MOOSE_WARN( "No changes in the expression.");
@@ -687,6 +667,10 @@ bool Function::innerSetExpr(const Eref& eref, const string expr)
     set<string> xs;
     set<string> ys;
     moose::MooseParser::findXsYs(expr, xs, ys);
+    parser_->ClearAll();
+    xs_.clear();
+    ys_.clear();
+    varIndex_.clear();
     for(auto &x : xs) addXByIndex(std::stoul(x.substr(1)));
     for(auto &y : ys) addY(std::stoul(y.substr(1)));
     addVariable("t");
@@ -961,6 +945,7 @@ void Function::clearAll()
     xs_.clear();
     ys_.clear();
     varIndex_.clear();
+    parser_->ClearAll();
 }
 
 void Function::setSolver( const Eref& e, ObjId newStoich )

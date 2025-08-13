@@ -20,12 +20,13 @@ References:
 # docstring since Python C-API does not provide a way to add docstring
 # to a function defined in the C/C++ extension
 
+import json
 import sys
 import pydoc
 import os
 import warnings
 import atexit
-
+import numpy as np
 import moose._moose as _moose
 from moose import model_utils
 
@@ -1049,6 +1050,65 @@ def isinstance_(el, classobj):
 
     """
     return el.isA(classobj.__name__)
+
+
+def to_dict(root):
+    """Convert model tree into a dict.
+
+    Parameters
+    ----------
+    root: str or moose.melement
+        Root element of the model tree.
+    Returns
+    -------
+    dict: the element hierarchy with value fields as
+        `name: value` entries and children under the
+        'children' key.
+
+    """
+    ret = {}
+    if isinstance(root, str):
+        el = element(root)
+    else:
+        el = root
+        root = el.path
+    ret[root] = {}
+    complex_fields = {'this', 'msgOut', 'msgIn', 'destFields', 'valueFields', 'sourceFields', 'children', 'parent'}
+    ignored = complex_fields.union(_sys_fields)
+    for field in el.valueFields:
+        if field not in ignored:
+            value = getattr(el, field)
+            if isinstance(value, np.ndarray):
+                value = list(value)
+            ret[root][field] = value
+    ret[root]['children'] = {}
+    for child in el.children:
+        if child.numField == 0:
+            continue
+        ret[root]['children'].update(to_dict(child))
+    return ret
+
+
+def to_json(root, fname=None, indent=4, sort_keys=True):
+    """Dump a model in JSON format.
+
+    Parameters
+    ----------
+    root: str or moose element
+       Root of the model tree to save.
+    fname: str
+       Path to json output file, if unspecified return json string.
+    Returns
+    -------
+    None if fname is specified, otherwise a JSON string
+    """
+    model_dict = to_dict(root)
+    if fname is not None:
+        with open(fname, 'w') as fd:
+            json.dump(model_dict, fd, indent=indent, sort_keys=sort_keys)
+    else:
+        return json.dumps(model_dict, indent=indent, sort_keys=sort_keys)
+
 
 
 def cleanup(verbose=False):

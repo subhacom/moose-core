@@ -39,6 +39,15 @@ def create_func(funcname, expr):
     return f, t
 
 
+def test_var_count():
+    f = moose.Function('/f_test_eval')
+    assert f.allowUnknownVariable is True
+    f.expr = 'x0 + 10 * x1'
+    assert f.x.num == 2
+    f.expr = 'modul'
+    assert f.x.num == 1
+    print('Passed test_var_count()')
+
 def test_eval():
     """Test user invoked evaluation of the function.
 
@@ -199,8 +208,10 @@ def test_fmod():
 
 
 if __name__ == '__main__':
+    test_var_count()
     test_var_order()
     test_t()
+    test_eval()
     test_trigonometric()
     test_rand()
     test_fmod()
