@@ -15,6 +15,16 @@ import moose
 print(f"[INFO ] Using moose {moose.version()} from {moose.__file__}")
 
 
+def make_container():
+    moose.ce('/')
+    if moose.exists('/test'):
+        print('Deleting existing element: /test')
+        moose.delete('/test')
+    container = moose.Neutral('/test')
+    print('Created container element: /test')
+    return container
+    
+    
 def create_func(funcname, expr):
     """Create a function element `funcname` and set its expression to `expr`.
 
@@ -30,37 +40,42 @@ def create_func(funcname, expr):
        f is the created Function object
        t is the Table object recording Function's evaluated value
     """
+    moose.ce(make_container())
     f = moose.Function(funcname)
     f.expr = expr
     t = moose.Table(funcname + 'tab')
     moose.connect(t, 'requestOut', f, 'getValue')
     moose.setClock(f.tick, 0.1)
     moose.setClock(t.tick, 0.1)
+    moose.ce('/')
     return f, t
 
 
 def test_var_count():
-    f = moose.Function('/f_test_eval')
+    moose.ce(make_container())
+    f = moose.Function('f_test_eval')
     assert f.allowUnknownVariable is True
     f.expr = 'x0 + 10 * x1'
     assert f.x.num == 2
     f.expr = 'modul'
     assert f.x.num == 1
     print('Passed test_var_count()')
+    moose.ce('/')
 
 def test_eval():
     """Test user invoked evaluation of the function.
 
     Also checks `xindex`, `allowUnknownVariable`, and named constants
     """
-    f = moose.Function('/f_test_eval')
+    moose.ce(make_container())
+    f = moose.Function('f_test_eval')
     f.c['A'] = 6.022e23
     assert f.allowUnknownVariable is True
     f.expr = '(mass / mw) * A'  # number of molecules
     i_mass = f.xindex['mass']
     i_mw = f.xindex['mw']
     f.x[i_mass].value = 1.0
-    f.x[i_mw] = 180.156  # glucose
+    f.x[i_mw].value = 180.156  # glucose
     expected = 3.343e21  # approx no. of molecules in 1 g glucose
     result = f.evalResult
     assert np.isclose(result, 3.343e21), f'Expected {expected}, got {result}'
@@ -71,48 +86,53 @@ def test_eval():
     assert np.isclose(
         f.value, 0.0
     ), f'Expected value to be set to 0 upon reinit, but got {f.value}'
+    moose.ce('/')
 
 def testAllowUnknownVariable():
+    moose.ce(make_container())
+
     f = moose.Function('/f_testAllowUnknownVariable')
     f.allowUnknownVariable = False
     f.expr = '(mass / mw) * A'
-    assert f.expr == ''
+    assert f.expr == '0'  # default expression
+    moose.ce('/')
 
 def test_var_order():
     """The y values are one step behind the x values because of
     scheduling sequences.
     
     """
+    moose.ce(make_container())
     nsteps = 5
     simtime = nsteps
     dt = 1.0
-    # fn0 = moose.Function('/fn0')
-    fn1 = moose.Function('/fn1')
+    # fn0 = moose.Function('fn0')
+    fn1 = moose.Function('fn1')
     fn1.expr = 'y1+y0+x1+x0'
     fn1.mode = 1
-    inputs = np.arange(0, nsteps + 1, 1.0)
-    x0 = moose.StimulusTable('/x0')
+    inputs = np.arange(0, nsteps + 1, 1.0) + 1.0
+    x0 = moose.StimulusTable('x0')
     x0.vector = inputs
     x0.startTime = 0.0
     x0.stopTime = simtime
     x0.stepPosition = 0.0
     print('x0', x0.vector)
     inputs /= 10
-    x1 = moose.StimulusTable('/x1')
+    x1 = moose.StimulusTable('x1')
     x1.vector = inputs
     x1.startTime = 0.0
     x1.stopTime = simtime
     x1.stepPosition = 0.0
     print('x1', x1.vector)
     inputs /= 10
-    y0 = moose.StimulusTable('/y0')
+    y0 = moose.StimulusTable('y0')
     y0.vector = inputs
     y0.startTime = 0.0
     y0.stopTime = simtime
     y0.stepPosition = 0.0
     print('y0', y0.vector)
     inputs /= 10
-    y1 = moose.StimulusTable('/y1')
+    y1 = moose.StimulusTable('y1')
     y1.vector = inputs
     print('y1', y1.vector)
     y1.startTime = 0.0
@@ -125,12 +145,13 @@ def test_var_order():
     moose.connect(x1, 'output', fn1.x[1], 'input')
     moose.connect(fn1, 'requestOut', y0, 'getOutputValue')
     moose.connect(fn1, 'requestOut', y1, 'getOutputValue')
-    z1 = moose.Table('/z1')
+    z1 = moose.Table('z1')
     moose.connect(z1, 'requestOut', fn1, 'getValue')
     for ii in range(32):
         moose.setClock(ii, dt)
     moose.reinit()
     moose.start(simtime)
+    moose.ce('/')
     expected = [0, 0, 1.1, 2.211, 3.322, 4.433]  # first 0 is from eval at reinit, second is first process
     # print('sum: ', x0.vector + x1.vector + y0.vector + y1.vector)
     # print('got', z1.vector)
@@ -140,11 +161,13 @@ def test_var_order():
 
 def test_t():
     """Test the use of time `t` as a variable"""
+    moose.ce(make_container())
     fn, tab = create_func('funct', 't/2.0')
     # fn.doEvalAtReinit = True
     moose.reinit()
     simtime = 1.0
     moose.start(simtime)
+    moose.ce('/')
     # it should be [0, 0, 0.1/2, 0.2/2, 0.3/2, ..]
     expected = np.r_[0.0, np.arange(0, simtime, fn.dt)/2.0]
     assert np.allclose(tab.vector, expected), f'Expected {expected}, got {tab.vector}'
@@ -152,10 +175,12 @@ def test_t():
 
 
 def test_trigonometric():
+    moose.ce(make_container())
     f, t = create_func('func2', '(sin(t)^2+cos(t)^2)-1')
     moose.reinit()
     moose.start(1)
     y = t.vector
+    moose.ce('/')
     assert np.isclose(np.mean(y), 0.0), np.mean(y)
     assert np.isclose(np.std(y), 0.0), np.std(y)
     print('Passed sin^2 x + cos^x=1')
@@ -163,10 +188,12 @@ def test_trigonometric():
 
 def test_rand():
     moose.seed(10)
+    moose.ce(make_container())
     f, t = create_func('random', 'rnd()')
     f.doEvalAtReinit = True
     moose.reinit()
     moose.start(1000)
+    moose.ce('/')
     assert (
         abs(np.mean(t.vector) - 0.5) < 0.01
     ), 'Mean is not close enough to 0.5'
@@ -196,22 +223,30 @@ def test_rand():
 
 
 def test_fmod():
+    moose.ce(make_container())
     f, t = create_func('fmod', 'fmod(t, 2)')
     moose.reinit()
     moose.start(20)
     y = t.vector
     print(y)
+    moose.ce('/')
     assert (np.fmod(y, 2) == y).all()
     assert np.isclose(np.max(y), 1.9), "Expected 1.9 got %s" % np.max(y)
     assert np.isclose(np.min(y), 0.0), "Expected 0.0 got %s" % np.min(y)
     print('Passed fmod(t,2)')
 
 
+import sys
+    
 if __name__ == '__main__':
-    test_var_count()
-    test_var_order()
-    test_t()
-    test_eval()
-    test_trigonometric()
-    test_rand()
-    test_fmod()
+    if len(sys.argv) == 1:
+        test_var_count()
+        print('A' * 80)
+        test_var_order()
+        print('B' * 80)
+        test_t()
+        test_eval()
+        test_trigonometric()
+        test_rand()
+        test_fmod()
+        print('Completed all tests')

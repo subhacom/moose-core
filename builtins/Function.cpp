@@ -439,8 +439,8 @@ Function::Function():
     , t_(0.0)
     , independent_("t")
     , stoich_(nullptr)
-    , parser_(shared_ptr<moose::MooseParser>(new moose::MooseParser()))
 {
+    cerr << "Function::Function: Creating " << this << endl;
 }
 
 // Careful: This is a critical function. Also since during zombiefication, deep
@@ -468,26 +468,27 @@ Function& Function::operator=(const Function& rhs)
     xs_.clear();
     ys_.clear();
     varIndex_.clear();
-    parser_->ClearAll();
-    if(rhs.parser_->GetExpr().size() > 0)
+    parser_.ClearAll();
+    if(rhs.parser_.GetExpr().size() > 0)
     {
         // These are alreay indexed. So its OK to add them by name.
         for(auto x: rhs.xs_)
         {
-            xs_.push_back(shared_ptr<Variable>(new Variable(x->getName())));
-            varIndex_[x->getName()] = xs_.size()-1;
+            xs_.push_back(x);
+            varIndex_[x.getName()] = xs_.size()-1;
         }
         // Add all the Ys now.
         for(unsigned int i=0; i < rhs.ys_.size(); i++)
-            ys_.push_back(shared_ptr<double>(new double(0.0)));
-        parser_->LinkVariables(xs_, ys_, &t_);
-        parser_->SetExpr(rhs.parser_->GetExpr());
+            ys_.push_back(0.0);
+        parser_.LinkVariables(xs_, ys_, &t_);
+        parser_.SetExpr(rhs.parser_.GetExpr());
     }
     return *this;
 }
 
 Function::~Function()
 {
+    cerr << "Function: Destructor called. Releasing " << this << endl;
 }
 
 /* --------------------------------------------------------------------------*/
@@ -503,17 +504,15 @@ Function::~Function()
 void Function::addXByIndex(const unsigned int index)
 {
     // We have only xi's in xs_.
-    string name = 'x'+to_string(index);
-    if(varIndex_.find(name) != varIndex_.end())
-        return;
-    for(unsigned int i = xs_.size(); i <= index; i++) 
-    {
-	xs_.push_back(shared_ptr<Variable>(new Variable('x'+to_string(i))));
-	varIndex_[name] = xs_.size()-1;
+    for(unsigned int ii = 0; ii <= index; ++ii) {
+	string name = 'x'+to_string(ii);
+	if(varIndex_.find(name) != varIndex_.end())
+	    continue;
+	Variable var(name);
+	xs_.push_back(var);
+	parser_.DefineVar(name, var.ref());
+	varIndex_[name] = ii;
     }
-    
-    parser_->DefineVar(name, xs_[index]->ref());
-    varIndex_[name] = xs_.size()-1;
     numVar_ = varIndex_.size();
 }
 
@@ -521,8 +520,9 @@ void Function::addXByName(const string& name)
 {
     if(varIndex_.find(name) != varIndex_.end())
         return;
-    xs_.push_back(shared_ptr<Variable>(new Variable(name)));
-    parser_->DefineVar(name, xs_.back()->ref());
+    Variable var(name);
+    xs_.push_back(var);
+    parser_.DefineVar(name, var.ref());
     varIndex_[name] = xs_.size()-1;
     numVar_ = varIndex_.size();
 }
@@ -532,8 +532,8 @@ void Function::addY(const unsigned int index)
     string name = 'y'+to_string(index);
     if(index >= ys_.size())
         ys_.resize(index+1);
-    ys_[index].reset(new double(0.0));
-    parser_->DefineVar(name, ys_[index].get());
+    ys_[index] = 0.0;
+    parser_.DefineVar(name, &ys_[index]);
 }
 
 /**
@@ -565,7 +565,7 @@ void Function::addVariable(const string& name)
         addY(stoul(name.substr(1)));
 	break;
     case VarType::TVAR:    
-        parser_->DefineVar("t", &t_);
+        parser_.DefineVar("t", &t_);
         break;
     case VarType::CONSTVAR:
         // These are constants. Don't add them. We don't know there value just
@@ -594,7 +594,7 @@ VarType Function::getVarType(const string& name) const
         return VarType::YVAR;
     if (regex_match(name, regex("c\\d+")))
         return VarType::CONSTVAR;
-    if (allowUnknownVar_ && parser_->IsConst(name)){ // if user already defined named constants 
+    if (allowUnknownVar_ && parser_.IsConst(name)){ // if user already defined named constants 
 	return VarType::CONSTVAR;
     }
     if(name == "t")
@@ -617,7 +617,7 @@ void Function::setExpr(const Eref& eref, const string expression)
     if(expr.empty())
         return;
     expr = moose::Parser::Reformat(expr);
-    if(valid_ && expr == parser_->GetExpr())
+    if(valid_ && expr == parser_.GetExpr())
     {
         MOOSE_WARN( "No changes in the expression.");
         return;
@@ -667,7 +667,7 @@ bool Function::innerSetExpr(const Eref& eref, const string expr)
     set<string> xs;
     set<string> ys;
     moose::MooseParser::findXsYs(expr, xs, ys);
-    parser_->ClearAll();
+    parser_.ClearAll();
     xs_.clear();
     ys_.clear();
     varIndex_.clear();
@@ -676,11 +676,11 @@ bool Function::innerSetExpr(const Eref& eref, const string expr)
     addVariable("t");
     
     if(allowUnknownVar_)
-       return parser_->SetExprWithUnknown(expr, this);
+       return parser_.SetExprWithUnknown(expr, this);
 
     // If we are here that mean we have only xi, yi and t in the expression.
     // Find all variables x\d+ or y\d+ etc, and add them.
-    return parser_->SetExpr(expr);
+    return parser_.SetExpr(expr);
 }
 
 string Function::getExpr( const Eref& e ) const
@@ -688,10 +688,10 @@ string Function::getExpr( const Eref& e ) const
     if (!valid_)
     {
         cerr << __func__ << " Error: " << e.objId().path() << "::getExpr() - invalid parser state" << endl;
-        cout << "\tExpression was : " << parser_->GetExpr() << endl;
+        cout << "\tExpression was : " << parser_.GetExpr() << endl;
         return "";
     }
-    return parser_->GetExpr();
+    return parser_.GetExpr();
 }
 
 void Function::setMode(unsigned int mode)
@@ -737,13 +737,13 @@ bool Function::getAllowUnknowVariable() const
 
 double Function::getValue() const
 {
-    // return parser_->Eval( );
+    // return parser_.Eval( );
     return value_;
 }
 
 double Function::getEval() const
 {
-    return parser_->Eval( );
+    return parser_.Eval( );
 }
 
 
@@ -768,7 +768,7 @@ vector< double > Function::getY() const
 {
     vector < double > ret(ys_.size());
     for (unsigned int ii = 0; ii < ret.size(); ++ii)
-        ret[ii] = *ys_[ii];
+        ret[ii] = ys_[ii];
     return ret;
 }
 
@@ -779,7 +779,7 @@ double Function::getDerivative() const
         cerr << __func__ << "Error:  invalid state" << endl;
         return value;
     }
-    return parser_->Derivative(independent_);
+    return parser_.Derivative(independent_);
 }
 
 void Function::setNumVar(const unsigned int num)
@@ -798,7 +798,7 @@ void Function::setVar(unsigned int index, double value)
 {
     if(index < xs_.size())
     {
-        xs_[index]->setValue(value);
+        xs_[index].setValue(value);
         return;
     }
     MOOSE_WARN("Function: index " << index << " out of bounds.");
@@ -812,17 +812,17 @@ Variable* Function::getX(unsigned int ii)
         //MOOSE_WARN("No active variable for index " << ii);
         return &dummy;
     }
-    return xs_[ii].get();
+    return &xs_[ii];
 }
 
 void Function::setConst(string name, double value)
 {
-    parser_->DefineConst(name.c_str(), value);
+    parser_.DefineConst(name.c_str(), value);
 }
 
 double Function::getConst(string name) const
 {
-    return parser_->GetConst(name);
+    return parser_.GetConst(name);
 }
 
 void Function::setVarIndex(string name, unsigned int val)
@@ -856,7 +856,7 @@ void Function::process(const Eref &e, ProcPtr p)
     rate_ = (value_ - lastValue_) / p->dt;
 
     for (unsigned int ii = 0; (ii < databuf.size()) && (ii < ys_.size()); ++ii)
-        *ys_[ii] = databuf[ii];
+        ys_[ii] = databuf[ii];
 
     if ( useTrigger_ && value_ < TriggerThreshold )
     {
@@ -896,10 +896,10 @@ void Function::process(const Eref &e, ProcPtr p)
 
 void Function::reinit(const Eref &e, ProcPtr p)
 {
-    if (! (valid_ || parser_->GetExpr().empty()))
+    if (! (valid_ || parser_.GetExpr().empty()))
     {
         MOOSE_WARN("Error: " << e.objId().path() << "::reinit() - invalid parser state"
-                << endl << " Expr: '" << parser_->GetExpr() << "'.");
+                << endl << " Expr: '" << parser_.GetExpr() << "'.");
         return;
     }
 
@@ -945,7 +945,7 @@ void Function::clearAll()
     xs_.clear();
     ys_.clear();
     varIndex_.clear();
-    parser_->ClearAll();
+    parser_.ClearAll();
 }
 
 void Function::setSolver( const Eref& e, ObjId newStoich )

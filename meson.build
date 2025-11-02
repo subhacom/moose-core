@@ -99,6 +99,11 @@ _global_c_args = cc.get_supported_arguments(
 )
 add_project_arguments(_global_c_args, language : 'c')
 
+buildtype = get_option('buildtype')
+if buildtype == 'debug' and cc.get_id() == 'clang'
+  add_project_arguments(['-fsanitize=address', '-fno-omit-frame-pointer'], language: 'cpp')
+endif
+                  
 # We need -lm for all C code (assuming it uses math functions, which is safe to
 # assume for SciPy). For C++ it isn't needed, because libstdc++/libc++ is
 # guaranteed to depend on it. For Fortran code, Meson already adds `-lm`.

@@ -9,7 +9,7 @@
 #define _VARIABLE_H
 
 #include <string>
-
+#include <iostream>
 class ObjId;
 class Eref;
 class Cinfo;
@@ -25,14 +25,21 @@ class Variable
 public:
 
     Variable(string name=""): name_(name), value_(0.0)
-    {};
+    {
+	cerr << "Variable::Variable: creating " << this << endl;
+    };
 
     Variable(const Variable& rhs): name_(rhs.name_), value_(rhs.value_)
     {
         ;
     }
 
-    ~Variable() {};
+    ~Variable()
+    {
+
+	cerr << "Variable: Destructor called. Releasing " << name_ << ", address: " << this << endl;
+	
+    };
 
     void setValue(double v)
     {

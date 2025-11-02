@@ -72,6 +72,7 @@ MooseParser::MooseParser() : expr_("0"), valid_(true)
 
 MooseParser::~MooseParser()
 {
+    cerr << "MooseParser: Destructor called. Releasing " << this << endl;
 }
 
 /*-----------------------------------------------------------------------------
@@ -380,28 +381,15 @@ const string MooseParser::GetExpr() const
     return expr_;
 }
 
-void MooseParser::LinkVariables(vector<Variable*>& xs, vector<double*>& ys,
+void MooseParser::LinkVariables(vector<Variable>& xs, vector<double>& ys,
                                 double* t)
 {
     for(unsigned int i = 0; i < xs.size(); i++)
-        DefineVar('x' + to_string(i), xs[i]->ref());
+        DefineVar('x' + to_string(i), xs[i].ref());
 
     for(unsigned int i = 0; i < ys.size(); i++)
-        DefineVar('y' + to_string(i), ys[i]);
+        DefineVar('y' + to_string(i), &ys[i]);
 
     DefineVar("t", t);
 }
-
-void MooseParser::LinkVariables(vector<shared_ptr<Variable>>& xs,
-                                vector<shared_ptr<double>>& ys, double* t)
-{
-    for(unsigned int i = 0; i < xs.size(); i++)
-        DefineVar('x' + to_string(i), xs[i]->ref());
-
-    for(unsigned int i = 0; i < ys.size(); i++)
-        DefineVar('y' + to_string(i), ys[i].get());
-
-    DefineVar("t", t);
-}
-
 }  // namespace moose.

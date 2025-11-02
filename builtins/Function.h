@@ -7,14 +7,15 @@
 #ifndef FUNCTIONH_
 #define FUNCTIONH_
 #include <memory>
+#include "../builtins/MooseParser.h"
 
 class Variable;
 class Eref;
 class Cinfo;
 
-namespace moose { 
-    class MooseParser;
-};
+// namespace moose { 
+//     class MooseParser;
+// };
 
 
 // Symbol types.
@@ -127,21 +128,21 @@ protected:
 
     // this stores variables received via incoming messages, identifiers of
     // the form x{i} are included in this
-    vector<shared_ptr<Variable>> xs_;
+    vector<Variable> xs_;
 
     // Keep the index of x's.
     map<string, unsigned int> varIndex_;
 
     // this stores variable values pulled by sending request. identifiers of
     // the form y{i} are included in this
-    vector<shared_ptr<double>> ys_;
-    map<string, shared_ptr<double>> consts_;
+    vector<double> ys_;
+    map<string, double> consts_;
 
     // Used by kinetic solvers when this is zombified.
     void* stoich_;
 
     // pointer to the MooseParser
-    shared_ptr<moose::MooseParser> parser_;
+    moose::MooseParser parser_;
 
 };
 
