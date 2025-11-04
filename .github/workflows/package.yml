@@ -98,14 +98,14 @@ jobs:
         env:
           CIBW_BEFORE_ALL: 'uname -a'
           CIBW_BUILD: '*-win_*'
-          CIBW_SKIP: '*-win32 pp*'
+          CIBW_SKIP: '*-win32 pp* cp313t-* cp314t-*'
         run: |
           micromamba shell hook -s powershell | Out-String | Invoke-Expression
           micromamba activate moose
           python -m cibuildwheel --output-dir wheelhouse
           dir wheelhouse
       - name: Upload packages
-        if: github.ref == 'refs/heads/development'
+        if: github.ref == 'refs/heads/master'
         uses: xresloader/upload-to-github-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

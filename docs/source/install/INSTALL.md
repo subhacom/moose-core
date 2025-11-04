@@ -1,121 +1,163 @@
 # Installing MOOSE
 
+MOOSE (Multiscale Object-Oriented Simulation Environment) is a neural simulation framework that requires GSL (GNU Scientific Library) and HDF5 libraries as dependencies.
+
 ## Installing released version from PyPI using `pip`
-MOOSE is available on PyPI. But it depends on GSL (GNU Scientific Library) and HDF5 libraries, which are not easily available on all platforms. If you are using **Linux** or **MacOS**, you can install these on your system, and then to install the latest release of MOOSE for your system Python, run: 
 
-`pip install pymoose`
+MOOSE is available on PyPI. But it depends on GSL (GNU Scientific Library) and HDF5 libraries, which are not easily available on all platforms. If you are using Linux or MacOS, you can install these on your system, and then to install the latest release of MOOSE for your system Python, run:
 
-If you are using **MS Windows** or want to keep things separate from your system Python, it is better to create a separate environment with conda/mamaba/micromamba/miniforge. The channel `conda-forge` has these libraries for all three platforms. The commands are
-
+```bash
+pip install pymoose
 ```
-conda  create -n moose gsl hdf5 numpy vpython matplotlib -c conda-forge
+
+If you are using MS Windows or want to keep things separate from your system Python, it is better to create a separate environment with conda/mamba/micromamba/miniforge. The channel `conda-forge` has these libraries for all three platforms. The commands are:
+
+```bash
+conda create -n moose gsl hdf5 numpy vpython matplotlib -c conda-forge
 conda activate moose
 pip install pymoose
 ```
 
+**What this does:**
+- Creates an isolated environment named "moose" with all required dependencies
+- Activates the environment to use it
+- Installs MOOSE using pip within this environment
+
 ## Installing from a binary wheel using `pip`
-Binary wheels for MOOSE are available on its github page under `Releases`. You can download a wheel suitable for your platform and install it directly with `pip`. The last three components of the wheel filename indicate what platform it was built for: `*-{python-version}-{operating-system}_{architecture}.whl`.
 
+Binary wheels for MOOSE are available on the [GitHub releases page](https://github.com/MooseNeuro/moose-core/releases). You can download a wheel suitable for your platform and install it directly with pip. 
 
-For example, 
+### Understanding wheel filenames
 
+The wheel filename indicates platform compatibility:
+```
+pymoose-{version}-{python-version}-{operating-system}_{architecture}.whl
+```
+
+**Example:**
 ```
 pymoose-4.1.0.dev0-cp312-cp312-manylinux_2_28_x86_64.whl
 ```
 
-is built for CPython version 3.12 on Linux for 64 bit Intel CPU (x86_64). MOOSE also depends on GSL, and the specific version should match. This should be available in the release description. The above was with GSL 2.7. So you will need an environment with these. 
+This wheel is built for:
+- CPython version 3.12 (`cp312`)
+- Linux 64-bit Intel CPU (`manylinux_2_28_x86_64`)
+- GSL 2.7 (check release notes for exact version)
 
-The easiest way to setup a custom environment is with Anaconda (or similar tools like mamba, miniforge, micromamba, etc.) See https://docs.conda.io/projects/conda/en/latest/user-guide/install/linux.html to find how to install conda or its variants. The channel `conda-forge` provides binary `gsl` package for all major platforms.
+### Installation steps
 
-To create an environment named `moose` with these using conda run (*Note: in the commands below replace `conda` with `mamba` or `micromamba` if you are using one of those*):
+1. **Create a matching environment:**
+   ```bash
+   conda create -n moose python=3.12 gsl=2.7 numpy vpython matplotlib -c conda-forge
+   ```
+   
+   > **Note**: Replace `conda` with `mamba` or `micromamba` if you prefer those tools for faster installation.
 
-```
-conda  create -n moose python=3.12 gsl numpy vpython matplotlib -c conda-forge
-```
+2. **Activate the environment:**
+   ```bash
+   conda activate moose
+   ```
 
-in the terminal, and then activate this environment with
+3. **Install the downloaded wheel:**
+   ```bash
+   pip install pymoose-4.1.0.dev0-cp312-cp312-manylinux_2_28_x86_64.whl
+   ```
 
-```
-conda activate moose
-```
+## Installing from source code in GitHub repository
 
-Now install the wheel file with
+To build MOOSE from source, you need build tools and development libraries. We recommend Python 3.9 or higher.
 
-```
-pip install pymoose-4.1.0.dev0-cp312-cp312-manylinux_2_28_x86_64.whl
-```
+### Build requirements
 
-assuming you have the file in the current directory.
+Make sure these packages are installed on your system:
+- `gsl-1.16` or higher
+- `python-numpy`
+- `pybind11` (if setup fails, try `pip install pybind11[global]`)
+- `python-libsbml`
+- `pyneuroml`
+- `clang` compiler 18 or newer
+- `meson`, `ninja`, `meson-python`
+- `python-setuptools`, `pkg-config`
 
-## Installing from source-code in github repository
+### Platform-specific instructions
 
-To build `MOOSE` from source, you need `meson`, `ninja`, `pkg-config`, and `python-setuptools`. We
-recommend to use Python 3.9 or higher.  To build and install with `pip`, you also need `meson-python`.
+For detailed platform instructions, see:
+- **Linux**: [UbuntuBuild.md](UbuntuBuild.md)
+- **macOS**: [AppleM1Build.md](AppleM1Build.md)
+- **Windows**: [WindowsBuild.md](WindowsBuild.md)
 
-For platform specific instructions, see:
-- Linux: [UbuntuBuild.md](UbuntuBuild.md)
-- MacOSX: [AppleM1Build.md](AppleM1Build.md)
-- Windows: [WindowsBuild.md](WindowsBuild.md)
+### Installation commands
 
-Briefly,
-1. Build environment: make sure that the following packages are installed on your system.
-
-   - gsl-1.16 or higher.
-   - python-numpy
-   - pybind11 (if the setup fails to find pybind11, try running `pip install pybind11[global]`)
-   - python-libsbml
-   - pyneuroml
-   - clang compiler 18 or newer
-   - meson
-   - ninja
-   - meson-python
-   - python-setuptools
-   - pkg-config
-
-2. Now use `pip` to download and install `pymoose` from the [github repository](https://github.com/MooseNeuro/moose-core).
-
-```
-$ pip install git+https://github.com/MooseNeuro/moose-core --user
-```
-
-This will install the `master` branch of MOOSE. If you want a specific fork/branch, modify the address:
-
-```
-$ pip install git+https://github.com/subhacom/moose-core@fix495merge --user
+**Install from master branch:**
+```bash
+pip install git+https://github.com/MooseNeuro/moose-core --user
 ```
 
-will install the fix495merge branch from `subhacom`'s fork of `moose-core`.
-
-## Post installation
-
-You can check that moose is installed and initializes correctly by running:
+**Install from specific branch/fork:**
+```bash
+pip install git+https://github.com/subhacom/moose-core@fix495merge --user
 ```
-$ python -c "import moose; ch = moose.HHChannel('ch'); moose.le()"
+
+This installs the `fix495merge` branch from subhacom's fork of moose-core.
+
+## Post-installation verification
+
+Check that MOOSE is installed and working correctly:
+
+```bash
+python -c "import moose; ch = moose.HHChannel('ch'); moose.le()"
 ```
-This should show 
+
+**Expected output:**
 ```
 Elements under /
     /Msgs
     /clock
     /classes
     /postmaster
-    /ch	
+    /ch
 ```
 
-Now you can import moose in a Python script or interpreter with the statement:
+Now you can import moose in Python:
 
-    >>> import moose
+```python
+import moose
+```
+
+## Troubleshooting
+
+### Common issues
+
+**Missing dependencies:**
+- Use conda environment installation method
+- Install with: `conda create -n moose gsl hdf5 numpy -c conda-forge`
+
+**Permission errors:**
+- Add `--user` flag: `pip install pymoose --user`
+- Or use conda environment (recommended)
+
+**Python version mismatch:**
+- Ensure your Python version matches the wheel requirements
+- Create environment with correct Python version
+
+**Build errors (source installation):**
+- Install missing build tools: `pip install meson ninja meson-python`
+- Install dependencies: `pip install pybind11[global] numpy`
 
 ## Uninstall
 
-To uninstall moose, run
+**Remove MOOSE package:**
+```bash
+pip uninstall pymoose
+```
 
-    $ pip uninstall pymoose
-    
-If you are building moose from source, make sure to get out of the source directory, or you may encounter a message like this:
+**Remove conda environment:**
+```bash
+conda remove -n moose --all
+```
 
-    Found existing installation: pymoose {version}
-    Can't uninstall 'pymoose'. No files were found to uninstall.
-
-
-
+> **Important**: When building from source, make sure to exit the source directory before uninstalling, or you may encounter:
+> ```
+> Found existing installation: pymoose {version}
+> Can't uninstall 'pymoose'. No files were found to uninstall.
+> ```

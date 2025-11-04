@@ -322,7 +322,7 @@ the form::
 NOTE: `t` represents time. You CAN NOT use to for any other purpose.
 
 The constants must be defined before setting the expression using 
-the lookup field `c`. Once set, 
+the lookup field `c`. Once set, their values cannot be changed.
 
 The interpretation of variable names in expression depends on 
 `allowUnknownVariables` flag::
