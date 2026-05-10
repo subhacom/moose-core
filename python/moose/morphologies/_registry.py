@@ -10,6 +10,8 @@ Each entry dict may contain:
   cell_type   str   Cell type (e.g. 'CA1 pyramidal', 'L5 pyramidal')
   region      str   Brain region
   source      str   Original database / publication
+  source_url  str   URL to original data record
+  license     str   License or terms of use
   description str   One-line description
 """
 
@@ -80,6 +82,76 @@ _registry.add([
         'region':      'olfactory bulb',
         'source':      'Migliore & Shepherd 2008, PLoS Comput Biol 4:e1000011',
         'description': '2-compartment olfactory bulb granule cell (Migliore & Shepherd 2008)',
+    },
+
+    # ── Allen Cell Types Database morphologies ────────────────────────────────
+    # License: Allen Institute Terms of Use (non-commercial research use only)
+    # https://alleninstitute.org/legal/terms-use/
+    {
+        'name':        'allen_mouse_VISp_L5_485909730',
+        'filename':    'swc/allen_mouse_VISp_L5_485909730.swc',
+        'species':     'mouse',
+        'cell_type':   'L5 pyramidal',
+        'region':      'primary visual cortex (VISp) layer 5',
+        'source':      'Allen Institute for Brain Science, Cell Types Database, specimen 485909730',
+        'source_url':  'https://celltypes.brain-map.org/experiment/morphology/485909730',
+        'license':     'Allen Institute Terms of Use (non-commercial research use): https://alleninstitute.org/legal/terms-use/',
+        'description': 'Full reconstruction of mouse VISp L5 pyramidal neuron (Allen Cell Types DB #485909730)',
+    },
+    {
+        'name':        'allen_mouse_VISp_L5_515249852',
+        'filename':    'swc/allen_mouse_VISp_L5_515249852.swc',
+        'species':     'mouse',
+        'cell_type':   'L5 pyramidal',
+        'region':      'primary visual cortex (VISp) layer 5',
+        'source':      'Allen Institute for Brain Science, Cell Types Database, specimen 515249852',
+        'source_url':  'https://celltypes.brain-map.org/experiment/morphology/515249852',
+        'license':     'Allen Institute Terms of Use (non-commercial research use): https://alleninstitute.org/legal/terms-use/',
+        'description': 'Full reconstruction of mouse VISp L5 pyramidal neuron (Allen Cell Types DB #515249852)',
+    },
+    {
+        'name':        'allen_mouse_VISp_L6a_580007431',
+        'filename':    'swc/allen_mouse_VISp_L6a_580007431.swc',
+        'species':     'mouse',
+        'cell_type':   'L6a pyramidal',
+        'region':      'primary visual cortex (VISp) layer 6a',
+        'source':      'Allen Institute for Brain Science, Cell Types Database, specimen 580007431',
+        'source_url':  'https://celltypes.brain-map.org/experiment/morphology/580007431',
+        'license':     'Allen Institute Terms of Use (non-commercial research use): https://alleninstitute.org/legal/terms-use/',
+        'description': 'Full reconstruction of mouse VISp L6a pyramidal neuron (Allen Cell Types DB #580007431)',
+    },
+    {
+        'name':        'allen_mouse_VISp_L6b_589128331',
+        'filename':    'swc/allen_mouse_VISp_L6b_589128331.swc',
+        'species':     'mouse',
+        'cell_type':   'L6b pyramidal',
+        'region':      'primary visual cortex (VISp) layer 6b',
+        'source':      'Allen Institute for Brain Science, Cell Types Database, specimen 589128331',
+        'source_url':  'https://celltypes.brain-map.org/experiment/morphology/589128331',
+        'license':     'Allen Institute Terms of Use (non-commercial research use): https://alleninstitute.org/legal/terms-use/',
+        'description': 'Full reconstruction of mouse VISp L6b pyramidal neuron (Allen Cell Types DB #589128331)',
+    },
+    {
+        'name':        'allen_human_MTG_L2_616647103',
+        'filename':    'swc/allen_human_MTG_L2_616647103.swc',
+        'species':     'human',
+        'cell_type':   'L2 pyramidal',
+        'region':      'middle temporal gyrus (MTG) layer 2',
+        'source':      'Allen Institute for Brain Science, Cell Types Database, specimen 616647103',
+        'source_url':  'https://celltypes.brain-map.org/experiment/morphology/616647103',
+        'license':     'Allen Institute Terms of Use (non-commercial research use): https://alleninstitute.org/legal/terms-use/',
+        'description': 'Full reconstruction of human MTG L2 pyramidal neuron (Allen Cell Types DB #616647103)',
+    },
+    {
+        'name':        'allen_human_MTG_L6_614635228',
+        'filename':    'swc/allen_human_MTG_L6_614635228.swc',
+        'species':     'human',
+        'cell_type':   'L6 pyramidal',
+        'region':      'middle temporal gyrus (MTG) layer 6',
+        'source':      'Allen Institute for Brain Science, Cell Types Database, specimen 614635228',
+        'source_url':  'https://celltypes.brain-map.org/experiment/morphology/614635228',
+        'license':     'Allen Institute Terms of Use (non-commercial research use): https://alleninstitute.org/legal/terms-use/',
+        'description': 'Full reconstruction of human MTG L6 pyramidal neuron (Allen Cell Types DB #614635228)',
     },
 ])
 
