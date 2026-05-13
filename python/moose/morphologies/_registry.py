@@ -84,6 +84,70 @@ _registry.add([
         'description': '2-compartment olfactory bulb granule cell (Migliore & Shepherd 2008)',
     },
 
+    # ── Traub et al. 2005 single-column thalamocortical model ─────────────────
+    # Traub RD et al. J Neurophysiol 93:2194-2232, 2005. PMID: 15525801
+    # Morphologies converted from GENESIS .p files by Subhasis Ray (moose.swc_utils.p_to_swc)
+    {
+        'name':        'traub2005_suppyr',
+        'filename':    'swc/traub2005_suppyr.swc',
+        'species':     'rat',
+        'cell_type':   'L2/3 pyramidal (SupPyrRS, SupPyrFRB)',
+        'region':      'neocortex layer 2/3',
+        'source':      'Traub et al. 2005, J Neurophysiol 93:2194-2232',
+        'source_url':  'https://modeldb.science/45539',
+        'description': '149-compartment superficial pyramidal morphology; shared by SupPyrRS and SupPyrFRB cell types (Traub et al. 2005)',
+    },
+    {
+        'name':        'traub2005_NontuftedRS',
+        'filename':    'swc/traub2005_NontuftedRS.swc',
+        'species':     'rat',
+        'cell_type':   'L2/3 non-tufted regular spiking pyramidal',
+        'region':      'neocortex layer 2/3',
+        'source':      'Traub et al. 2005, J Neurophysiol 93:2194-2232',
+        'source_url':  'https://modeldb.science/45539',
+        'description': '101-compartment non-tufted regular spiking (NontuftRS) pyramidal cell (Traub et al. 2005)',
+    },
+    {
+        'name':        'traub2005_tufted',
+        'filename':    'swc/traub2005_tufted.swc',
+        'species':     'rat',
+        'cell_type':   'L5 tufted pyramidal (TuftedRS, TuftedIB)',
+        'region':      'neocortex layer 5',
+        'source':      'Traub et al. 2005, J Neurophysiol 93:2194-2232',
+        'source_url':  'https://modeldb.science/45539',
+        'description': '123-compartment tufted pyramidal morphology; shared by TuftedRS and TuftedIB cell types (Traub et al. 2005)',
+    },
+    {
+        'name':        'traub2005_stellate',
+        'filename':    'swc/traub2005_stellate.swc',
+        'species':     'rat',
+        'cell_type':   'cortical interneuron (DeepAxoaxonic, DeepBasket, DeepLTS, SpinyStellate, SupAxoaxonic, SupBasket, SupLTS)',
+        'region':      'neocortex',
+        'source':      'Traub et al. 2005, J Neurophysiol 93:2194-2232',
+        'source_url':  'https://modeldb.science/45539',
+        'description': '119-compartment shared interneuron morphology (DeepAxoaxonic/Basket/LTS, SpinyStellate, SupAxoaxonic/Basket/LTS) (Traub et al. 2005)',
+    },
+    {
+        'name':        'traub2005_TCR',
+        'filename':    'swc/traub2005_TCR.swc',
+        'species':     'rat',
+        'cell_type':   'thalamocortical relay',
+        'region':      'thalamus',
+        'source':      'Traub et al. 2005, J Neurophysiol 93:2194-2232',
+        'source_url':  'https://modeldb.science/45539',
+        'description': '275-compartment thalamocortical relay (TCR) neuron (Traub et al. 2005)',
+    },
+    {
+        'name':        'traub2005_nRT',
+        'filename':    'swc/traub2005_nRT.swc',
+        'species':     'rat',
+        'cell_type':   'thalamic reticular nucleus',
+        'region':      'thalamic reticular nucleus',
+        'source':      'Traub et al. 2005, J Neurophysiol 93:2194-2232',
+        'source_url':  'https://modeldb.science/45539',
+        'description': '119-compartment nucleus reticularis thalami (nRT) neuron (Traub et al. 2005)',
+    },
+
     # ── Allen Cell Types Database morphologies ────────────────────────────────
     # License: Allen Institute Terms of Use (non-commercial research use only)
     # https://alleninstitute.org/legal/terms-use/
