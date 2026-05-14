@@ -15,8 +15,8 @@ Covers:
   - brief simulation: channel conductance responds to voltage
 
 Reference channels used throughout:
-  - model_id=87535, suffix='nax'  (Na, 2 gates m^3 h^1)
-  - model_id=45539, suffix='kdr'  (K,  1 gate  n^4)
+  - modeldb_id=87535, suffix='nax'  (Na, 2 gates m^3 h^1)
+  - modeldb_id=45539, suffix='kdr'  (K,  1 gate  n^4)
 """
 
 import math
@@ -45,10 +45,10 @@ def reset_library():
 
 # ── DB layer (no MOOSE objects) ───────────────────────────────────────────────
 
-def test_search_by_model_id():
-    results = chan.search(model_id=87535, show=False)
+def test_search_by_modeldb_id():
+    results = chan.search(modeldb_id=87535, show=False)
     assert len(results) >= 1
-    assert results[0]['model_id'] == 87535
+    assert results[0]['modeldb_id'] == 87535
 
 
 def test_search_by_ion_class():
@@ -67,7 +67,7 @@ def test_search_by_suffix():
 
 
 def test_search_no_match():
-    results = chan.search(model_id=999999999, show=False)
+    results = chan.search(modeldb_id=999999999, show=False)
     assert results == []
 
 
@@ -205,14 +205,17 @@ def test_more_than_3_gates_warning():
     from pathlib import Path
 
     data = Path(__file__).parents[2] / 'python/moose/channels/data'
+    meta_csv = data / 'icg_channel_meta.csv'
+    if not meta_csv.exists():
+        meta_csv = data / 'modeldb_popularity.csv'
     db = ICGChannelDB(
         data / 'channel_db.csv',
-        data / 'modeldb_popularity.csv',
+        meta_csv,
     )
     # Find a channel with >3 gate rows
     four_gate_chan = None
     for row in db._rows:
-        mid = row['model_id']
+        mid = row['modeldb_id']
         suf = row['suffix']
         if mid and suf:
             try:
@@ -308,7 +311,7 @@ def test_load_convenience():
     reset_library()
     container = make_container()
     comp = moose.Compartment(f'{container.path}/comp')
-    copies = chan.load(comp, model_id=87535, suffix='nax',
+    copies = chan.load(comp, modeldb_id=87535, suffix='nax',
                        gbar=1e-9, Ek=0.050, temperature=T_REF)
     assert len(copies) == 1
     assert copies[0].className == 'HHChannel'
@@ -333,7 +336,7 @@ def test_channel_conductance_nonzero():
     comp.Vm  = -0.065
     comp.initVm = -0.065
 
-    copies = chan.load(comp, model_id=87535, suffix='nax',
+    copies = chan.load(comp, modeldb_id=87535, suffix='nax',
                        gbar=1e-6, Ek=0.050, temperature=T_REF)
     na_chan = copies[0]
 
@@ -363,7 +366,7 @@ def test_k_channel_opens_on_depolarisation():
     comp.Vm  = -0.065
     comp.initVm = -0.065
 
-    copies = chan.load(comp, model_id=45539, suffix='kdr',
+    copies = chan.load(comp, modeldb_id=45539, suffix='kdr',
                        gbar=5e-7, Ek=-0.077, temperature=T_REF)
     k_chan = copies[0]
 
@@ -380,7 +383,7 @@ def test_k_channel_opens_on_depolarisation():
 
 
 if __name__ == '__main__':
-    test_search_by_model_id()
+    test_search_by_modeldb_id()
     test_list_ion_classes()
     test_get_expressions_returns_strings()
     test_make_prototype_creates_hhchannel()

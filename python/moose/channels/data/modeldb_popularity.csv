@@ -1,4 +1,4 @@
-model_id,model_name,paper_id,authors,title,journal,year,doi,pubmedid,citation_count,modeldb_model_count,all_paper_ids
+modeldb_id,model_name,paper_id,authors,title,journal,year,doi,pubmedid,citation_count,modeldb_model_count,all_paper_ids
 26997,"Gamma oscillations in hippocampal interneuron networks (Wang, Buzsaki 1996)",4640,"Wang XJ, Buzsáki G",Gamma oscillation by synaptic inhibition in a hippocampal interneuronal network model.,The Journal of neuroscience : the official journal of the Society for Neuroscience,1996,10.1523/JNEUROSCI.16-20-06402.1996,,1631,1,4640
 97860,Rejuvenation model of dopamine neuron (Chan et al. 2007),97861,"Chan CS, Guzman JN, Ilijic E, Mercer JN, Rick C, Tkatch T, Meredith GE, Surmeier DJ",'Rejuvenation' protects neurons in mouse models of Parkinson's disease.,Nature,2007,10.1038/nature05865,,895,1,97861
 20212,CA1 pyramidal neuron:  as a 2-layer NN and subthreshold synaptic summation (Poirazi et al 2003),21227,"Poirazi P, Brannon T, Mel BW",Pyramidal neuron as two-layer neural network.,Neuron,2003,10.1016/s0896-6273(03)00149-1,,823,1,20216|21227|22353|45500
