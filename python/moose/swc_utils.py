@@ -693,10 +693,73 @@ def p_to_swc(p_path, swc_path=None, source_url=None):
                 queue.append(ch)
         comps = order
 
-    name_to_id = {comp['name']: idx for idx, comp in enumerate(comps, start=1)}
-
     if swc_path is None:
         swc_path = os.path.splitext(p_path)[0] + '.swc'
+
+    # Build SWC rows.  Each .p compartment is mapped as follows:
+    #
+    #   Soma (root, parent=None) — 3-point soma convention:
+    #       centre  at (sx, sy,   sz),        r=soma_r, parent=-1
+    #       south   at (sx, sy-r, sz),        r=soma_r, parent=centre
+    #       north   at (sx, sy+r, sz),        r=soma_r, parent=centre
+    #     The south→north cylinder (len=2r, dia=2r) has surface area 4πr²,
+    #     equal to that of a sphere of radius r.  Child compartments attach
+    #     to the centre node.  ReadSwc detects 2 SOMA children and creates
+    #     one compartment spanning the two poles.
+    #
+    #   Non-soma (uniform cylinder) → two SWC nodes:
+    #       proximal  at the *parent's* distal position, with THIS comp's radius
+    #       distal    at this comp's distal position,    with THIS comp's radius
+    #
+    # Using the parent's distal position for the proximal node ensures every
+    # cylinder has the same radius at both ends (no taper).  The proximal node
+    # coincides spatially with the parent's distal node, so the segment
+    # parent_distal→proximal has zero length; ReadSwc aliases such zero-length
+    # nodes to the parent compartment without creating a new element.
+
+    # swc_rows: list of (stype, x, y, z, r, parent_1based_idx)
+    swc_rows = []
+    # Maps compartment name → 1-based index of its last (distal/only) SWC node,
+    # so child proximal nodes can reference the correct parent SWC node.
+    comp_to_last_idx = {}
+
+    for comp in comps:
+        pname = comp['parent']
+
+        if pname is None:
+            # Soma / root: 3-point representation.
+            # Centre node — all child compartments attach here.
+            centre_idx = len(swc_rows) + 1
+            swc_rows.append((comp['swc_type'],
+                             comp['x'], comp['y'], comp['z'],
+                             comp['r'], -1))
+            # South pole (−y)
+            swc_rows.append((comp['swc_type'],
+                             comp['x'], comp['y'] - comp['r'], comp['z'],
+                             comp['r'], centre_idx))
+            # North pole (+y)
+            swc_rows.append((comp['swc_type'],
+                             comp['x'], comp['y'] + comp['r'], comp['z'],
+                             comp['r'], centre_idx))
+            comp_to_last_idx[comp['name']] = centre_idx
+        else:
+            parent_comp = by_name[pname]
+            parent_last_idx = comp_to_last_idx[pname]
+
+            # Proximal node: at the parent's distal position, but with THIS
+            # compartment's radius (guarantees a constant-radius cylinder).
+            prox_idx = len(swc_rows) + 1
+            swc_rows.append((comp['swc_type'],
+                             parent_comp['x'], parent_comp['y'], parent_comp['z'],
+                             comp['r'], parent_last_idx))
+
+            # Distal node: this compartment's own distal position.
+            dist_idx = len(swc_rows) + 1
+            swc_rows.append((comp['swc_type'],
+                             comp['x'], comp['y'], comp['z'],
+                             comp['r'], prox_idx))
+
+            comp_to_last_idx[comp['name']] = dist_idx
 
     with open(swc_path, 'w') as fh:
         fh.write(f'# Converted from {os.path.basename(p_path)}'
@@ -711,13 +774,9 @@ def p_to_swc(p_path, swc_path=None, source_url=None):
         fh.write('#\n')
         fh.write('# n type x y z radius parent\n')
 
-        for idx, comp in enumerate(comps, start=1):
-            pname = comp['parent']
-            pid = -1 if pname is None else name_to_id.get(pname, -1)
+        for i, (stype, x, y, z, r, pid) in enumerate(swc_rows, start=1):
             fh.write(
-                f"{idx} {comp['swc_type']} "
-                f"{comp['x']:.4f} {comp['y']:.4f} {comp['z']:.4f} "
-                f"{comp['r']:.4f} {pid}\n"
+                f"{i} {stype} {x:.4f} {y:.4f} {z:.4f} {r:.4f} {pid}\n"
             )
 
     return os.path.abspath(swc_path)

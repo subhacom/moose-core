@@ -404,24 +404,49 @@ bool ReadSwc::build(Id parent, double lambda, double RM, double RA, double CM)
             unsigned int paIndex = seg.parent();
             if (paIndex == ~0U)  // root soma
             {
-                // Check for 2-point soma: a live SOMA-type direct child whose
-                // coordinates define the distal end of the soma cylinder.
-                const SwcSegment* distalSoma = nullptr;
+                // Collect SOMA-type direct children to detect soma representation.
+                vector<const SwcSegment*> somaKids;
                 for (int k : seg.kids()) {
                     if (segs_[k - 1].OK() &&
-                        segs_[k - 1].type() == SwcSegment::SOMA) {
-                        distalSoma = &segs_[k - 1];
-                        break;
-                    }
+                        segs_[k - 1].type() == SwcSegment::SOMA)
+                        somaKids.push_back(&segs_[k - 1]);
                 }
-                if (distalSoma) {
-                    // 2-point soma: seg is proximal (root), distalSoma is distal.
-                    // makeCompt uses the first arg as the distal segment to get
-                    // len = distance(distal, proximal) since distal->parent != ~0U.
-                    compt = makeCompt(parent, "soma", *distalSoma, seg, RM, RA, CM);
-                    // Pre-fill the distal soma's slot so it's found when its
-                    // branch or cable entry is processed later.
-                    compts[distalSoma->myIndex() - 1] = compt;
+                if (somaKids.size() >= 2) {
+                    // 3-point soma (2 children of centre, e.g. from p_to_swc):
+                    // poles define a cylinder of length 2r and diameter 2r,
+                    // giving surface area 4πr² = sphere surface area.
+                    compt = makeCompt(parent, "soma", *somaKids[1], *somaKids[0],
+                                      RM, RA, CM);
+                    for (auto* sk : somaKids)
+                        compts[sk->myIndex() - 1] = compt;
+                }
+                else if (somaKids.size() == 1) {
+                    // Linear soma chain (e.g. Neuromorpho 3-point: root→mid→tip).
+                    // Follow the chain to the distal SOMA end, pre-filling every
+                    // intermediate slot so non-root SOMA processing finds them set.
+                    vector<const SwcSegment*> chain;
+                    const SwcSegment* distal = somaKids[0];
+                    chain.push_back(distal);
+                    while (true) {
+                        const SwcSegment* next = nullptr;
+                        int nsc = 0;
+                        for (int k : distal->kids()) {
+                            if (segs_[k - 1].OK() &&
+                                segs_[k - 1].type() == SwcSegment::SOMA) {
+                                if (nsc == 0) next = &segs_[k - 1];
+                                nsc++;
+                            }
+                        }
+                        if (nsc == 1) {
+                            distal = next;
+                            chain.push_back(distal);
+                        } else {
+                            break;
+                        }
+                    }
+                    compt = makeCompt(parent, "soma", *distal, seg, RM, RA, CM);
+                    for (auto* s : chain)
+                        compts[s->myIndex() - 1] = compt;
                 }
                 else {
                     // 1-point soma: artificial cylinder of length = 2*r.
@@ -430,55 +455,62 @@ bool ReadSwc::build(Id parent, double lambda, double RM, double RA, double CM)
                 numSomas++;
             }
             else if (seg.type() == SwcSegment::SOMA) {
-                // Distal end of a 2-point soma: compartment was already created
-                // when the root soma was processed and stored in compts[].
+                // Non-root SOMA node: slot was pre-filled during root processing.
                 compt = compts[seg.myIndex() - 1];
                 if (compt == Id()) {
-                    // Defensive fallback (should not occur with valid SWC).
-                    SwcSegment& pa = segs_[paIndex - 1];
-                    compt = makeCompt(parent, "soma", seg, pa, RM, RA, CM);
-                    numSomas++;
+                    // Unexpected: alias to the parent compartment rather than
+                    // creating a duplicate soma element.
+                    assert(compts[paIndex - 1] != Id());
+                    compt = compts[paIndex - 1];
                 }
-                // Do NOT increment numSomas again — already counted at root soma.
+                // Do NOT increment numSomas — already counted at root soma.
             }
             else {
                 SwcSegment& pa = segs_[paIndex - 1];
-                if (pa.type() != seg.type()) {
-                    if (seg.type() == SwcSegment::AXON) {
-                        ss << "axon" << numRootAxons;
-                        segName = ss.str();
-                        numRootAxons++;
+                if (seg.distance(pa) < 1e-9) {
+                    // Zero-length proximal node from 2-node-per-compartment SWC:
+                    // alias this slot to the parent compartment without creating
+                    // a new element or message.
+                    assert(compts[paIndex - 1] != Id());
+                    compt = compts[paIndex - 1];
+                } else {
+                    if (pa.type() != seg.type()) {
+                        if (seg.type() == SwcSegment::AXON) {
+                            ss << "axon" << numRootAxons;
+                            segName = ss.str();
+                            numRootAxons++;
+                        }
+                        else if (seg.type() == SwcSegment::BASAL) {
+                            ss << basalName << numRootBasals;
+                            segName = ss.str();
+                            numRootBasals++;
+                        }
+                        else {  // Everything else is a dend.
+                            ss << "dend" << numRootDends;
+                            segName = ss.str();
+                            numRootDends++;
+                        }
                     }
-                    else if (seg.type() == SwcSegment::BASAL) {
-                        ss << basalName << numRootBasals;
+                    else if (j == 0) {  // extend name with branch idx
+                        const string& paName =
+                            compts[paIndex - 1].element()->getName();
+                        string paBranchName = paName.substr(0, paName.rfind('_'));
+                        ss << paBranchName << "." << myBranchIdx << "_0";
                         segName = ss.str();
-                        numRootBasals++;
                     }
-                    else {  // Everything else is a dend.
-                        ss << "dend" << numRootDends;
+                    else {
+                        const string& paName =
+                            compts[paIndex - 1].element()->getName();
+                        string paBranchName = paName.substr(0, paName.rfind('_'));
+                        ss << paBranchName << "_" << j;
                         segName = ss.str();
-                        numRootDends++;
                     }
+                    compt = makeCompt(parent, segName, seg, pa, RM, RA, CM);
+                    assert(compt != Id());
+                    assert(compts[paIndex - 1] != Id());
+                    shell->doAddMsg("Single", compts[paIndex - 1], "axial", compt,
+                                    "raxial");
                 }
-                else if (j == 0) {  // extend name with branch idx
-                    const string& paName =
-                        compts[paIndex - 1].element()->getName();
-                    string paBranchName = paName.substr(0, paName.rfind('_'));
-                    ss << paBranchName << "." << myBranchIdx << "_0";
-                    segName = ss.str();
-                }
-                else {
-                    const string& paName =
-                        compts[paIndex - 1].element()->getName();
-                    string paBranchName = paName.substr(0, paName.rfind('_'));
-                    ss << paBranchName << "_" << j;
-                    segName = ss.str();
-                }
-                compt = makeCompt(parent, segName, seg, pa, RM, RA, CM);
-                assert(compt != Id());
-                assert(compts[paIndex - 1] != Id());
-                shell->doAddMsg("Single", compts[paIndex - 1], "axial", compt,
-                                "raxial");
             }
             assert(compt != Id());
             compts[seg.myIndex() - 1] = compt;
