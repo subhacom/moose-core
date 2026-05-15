@@ -136,7 +136,7 @@ def load_channel_db(path) -> list:
         'a', 'b', 'c', 'd', 'A', 'vh',
         'b1', 'c1', 'd1', 'e1', 'b2', 'c2', 'd2', 'e2',
     }
-    int_fields  = {'model_id', 'best_sm', 'gate_power'}
+    int_fields  = {'modeldb_id', 'best_sm', 'gate_power'}
     bool_fields = {'sm1_fit', 'sm2_fit', 'sm3_fit', 'sm4_fit', 'sm5_fit'}
     rows = []
     with open(path, newline='', encoding='utf-8') as fh:
@@ -155,16 +155,32 @@ def load_channel_db(path) -> list:
     return rows
 
 
-def load_popularity(path) -> dict:
-    """Load modeldb_popularity.csv → {model_id: row_dict}."""
+def load_icg_meta(path) -> dict:
+    """
+    Load icg_channel_meta.csv → {(modeldb_id, suffix): row_dict}.
+
+    Falls back to loading modeldb_popularity.csv (keyed by modeldb_id) so
+    that existing installations without icg_channel_meta.csv still work.
+    The returned dict is keyed by (modeldb_id: int, suffix: str); with the
+    old CSV format the suffix key is '' for all entries.
+    """
     result = {}
     try:
         with open(path, newline='', encoding='utf-8') as fh:
-            for row in csv.DictReader(fh):
+            reader = csv.DictReader(fh)
+            fields = reader.fieldnames or []
+            for row in reader:
                 try:
-                    result[int(row['model_id'])] = row
+                    mid = int(row['modeldb_id'])
                 except (ValueError, KeyError):
-                    pass
+                    continue
+                if 'icg_id' in fields:
+                    # New format: keyed by (modeldb_id, suffix)
+                    suf = row.get('suffix', '')
+                    result[(mid, suf)] = row
+                else:
+                    # Old modeldb_popularity.csv: broadcast to all suffixes
+                    result[(mid, '')] = row
     except FileNotFoundError:
         pass
     return result
@@ -181,18 +197,19 @@ class ICGChannelDB:
     channel_db_path : path-like
         Path to channel_db.csv.
     popularity_db_path : path-like, optional
-        Path to modeldb_popularity.csv.
+        Path to icg_channel_meta.csv (preferred) or legacy
+        modeldb_popularity.csv.
     """
 
     def __init__(self, channel_db_path, popularity_db_path=None):
         self._rows = load_channel_db(channel_db_path)
-        self._pop  = (load_popularity(popularity_db_path)
+        self._meta = (load_icg_meta(popularity_db_path)
                       if popularity_db_path else {})
 
         self._by_model  = defaultdict(list)
         self._by_suffix = defaultdict(lambda: defaultdict(list))
         for r in self._rows:
-            mid, suf = r['model_id'], r['suffix']
+            mid, suf = r['modeldb_id'], r['suffix']
             if mid:
                 self._by_model[mid].append(r)
             if mid and suf:
@@ -200,25 +217,39 @@ class ICGChannelDB:
 
     # ── search ────────────────────────────────────────────────────────────────
 
-    def search(self, author=None, year=None, model_id=None,
+    def _get_meta(self, modeldb_id: int, suffix: str = '') -> dict:
+        """Return the best metadata dict for (modeldb_id, suffix)."""
+        m = self._meta.get((modeldb_id, suffix))
+        if m:
+            return m
+        for suf_key in ('', suffix):
+            m = self._meta.get((modeldb_id, suf_key))
+            if m:
+                return m
+        for (mid, _), row in self._meta.items():
+            if mid == modeldb_id:
+                return row
+        return {}
+
+    def search(self, author=None, year=None, modeldb_id=None,
                ion_class=None, suffix=None) -> list:
         """
         Return list of matching model dicts::
 
-            [{'model_id': int, 'meta': dict, 'channels': {suffix: [gate_rows]}}]
+            [{'modeldb_id': int, 'meta': dict, 'channels': {suffix: [gate_rows]}}]
 
         All parameters are optional; combine freely.
 
         Parameters
         ----------
-        author : str   Partial, case-insensitive author name.
-        year   : int   Publication year.
-        model_id : int Exact ModelDB ID.
+        author : str     Partial, case-insensitive author name.
+        year   : int     Publication year.
+        modeldb_id : int Exact ModelDB ID.
         ion_class : str  'Na', 'K', 'Ca', 'KCa', or 'IH'.
-        suffix : str   Partial NMODL SUFFIX name (e.g. 'naf', 'kdr').
+        suffix : str     Partial NMODL SUFFIX name (e.g. 'naf', 'kdr').
         """
         year_s = str(year) if year else None
-        mid_i  = int(model_id) if model_id else None
+        mid_i  = int(modeldb_id) if modeldb_id else None
 
         candidates = set(self._by_model)
         if mid_i is not None:
@@ -227,9 +258,9 @@ class ICGChannelDB:
         if author or year_s:
             matched = set()
             for mid in candidates:
-                meta = self._pop.get(mid, {})
+                meta = self._get_meta(mid)
                 text = (meta.get('authors', '') + ' ' +
-                        meta.get('model_name', '')).lower()
+                        meta.get('title', '')).lower()
                 if author and author.lower() not in text:
                     continue
                 if year_s and meta.get('year', '').strip() != year_s:
@@ -257,9 +288,9 @@ class ICGChannelDB:
                 if (not ion_class or gates[0].get('ion_class', '').lower() == ion_class.lower())
                 and (not suffix or suffix.lower() in suf.lower())
             } or dict(self._by_suffix[mid])
-            results.append({'model_id': mid,
-                            'meta':     self._pop.get(mid, {}),
-                            'channels': chans})
+            results.append({'modeldb_id': mid,
+                            'meta':       self._get_meta(mid),
+                            'channels':   chans})
         return results
 
     def ion_classes(self) -> list:
@@ -287,16 +318,16 @@ class ICGChannelDB:
                     f"{s}({g[0]['ion_class']})"
                     for s, g in sorted(r['channels'].items()) if g
                 ), 40, placeholder='…')
-            print(f'[{i:<2}] {r["model_id"]:<12} {yr:<6} {auth:<35} {chans}')
+            print(f'[{i:<2}] {r["modeldb_id"]:<12} {yr:<6} {auth:<35} {chans}')
         if len(results) > max_rows:
             print(f'  … and {len(results) - max_rows} more')
         print()
 
     def show_channels(self, result):
         """Print gate/power summary for one search result."""
-        mid  = result['model_id']
+        mid  = result['modeldb_id']
         meta = result['meta']
-        name = meta.get('model_name', f'ModelDB {mid}')
+        name = meta.get('title', f'ModelDB {mid}')
         print(f'\nModel {mid}: {shorten(name, 70, placeholder="…")}')
         auth = meta.get('authors', '')
         if auth:
@@ -318,27 +349,27 @@ class ICGChannelDB:
 
     # ── expression retrieval ──────────────────────────────────────────────────
 
-    def get_gate_rows(self, model_id: int, suffix: str) -> list:
-        """Return sorted list of gate rows for (model_id, suffix)."""
-        rows = list(self._by_suffix.get(model_id, {}).get(suffix, []))
+    def get_gate_rows(self, modeldb_id: int, suffix: str) -> list:
+        """Return sorted list of gate rows for (modeldb_id, suffix)."""
+        rows = list(self._by_suffix.get(modeldb_id, {}).get(suffix, []))
         if not rows:
-            raise KeyError(f'Channel {suffix!r} not found for model {model_id}')
+            raise KeyError(f'Channel {suffix!r} not found for ModelDB model {modeldb_id}')
         # activation (positive a) first → X gate
         return sorted(rows, key=lambda r: (0 if (r['a'] or 0) > 0 else 1,
                                            r['gate_var']))
 
-    def get_expressions(self, model_id: int, suffix: str,
+    def get_expressions(self, modeldb_id: int, suffix: str,
                         gate_var: str, sm_model='best') -> tuple:
         """
         Return ``(infExpr, tauExpr)`` strings for a single gate.
 
         Does not create any MOOSE objects.
         """
-        rows = self._by_suffix.get(model_id, {}).get(suffix, [])
+        rows = self._by_suffix.get(modeldb_id, {}).get(suffix, [])
         row  = next((r for r in rows if r['gate_var'] == gate_var), None)
         if row is None:
             raise KeyError(
-                f'Gate {gate_var!r} not found in {suffix!r} of model {model_id}')
+                f'Gate {gate_var!r} not found in {suffix!r} of ModelDB model {modeldb_id}')
         sm = int(sm_model) if sm_model != 'best' else int(row.get('best_sm') or 1)
         return _build_expressions(row, sm)
 

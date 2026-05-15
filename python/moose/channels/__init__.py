@@ -28,19 +28,19 @@ Quick start
 
     # Prototype is created once, inserted into every matching compartment
     chan.load(cell.select('##[TYPE=Compartment]'),
-              model_id=45539, suffix='naf',
+              modeldb_id=45539, suffix='naf',
               gbar=120e-12, Ek=0.05)
 
     # Distance-dependent gradient in apical dendrites
     chan.load(cell.select('apic#'),
-              model_id=45539, suffix='naf',
+              modeldb_id=45539, suffix='naf',
               Ek=0.05,
               gbar=lambda c: 40e-12 * (
                   1 - morph.distance_from_soma(c, cell.soma) / 800e-6))
 
     # K channel everywhere
     chan.load('/neuron/##[TYPE=Compartment]',
-              model_id=45539, suffix='kdr',
+              modeldb_id=45539, suffix='kdr',
               gbar=36e-12, Ek=-0.077)
 """
 
@@ -56,9 +56,12 @@ def _get_db():
     if _db is None:
         from moose.channels._db import ICGChannelDB
         data = Path(__file__).parent / 'data'
+        meta_csv = data / 'icg_channel_meta.csv'
+        if not meta_csv.exists():
+            meta_csv = data / 'modeldb_popularity.csv'   # legacy fallback
         _db = ICGChannelDB(
             data / 'channel_db.csv',
-            data / 'modeldb_popularity.csv',
+            meta_csv,
         )
     return _db
 
@@ -70,7 +73,7 @@ def list_ion_classes() -> list:
     return _get_db().ion_classes()
 
 
-def search(author=None, year=None, model_id=None,
+def search(author=None, year=None, modeldb_id=None,
            ion_class=None, suffix=None, show=True) -> list:
     """
     Search the ICG channel database.
@@ -81,7 +84,7 @@ def search(author=None, year=None, model_id=None,
         Partial, case-insensitive author name (e.g. ``'Traub'``).
     year : int, optional
         Publication year.
-    model_id : int, optional
+    modeldb_id : int, optional
         Exact ModelDB numeric ID.
     ion_class : str, optional
         ``'Na'``, ``'K'``, ``'Ca'``, ``'KCa'``, or ``'IH'``.
@@ -93,51 +96,51 @@ def search(author=None, year=None, model_id=None,
     Returns
     -------
     list of dict
-        Each entry: ``{'model_id': int, 'meta': dict, 'channels': {suffix: [rows]}}``.
+        Each entry: ``{'modeldb_id': int, 'meta': dict, 'channels': {suffix: [rows]}}``.
     """
     db      = _get_db()
-    results = db.search(author=author, year=year, model_id=model_id,
+    results = db.search(author=author, year=year, modeldb_id=modeldb_id,
                         ion_class=ion_class, suffix=suffix)
     if show:
         db.show_results(results)
     return results
 
 
-def info(result_or_model_id, suffix=None):
+def info(result_or_modeldb_id, suffix=None):
     """
     Print a gate/power summary for one model.
 
     Parameters
     ----------
-    result_or_model_id : dict or int
+    result_or_modeldb_id : dict or int
         A result dict from :func:`search`, or a ModelDB integer ID.
     suffix : str, optional
-        If *result_or_model_id* is an int, narrow the display to this suffix.
+        If *result_or_modeldb_id* is an int, narrow the display to this suffix.
     """
     db = _get_db()
-    if isinstance(result_or_model_id, int):
-        results = db.search(model_id=result_or_model_id,
+    if isinstance(result_or_modeldb_id, int):
+        results = db.search(modeldb_id=result_or_modeldb_id,
                             suffix=suffix)
         if not results:
-            raise KeyError(f'Model {result_or_model_id} not found in database')
+            raise KeyError(f'Model {result_or_modeldb_id} not found in database')
         result = results[0]
     else:
-        result = result_or_model_id
+        result = result_or_modeldb_id
     db.show_channels(result)
 
 
-def get_expressions(model_id: int, suffix: str,
+def get_expressions(modeldb_id: int, suffix: str,
                     gate_var: str, sm_model='best') -> tuple:
     """
     Return ``(infExpr, tauExpr)`` strings for a gate without creating MOOSE
     objects.  Useful for inspection or custom channel setup.
     """
-    return _get_db().get_expressions(model_id, suffix, gate_var, sm_model)
+    return _get_db().get_expressions(modeldb_id, suffix, gate_var, sm_model)
 
 
 # ── prototype management ──────────────────────────────────────────────────────
 
-def make_prototype(model_id: int, suffix: str, sm_model='best',
+def make_prototype(modeldb_id: int, suffix: str, sm_model='best',
                    temperature=None):
     """
     Build (or retrieve) an HHChannel prototype under ``/library``.
@@ -147,7 +150,7 @@ def make_prototype(model_id: int, suffix: str, sm_model='best',
 
     Parameters
     ----------
-    model_id : int
+    modeldb_id : int
     suffix : str
     sm_model : int or 'best'
     temperature : float, optional
@@ -160,11 +163,11 @@ def make_prototype(model_id: int, suffix: str, sm_model='best',
     Returns
     -------
     moose.HHChannel
-        Prototype at ``/library/<ion>_<suffix>_<model_id>_T<temp>``.
+        Prototype at ``/library/<ion>_<suffix>_<modeldb_id>_T<temp>``.
     """
     from moose.channels._proto import make_prototype as _make, T_REF
     T = T_REF if temperature is None else temperature
-    return _make(_get_db(), model_id, suffix, sm_model, temperature=T)
+    return _make(_get_db(), modeldb_id, suffix, sm_model, temperature=T)
 
 
 def list_prototypes() -> list:
@@ -206,7 +209,7 @@ def insert(compartments, proto, gbar, Ek=None) -> list:
     return _insert(compartments, proto, gbar, Ek)
 
 
-def load(compartments, *, model_id: int, suffix: str,
+def load(compartments, *, modeldb_id: int, suffix: str,
          gbar=1.0, Ek=None, sm_model='best', temperature=None) -> list:
     """
     One-step convenience: build prototype (if needed) and insert into
@@ -214,7 +217,7 @@ def load(compartments, *, model_id: int, suffix: str,
 
     This is equivalent to::
 
-        proto = moose.channels.make_prototype(model_id, suffix, sm_model,
+        proto = moose.channels.make_prototype(modeldb_id, suffix, sm_model,
                                               temperature=temperature)
         moose.channels.insert(compartments, proto, gbar, Ek)
 
@@ -222,7 +225,7 @@ def load(compartments, *, model_id: int, suffix: str,
     ----------
     compartments : str | element | list | dict
         Compartment selector (see :func:`insert`).
-    model_id : int
+    modeldb_id : int
     suffix : str
     gbar : float | callable
         Conductance in Siemens.
@@ -239,7 +242,7 @@ def load(compartments, *, model_id: int, suffix: str,
     -------
     list of moose.HHChannel
     """
-    proto = make_prototype(model_id, suffix, sm_model, temperature=temperature)
+    proto = make_prototype(modeldb_id, suffix, sm_model, temperature=temperature)
     return insert(compartments, proto, gbar, Ek)
 
 
