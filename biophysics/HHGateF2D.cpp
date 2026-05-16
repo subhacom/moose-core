@@ -143,7 +143,7 @@ double HHGateF2D::lookupA(vector<double> v) const
     }
 
     if(v.size() > 2) {
-        cerr << "Error: HHGateF2D::getAValue: Only 2 real numbers needed to "
+        cerr << "Error: HHGateF2D::lookupA: Only 2 real numbers needed to "
                 "lookup 2D table. "
                 "Using only first 2.\n";
     }
@@ -161,11 +161,12 @@ double HHGateF2D::lookupB(vector<double> v) const
     }
 
     if(v.size() > 2) {
-        cerr << "Error: HHGateF2D::getAValue: Only 2 real numbers needed to "
+        cerr << "Error: HHGateF2D::lookupB: Only 2 real numbers needed to "
                 "lookup 2D table. "
                 "Using only first 2.\n";
     }
-
+    v_ = v[0];
+    conc_ = v[1];
     return tauInf_ ? 1.0 / alpha_.value() : alpha_.value() + beta_.value();
 }
 

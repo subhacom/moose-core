@@ -3,6 +3,11 @@
 # Author: Subhasis Ray
 # Created: Wed Jan 29 13:15:18 2025 (+0530)
 #
+# Last updated: Sat May 16 09:53:25 IST 2026
+# Updated by: Subhasis Ray and Claude 4.6
+#
+
+
 
 """Tests HHChannelF2D class.
 
@@ -11,9 +16,6 @@ Usage: pytest test_hhchanf2d.py
 import moose
 import math
 from ephys import create_voltage_clamp, setup_step_command
-
-
-
 
 
 
@@ -186,10 +188,195 @@ def test_vclamp(steptime=5.0):
     moose.delete(container)
 
 
+# ── Moczydlowski-Latorre BK channel ──────────────────────────────────────────
+#
+# Reference: Moczydlowski E & Latorre R (1983) J Gen Physiol 82:511-542.
+# Original GENESIS script: neurokit/prototypes/MoczydKC.g (De Schutter).
+#
+# Single activation gate X, Xpower=1, VOLT_C1_INDEX dependency.
+# Units: voltage in V, Ca2+ in mM, rates in s^-1, temperature 37 °C.
+#
+# Alpha and beta rates:
+#   alpha(V, Ca) = 480*Ca / (Ca + 0.180*exp(-0.84*ZFbyRT*V))
+#   beta(V, Ca)  = 280 / (1 + Ca / (0.011*exp(-1.00*ZFbyRT*V)))
+# where ZFbyRT = 23210 / (273.15 + 37) ≈ 74.83 V^-1  (= 2*F/R/T).
+#
+# Non-separability: V and Ca appear additively in the denominators, so
+# f(V, Ca) cannot be factored into g(V)*h(Ca).
+
+_BK_EK     = -0.085
+_BK_ZFBYRT = 23210.0 / (273.15 + 37.0)   # ≈ 74.83 V^-1
+
+_BK_ALPHA = (
+    f'480 * c / (c + 0.180 * exp(-0.84 * {_BK_ZFBYRT:.8f} * v))'
+)
+_BK_BETA = (
+    f'280 / (1 + c / (0.011 * exp(-1.00 * {_BK_ZFBYRT:.8f} * v)))'
+)
+
+
+def make_BK_KC_prototype(path='/library/BK_KC_Moczyd'):
+    """
+    Build (or retrieve) an HHChannelF2D prototype for the Moczydlowski-Latorre
+    BK (Big-conductance K+) channel.
+
+    The call is idempotent: repeated calls with the same path return the
+    existing element without rebuilding it.
+
+    Parameters
+    ----------
+    path : str
+        MOOSE element path; must be under ``/library``.
+
+    Returns
+    -------
+    moose.element (HHChannelF2D)
+        Prototype with Ek=-85 mV, Gbar=1.0 (scale factor), single X gate.
+    """
+    if not moose.exists('/library'):
+        moose.Neutral('/library')
+    if moose.exists(path):
+        return moose.element(path)
+
+    chan = moose.HHChannelF2D(path)
+    chan.Ek   = _BK_EK
+    chan.Gbar = 1.0           # scale factor; multiply by actual conductance at insert time
+
+    chan.Xindex = 'VOLT_C1_INDEX'   # gate depends on Vm (dim 0) and Ca (dim 1)
+    chan.Xpower = 1.0               # triggers gate creation
+
+    gate = moose.element(f'{path}/gateX[0]')
+    gate.alphaExpr = _BK_ALPHA
+    gate.betaExpr  = _BK_BETA
+
+    return moose.element(path)
+
+
+# ── prototype validation tests ────────────────────────────────────────────────
+
+def _reset_library():
+    if moose.exists('/library'):
+        moose.delete('/library')
+
+
+def test_bk_prototype_is_hhchannelf2d():
+    _reset_library()
+    assert make_BK_KC_prototype().className == 'HHChannelF2D'
+
+
+def test_bk_prototype_in_library():
+    _reset_library()
+    assert make_BK_KC_prototype().path.startswith('/library')
+
+
+def test_bk_prototype_idempotent():
+    _reset_library()
+    p1 = make_BK_KC_prototype()
+    p2 = make_BK_KC_prototype()
+    assert p1.path == p2.path
+
+
+def test_bk_xindex():
+    _reset_library()
+    assert make_BK_KC_prototype().Xindex == 'VOLT_C1_INDEX'
+
+
+def test_bk_xpower():
+    _reset_library()
+    assert math.isclose(make_BK_KC_prototype().Xpower, 1.0)
+
+
+def test_bk_gate_expressions():
+    _reset_library()
+    proto = make_BK_KC_prototype()
+    gate = moose.element(proto.path + '/gateX[0]')
+    assert gate.alphaExpr == _BK_ALPHA
+    assert gate.betaExpr  == _BK_BETA
+
+
+def test_bk_ek():
+    _reset_library()
+    assert math.isclose(make_BK_KC_prototype().Ek, _BK_EK)
+
+
+# ── voltage clamp simulation ──────────────────────────────────────────────────
+
+def test_bk_voltage_clamp(steptime=0.05):
+    """
+    Voltage clamp with fixed Ca2+: simulated steady-state Gk must match the
+    analytical value Gbar * alpha/(alpha+beta) at each (V, Ca) pair.
+
+    Ca2+ is held constant by setting CaConc.CaBasal (mM) before each reinit.
+    The BK channel equilibrates in ~3 ms, so a 50 ms step is ample.
+    """
+    cwe = moose.getCwe()
+    if moose.exists('/test_bk_vclamp'):
+        moose.delete('/test_bk_vclamp')
+    container = moose.Neutral('/test_bk_vclamp')
+    moose.ce(container)
+
+    comp = moose.Compartment('comp')
+    comp.Cm     = 1e-9    # F
+    comp.Rm     = 1e8     # Ω
+    comp.Em     = -65e-3
+    comp.initVm = -65e-3
+
+    chan = moose.HHChannelF2D(f'{comp.path}/BK')
+    chan.Ek     = _BK_EK
+    chan.Gbar   = 1e-6    # S
+    chan.Xindex = 'VOLT_C1_INDEX'
+    chan.Xpower = 1.0
+    gate = moose.element(f'{chan.path}/gateX[0]')
+    gate.alphaExpr = _BK_ALPHA
+    gate.betaExpr  = _BK_BETA
+
+    moose.connect(chan, 'channel', comp, 'channel')
+
+    capool = moose.CaConc(f'{comp.path}/Ca')
+    moose.connect(capool, 'concOut', chan, 'concen')
+
+    vclamp, command, commandtab = create_voltage_clamp(comp)
+
+    # Voltage steps (V) and Ca2+ values (mM = numerically what the expression sees)
+    v_steps  = [-75e-3, -35e-3, -15e-3, 0.0, 35e-3]
+    ca_steps = [0.01, 0.05, 0.1, 0.3]    # 10, 50, 100, 300 µM
+
+    def alpha(v, c):
+        return 480 * c / (c + 0.180 * math.exp(-0.84 * _BK_ZFBYRT * v))
+
+    def beta(v, c):
+        return 280 / (1 + c / (0.011 * math.exp(-1.00 * _BK_ZFBYRT * v)))
+
+    simtime = steptime + 0.1   # 100 ms equilibration after the step
+
+    for vstep in v_steps:
+        setup_step_command(command, comp.Em, delay=steptime, level=vstep)
+        for ca in ca_steps:
+            capool.CaBasal = ca
+            moose.reinit()
+            moose.start(simtime)
+            a = alpha(vstep, ca)
+            b = beta(vstep, ca)
+            expected_gk = chan.Gbar * a / (a + b)
+            assert math.isclose(chan.Gk, expected_gk, rel_tol=1e-4), (
+                f'V={vstep*1e3:.0f} mV  Ca={ca} mM: '
+                f'Gk={chan.Gk:.6g} S  expected={expected_gk:.6g} S')
+
+    moose.ce(cwe)
+    moose.delete(container)
+
+
 if __name__ == '__main__':
     test_hhgatef2d_creation()
     test_alpha_beta()
     test_tau_inf()
     test_vclamp()
+    test_bk_prototype_is_hhchannelf2d()
+    test_bk_gate_expressions()
+    test_bk_voltage_clamp()
+    print('All HHChannelF2D tests passed.')
+#
+# test_hhchanf2d.py ends here
+
 #
 # test_hhchanf2d.py ends here
