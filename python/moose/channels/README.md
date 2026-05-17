@@ -86,11 +86,11 @@ If you use `moose.channels` in your research, please cite:
 
 and the IonChannelGenealogy database:
 
-> Bahl, A., Stemmler, M. B., Herz, A. V. M., & Roth, A. (2012).
-> **Automated optimization of a reduced layer 5 pyramidal cell model based on
-> experimental data.**
-> *Journal of Neuroscience Methods*, 210(1), 22–34.
-> https://doi.org/10.1016/j.jneumeth.2012.04.006
+> Podlaski, W. F., Seeholzer, A., Groschner, L. N., Miesenboeck, G.,
+> Ranjan, R., & Vogels, T. P. (2017).
+> **Mapping the function of neuronal ion channels in model and experiment.**
+> *eLife*, 6, e22152.
+> https://doi.org/10.7554/eLife.22152
 
 The ICG web application and channel specification sheets are available at:
 https://icg-explorer.org/visualizer
