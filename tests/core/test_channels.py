@@ -67,6 +67,16 @@ def test_search_by_suffix():
         assert any('kdr' in s.lower() for s in r['channels'])
 
 
+def test_get_icg_id():
+    # (modeldb_id=101629, suffix='cagk') → icg_id=3
+    assert chan.get_icg_id(101629, 'cagk') == 3
+
+
+def test_get_icg_id_no_match():
+    with pytest.raises(KeyError):
+        chan.get_icg_id(999999999, 'nax')
+
+
 def test_search_by_icg_id():
     # icg_id=3 → modeldb_id=101629, suffix='cagk'
     results = chan.search(icg_id=3, show=False)

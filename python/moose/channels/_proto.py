@@ -140,29 +140,3 @@ def make_prototype(db, modeldb_id: int, suffix: str, sm_model='best',
     return chan
 
 
-def list_prototypes() -> list:
-    """
-    Return list of HHChannel prototypes currently in ``/library``.
-
-    Each entry is a dict with keys ``name``, ``path``, ``ion_class``,
-    ``suffix``, ``modeldb_id``, ``Ek``.
-    """
-    import moose
-    if not moose.exists(_LIBRARY_PATH):
-        return []
-
-    from moose.channels._db import infer_ion
-    result = []
-    for el in moose.wildcardFind(f'{_LIBRARY_PATH}/#[TYPE=HHChannel]'):
-        parts = el.name.split(_PROTO_SEP, 1)   # suffix, modeldb_id
-        entry = {'name': el.name, 'path': el.path, 'Ek': el.Ek,
-                 'gbar_scale': el.Gbar}
-        if len(parts) == 2:
-            entry['suffix']    = parts[0]
-            entry['ion_class'] = infer_ion(parts[0])
-            try:
-                entry['modeldb_id'] = int(parts[1])
-            except ValueError:
-                entry['modeldb_id'] = None
-        result.append(entry)
-    return result

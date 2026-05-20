@@ -257,15 +257,13 @@ class ICGChannelDB:
             candidates &= {mid_i}
 
         if icg_id is not None:
-            icg_id_s = str(icg_id)
-            for (mid, suf), row in self._meta.items():
-                if row.get('icg_id') == icg_id_s:
-                    candidates &= {mid}
-                    if suffix is None:
-                        suffix = suf
-                    break
-            else:
+            try:
+                mid, suf = self.resolve_icg_id(icg_id)
+            except KeyError:
                 return []
+            candidates &= {mid}
+            if suffix is None:
+                suffix = suf
 
         if author or year_s:
             matched = set()
@@ -360,6 +358,24 @@ class ICGChannelDB:
         print()
 
     # ── expression retrieval ──────────────────────────────────────────────────
+
+    def resolve_icg_id(self, icg_id: int) -> tuple:
+        """Return ``(modeldb_id, suffix)`` for the given ICGenealogy channel ID."""
+        icg_id_s = str(icg_id)
+        for (mid, suf), row in self._meta.items():
+            if row.get('icg_id') == icg_id_s:
+                return mid, suf
+        raise KeyError(f'ICG ID {icg_id} not found in database')
+
+    def get_icg_id(self, modeldb_id: int, suffix: str) -> int:
+        """Return the ICGenealogy channel ID for ``(modeldb_id, suffix)``."""
+        row = self._meta.get((modeldb_id, suffix))
+        if row is None:
+            raise KeyError(f'No ICG metadata for ModelDB {modeldb_id}, suffix {suffix!r}')
+        icg_id = row.get('icg_id')
+        if not icg_id:
+            raise KeyError(f'ICG ID missing for ModelDB {modeldb_id}, suffix {suffix!r}')
+        return int(icg_id)
 
     def get_gate_rows(self, modeldb_id: int, suffix: str) -> list:
         """Return sorted list of gate rows for (modeldb_id, suffix)."""
