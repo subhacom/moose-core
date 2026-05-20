@@ -45,6 +45,8 @@ Quick start
 """
 
 from pathlib import Path
+from moose.channels._proto import list_prototypes
+from moose.channels._insert import insert
 
 # Lazy-loaded singleton database — populated on first use
 _db = None
@@ -163,50 +165,14 @@ def make_prototype(modeldb_id: int, suffix: str, sm_model='best',
     Returns
     -------
     moose.HHChannel
-        Prototype at ``/library/<ion>_<suffix>_<modeldb_id>_T<temp>``.
+        Prototype at ``/library/<suffix>_<modeldb_id>``.
     """
     from moose.channels._proto import make_prototype as _make, T_REF
     T = T_REF if temperature is None else temperature
     return _make(_get_db(), modeldb_id, suffix, sm_model, temperature=T)
 
 
-def list_prototypes() -> list:
-    """Return metadata list of all HHChannel prototypes in ``/library``."""
-    from moose.channels._proto import list_prototypes as _list
-    return _list()
-
-
 # ── insertion ─────────────────────────────────────────────────────────────────
-
-def insert(compartments, proto, gbar, Ek=None) -> list:
-    """
-    Copy *proto* into compartments and connect each copy.
-
-    Parameters
-    ----------
-    compartments : str | moose element | list | dict
-        * ``str``   — wildcard pattern passed to ``moose.wildcardFind``.
-        * element   — single compartment ObjId.
-        * ``list``  — pre-resolved list of compartment elements.
-        * ``dict``  — ``{comp: gbar_S}``; *gbar* argument is ignored.
-    proto : moose.HHChannel
-        Prototype from :func:`make_prototype`.
-    gbar : float | callable
-        * ``float``    — same absolute conductance (S) for all compartments.
-        * ``callable`` — ``gbar(comp) -> float`` (S); called per compartment.
-          Use with :func:`surface_area` and :func:`distance_from_soma` for
-          density- or distance-based gradients::
-
-              gbar=lambda c: 120e-12 * moose.channels.surface_area(c)
-    Ek : float, optional
-        Reversal potential (V).  Defaults to the prototype's Ek.
-
-    Returns
-    -------
-    list of moose.HHChannel
-    """
-    from moose.channels._insert import insert as _insert
-    return _insert(compartments, proto, gbar, Ek)
 
 
 def load(compartments, *, modeldb_id: int, suffix: str,

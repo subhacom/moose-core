@@ -3,8 +3,8 @@ moose.channels._proto
 ======================
 Prototype management: create and cache HHChannel objects under /library.
 
-Every unique (modeldb_id, suffix, temperature) triple maps to exactly one
-prototype element at ``/library/{ion}_{suffix}_{modeldb_id}_T{T_int}``.
+Every unique (modeldb_id, suffix) pair maps to exactly one
+prototype element at ``/library/{suffix}_{modeldb_id}``.
 Prototypes are created once; all subsequent calls return the existing element.
 moose.copy() is used at insert time so that gate tables are shared across
 compartments.
@@ -33,10 +33,8 @@ _LIBRARY_PATH = '/library'
 _PROTO_SEP    = '_'          # separator in prototype name
 
 
-def _proto_name(ion_class: str, suffix: str, modeldb_id: int,
-                temperature: float) -> str:
-    t_tag = f'T{round(temperature * 10):d}'
-    return f'{ion_class}{_PROTO_SEP}{suffix}{_PROTO_SEP}{modeldb_id}{_PROTO_SEP}{t_tag}'
+def _proto_name(suffix: str, modeldb_id: int) -> str:
+    return f'{suffix}{_PROTO_SEP}{modeldb_id}'
 
 
 def _ensure_library():
@@ -89,7 +87,7 @@ def make_prototype(db, modeldb_id: int, suffix: str, sm_model='best',
 
     gate_rows = db.get_gate_rows(modeldb_id, suffix)
     ion_class = gate_rows[0].get('ion_class') or infer_ion(suffix)
-    name      = _proto_name(ion_class, suffix, modeldb_id, temperature)
+    name      = _proto_name(suffix, modeldb_id)
     path      = f'{_LIBRARY_PATH}/{name}'
 
     _ensure_library()
@@ -153,23 +151,18 @@ def list_prototypes() -> list:
     if not moose.exists(_LIBRARY_PATH):
         return []
 
+    from moose.channels._db import infer_ion
     result = []
     for el in moose.wildcardFind(f'{_LIBRARY_PATH}/#[TYPE=HHChannel]'):
-        parts = el.name.split(_PROTO_SEP, 3)   # ion, suffix, modeldb_id, Ttag
+        parts = el.name.split(_PROTO_SEP, 1)   # suffix, modeldb_id
         entry = {'name': el.name, 'path': el.path, 'Ek': el.Ek,
                  'gbar_scale': el.Gbar}
-        if len(parts) >= 3:
-            entry['ion_class'] = parts[0]
-            entry['suffix']    = parts[1]
+        if len(parts) == 2:
+            entry['suffix']    = parts[0]
+            entry['ion_class'] = infer_ion(parts[0])
             try:
-                entry['modeldb_id'] = int(parts[2])
+                entry['modeldb_id'] = int(parts[1])
             except ValueError:
                 entry['modeldb_id'] = None
-        if len(parts) == 4:
-            t_tag = parts[3]
-            try:
-                entry['temperature'] = int(t_tag.lstrip('T')) / 10.0
-            except ValueError:
-                pass
         result.append(entry)
     return result
