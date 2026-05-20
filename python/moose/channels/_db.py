@@ -232,7 +232,7 @@ class ICGChannelDB:
         return {}
 
     def search(self, author=None, year=None, modeldb_id=None,
-               ion_class=None, suffix=None) -> list:
+               ion_class=None, suffix=None, icg_id=None) -> list:
         """
         Return list of matching model dicts::
 
@@ -247,6 +247,7 @@ class ICGChannelDB:
         modeldb_id : int Exact ModelDB ID.
         ion_class : str  'Na', 'K', 'Ca', 'KCa', or 'IH'.
         suffix : str     Partial NMODL SUFFIX name (e.g. 'naf', 'kdr').
+        icg_id : int     Exact ICGenealogy channel ID.
         """
         year_s = str(year) if year else None
         mid_i  = int(modeldb_id) if modeldb_id else None
@@ -254,6 +255,15 @@ class ICGChannelDB:
         candidates = set(self._by_model)
         if mid_i is not None:
             candidates &= {mid_i}
+
+        if icg_id is not None:
+            try:
+                mid, suf = self.resolve_icg_id(icg_id)
+            except KeyError:
+                return []
+            candidates &= {mid}
+            if suffix is None:
+                suffix = suf
 
         if author or year_s:
             matched = set()
@@ -348,6 +358,24 @@ class ICGChannelDB:
         print()
 
     # ── expression retrieval ──────────────────────────────────────────────────
+
+    def resolve_icg_id(self, icg_id: int) -> tuple:
+        """Return ``(modeldb_id, suffix)`` for the given ICGenealogy channel ID."""
+        icg_id_s = str(icg_id)
+        for (mid, suf), row in self._meta.items():
+            if row.get('icg_id') == icg_id_s:
+                return mid, suf
+        raise KeyError(f'ICG ID {icg_id} not found in database')
+
+    def get_icg_id(self, modeldb_id: int, suffix: str) -> int:
+        """Return the ICGenealogy channel ID for ``(modeldb_id, suffix)``."""
+        row = self._meta.get((modeldb_id, suffix))
+        if row is None:
+            raise KeyError(f'No ICG metadata for ModelDB {modeldb_id}, suffix {suffix!r}')
+        icg_id = row.get('icg_id')
+        if not icg_id:
+            raise KeyError(f'ICG ID missing for ModelDB {modeldb_id}, suffix {suffix!r}')
+        return int(icg_id)
 
     def get_gate_rows(self, modeldb_id: int, suffix: str) -> list:
         """Return sorted list of gate rows for (modeldb_id, suffix)."""
