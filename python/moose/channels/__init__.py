@@ -76,7 +76,7 @@ def list_ion_classes() -> list:
 
 
 def search(author=None, year=None, modeldb_id=None,
-           ion_class=None, suffix=None, show=True) -> list:
+           ion_class=None, suffix=None, icg_id=None, show=True) -> list:
     """
     Search the ICG channel database.
 
@@ -92,6 +92,8 @@ def search(author=None, year=None, modeldb_id=None,
         ``'Na'``, ``'K'``, ``'Ca'``, ``'KCa'``, or ``'IH'``.
     suffix : str, optional
         Partial NMODL SUFFIX name (e.g. ``'naf'``, ``'kdr'``).
+    icg_id : int, optional
+        Exact ICGenealogy channel ID.
     show : bool, optional
         Print a formatted result table (default ``True``).
 
@@ -102,7 +104,7 @@ def search(author=None, year=None, modeldb_id=None,
     """
     db      = _get_db()
     results = db.search(author=author, year=year, modeldb_id=modeldb_id,
-                        ion_class=ion_class, suffix=suffix)
+                        ion_class=ion_class, suffix=suffix, icg_id=icg_id)
     if show:
         db.show_results(results)
     return results

@@ -232,7 +232,7 @@ class ICGChannelDB:
         return {}
 
     def search(self, author=None, year=None, modeldb_id=None,
-               ion_class=None, suffix=None) -> list:
+               ion_class=None, suffix=None, icg_id=None) -> list:
         """
         Return list of matching model dicts::
 
@@ -247,6 +247,7 @@ class ICGChannelDB:
         modeldb_id : int Exact ModelDB ID.
         ion_class : str  'Na', 'K', 'Ca', 'KCa', or 'IH'.
         suffix : str     Partial NMODL SUFFIX name (e.g. 'naf', 'kdr').
+        icg_id : int     Exact ICGenealogy channel ID.
         """
         year_s = str(year) if year else None
         mid_i  = int(modeldb_id) if modeldb_id else None
@@ -254,6 +255,17 @@ class ICGChannelDB:
         candidates = set(self._by_model)
         if mid_i is not None:
             candidates &= {mid_i}
+
+        if icg_id is not None:
+            icg_id_s = str(icg_id)
+            for (mid, suf), row in self._meta.items():
+                if row.get('icg_id') == icg_id_s:
+                    candidates &= {mid}
+                    if suffix is None:
+                        suffix = suf
+                    break
+            else:
+                return []
 
         if author or year_s:
             matched = set()

@@ -67,6 +67,19 @@ def test_search_by_suffix():
         assert any('kdr' in s.lower() for s in r['channels'])
 
 
+def test_search_by_icg_id():
+    # icg_id=3 → modeldb_id=101629, suffix='cagk'
+    results = chan.search(icg_id=3, show=False)
+    assert len(results) == 1
+    assert results[0]['modeldb_id'] == 101629
+    assert 'cagk' in results[0]['channels']
+
+
+def test_search_by_icg_id_no_match():
+    results = chan.search(icg_id=999999999, show=False)
+    assert results == []
+
+
 def test_search_no_match():
     results = chan.search(modeldb_id=999999999, show=False)
     assert results == []
