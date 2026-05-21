@@ -11,8 +11,8 @@ requires = [
 [project]
 name = 'pymoose'
 # dynamic = ['version']
-version = '4.2.0'
-description = 'Python scripting interface of MOOSE Simulator (https://moose.ncbs.res.in)'
+version = '4.3.0'
+description = 'Python scripting interface of MOOSE Simulator (https://www.mooseneuro.org/)'
 readme = 'README.md'
 classifiers = [
     'Development Status :: 5 - Production/Stable',
@@ -61,11 +61,11 @@ maintainers = [
     {name = 'Jayesh Poojary', email = 'jacksray786@gmail.com'},
     ]
 
-dependencies = ['numpy>=1.23', 'matplotlib', 'vpython', 'python-libsbml', 'pyneuroml', 'pint', 'scipy']
+dependencies = ['numpy>=1.23', 'matplotlib', 'vpython', 'python-libsbml', 'pyneuroml', 'pint', 'scipy', 'pyqt5']
 
 [project.urls]
 homepage = 'https://mooseneuro.github.io/'
-documentation = 'https://moose.ncbs.res.in/readthedocs/index.html'
+documentation = 'https://www.mooseneuro.org/docs/html/introduction/introduction.html'
 repository = 'https://github.com/MooseNeuro/moose-core.git'
 
 [project.optional-dependencies]

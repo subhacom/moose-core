@@ -4,6 +4,100 @@
 ## Unreleased
 *Unreleased changes go here*
 
+
+## [4.3.0] - 2026-05-21
+
+Lavang Latika
+
+### Ion Channel Library
+
+Access over 3,517 ion channel models from the
+[ICGenealogy database](https://icg.neurotheory.ox.ac.uk/) through the new
+`moose.channels` module. Supported ion classes include Na, K, Ca, KCa,
+and IH. Insert channels into compartments using wildcards, lists, or
+dictionaries, with support for distance-dependent conductance.
+
+Channel metadata includes both `modeldb_id` (ModelDB reference) and
+`icg_id` (unique ICGenealogy identifier) for precise channel identification.
+
+**Features:**
+- Search, info, and make_prototype accept `icg_id` as an alternative to `modeldb_id`
+- Simplified prototype naming format: `{suffix}_{modeldb_id}`
+- New `get_icg_id` function to retrieve ICG identifier for a channel
+
+### Morphology Library
+
+The new `moose.morphologies` module simplifies loading and working with
+neuron morphologies. Load SWC files and access compartments via `.root`,
+`.soma`, `.compartments`, and `.select(pattern)`. Includes automatic
+re-rooting of SWC files not rooted at soma.
+
+**Bundled morphologies from:**
+- [Allen Cell Types Database](https://celltypes.brain-map.org/)
+- Traub et al. 2005 thalamocortical network model
+- Classic published literature
+
+**Utilities:**
+- Convert GENESIS `.p` files to SWC format (`moose.swc_utils.p_to_swc`)
+
+### Bug Fixes
+
+- Python's `**` operator now works in MOOSE expressions
+  (e.g., `func.expr = 'x0**2'`), in addition to the existing `^` operator
+- Fixed `ReadSwc` to detect and handle 3-point soma and linear soma chains
+- Fixed `HHGateF2D::lookupB` not setting voltage and concentration
+  values from input vector
+
+### Documentation
+
+- Updated Ubuntu build instructions with clearer steps
+- Fixed MOOSE website address in README
+
+## Credits and Citations
+
+### Ion Channel Library
+
+The channel parameters and omnimodel formulation are the work of the
+**ICGenealogy project** and the **Vogels group** at IST Austria.
+
+If you use `moose.channels` in your research, please cite:
+
+> Chintaluri, C., Podlaski, W., Bozelos, P. A., Gonçalves, P. J.,
+> Lueckmann, J.-M., Macke, J. H., & Vogels, T. P. (2025).
+> **An ion channel omnimodel for standardized biophysical neuron modelling.**
+> *bioRxiv*. https://doi.org/10.1101/2025.10.03.680368
+
+and the IonChannelGenealogy database:
+
+> Podlaski, W. F., Seeholzer, A., Groschner, L. N., Miesenboeck, G.,
+> Ranjan, R., & Vogels, T. P. (2017).
+> **Mapping the function of neuronal ion channels in model and experiment.**
+> *eLife*, 6, e22152.
+> https://doi.org/10.7554/eLife.22152
+
+The ICG web application and channel specification sheets are available at:
+https://icg.neurotheory.ox.ac.uk/
+
+### Morphology Utilities (ShapeShifter)
+
+The SWC conversion utilities (`moose.swc_utils.p_to_swc`) and morphology
+processing features are based on **ShapeShifter**, developed by
+**Prof. Avrama Blackwell and her team** at George Mason University.
+
+ShapeShifter is a morphology processing utility that converts 3D neuronal
+morphology files (`.swc` or GENESIS `.p`) into electrical compartmental
+structures suitable for simulations. It can combine compartments with the
+same (or similar) radius and reduce file size by up to 90% while preserving
+electrotonic response.
+
+- **Repository:** https://github.com/neurord/ShapeShifter
+- **Used in:** `moose.swc_utils`, `moose.morphologies` (GENESIS `.p` file support),
+  `python/moose/ShapeShifter/`
+
+If you use morphology conversion or reduction features in your research,
+please acknowledge Prof. Blackwell's group and the ShapeShifter project.
+
+
 ## [4.2.0] - 2026-03-31
 
 Kalakand
