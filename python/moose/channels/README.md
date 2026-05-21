@@ -93,9 +93,9 @@ and the IonChannelGenealogy database:
 > https://doi.org/10.7554/eLife.22152
 
 The ICG web application and channel specification sheets are available at:
-https://icg-explorer.org/visualizer
+https://icg.neurotheory.ox.ac.uk/
 
 ## Further reading
 
 - MOOSE simulator: https://mooseneuro.org
-- IonChannelGenealogy: https://icg-explorer.org
+- IonChannelGenealogy: https://icg.neurotheory.ox.ac.uk/
