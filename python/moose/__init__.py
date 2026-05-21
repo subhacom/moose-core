@@ -29,7 +29,6 @@ import atexit
 import moose._moose as _moose
 from moose import model_utils
 from moose.moose_constants import *
-from moose.swc_utils import condense_swc
 
 
 __moose_classes__ = {}
@@ -329,6 +328,7 @@ def loadSwc(
         moose.element if succcessful else None.
     """
     if max_len is not None:
+        from moose.swc_utils import condense_swc
         filename = condense_swc(
             filename, RM, RA, CM, max_len=max_len, f=f, rad_diff=rad_diff
         )
@@ -661,3 +661,16 @@ def cleanup(verbose=False):
 
 
 atexit.register(cleanup)
+
+
+# ── curated channel, morphology and model libraries ───────────────────────────
+# Imported as sub-namespaces so users write:
+#   moose.channels.load(...)
+#   moose.morphologies.load(...)
+#   moose.models.load(...)
+# Imports are deferred inside the subpackages to avoid circular imports and
+# to keep moose startup fast when these features are not used.
+
+from moose import channels      # noqa: E402  (moose.channels.*)
+from moose import morphologies  # noqa: E402  (moose.morphologies.*)
+from moose import models        # noqa: E402  (moose.models.*)

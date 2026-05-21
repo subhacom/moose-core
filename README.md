@@ -46,14 +46,12 @@ https://github.com/MooseNeuro/moose-examples.
 - A set of jupyter notebooks with step by step examples with explanation are available here:
 https://github.com/MooseNeuro/moose-notebooks.
 
-# v4.2.0 – Major Release "Kalakand"
-[`Kalakand`](https://en.wikipedia.org/wiki/Kalakand) is a popular
-Indian sweet made from solidified sweetened milk and cottage cheese
-(paneer), with a soft, grainy texture and a rich, mildly sweet
-flavour. It is often garnished with cardamom and pistachios and is
-a favourite at festivals and celebrations across India.
-
-# What's New in 4.2.0
+# v4.3.0 – Major Release "Lavang Latika"
+[`Lavang Latika`](https://en.wikipedia.org/wiki/Laung_lata) (also known as 
+Lobongo Lotika or Laung Lata) is a traditional Indian sweet from Bengal, 
+Eastern Uttar Pradesh, Odisha, and Bihar. It is made of flour pastry filled 
+with khoya (mawa) and nuts, folded and sealed with a clove (lavang), then 
+deep-fried and soaked in sugar syrup. The clove gives it a distinctive aroma.
 
 ## Quick Install
 
@@ -102,47 +100,86 @@ Now you can import moose in a Python script or interpreter with the statement:
 >>> import moose
 ```
 
-## Breaking Changes
-- Some legacy and unused Python utility modules have been removed.
-If your scripts import from `moose.recording`, `moose.constants`, or
-`moose.method_utils`, you will need to update them.
-- `getFieldDict` has been renamed to `getFieldTypeDict`. If your
-scripts use this function, update the name accordingly.
+## What's New in 4.3.0
+ 
+### Ion Channel Library
+ 
+Access over 3,517 ion channel models from the
+[ICGenealogy database](https://icg.neurotheory.ox.ac.uk/) through the new
+`moose.channels` module. Supported ion classes include Na, K, Ca, KCa,
+and IH. Insert channels into compartments using wildcards, lists, or
+dictionaries, with support for distance-dependent conductance.
+ 
+Channel metadata includes both `modeldb_id` (ModelDB reference) and
+`icg_id` (unique ICGenealogy identifier) for precise channel identification.
+ 
+**Features:**
+- Search, info, and make_prototype accept `icg_id` as an alternative to `modeldb_id`
+- Simplified prototype naming format: `{suffix}_{modeldb_id}`
+- New `get_icg_id` function to retrieve ICG identifier for a channel
+### Morphology Library
+ 
+The new `moose.morphologies` module simplifies loading and working with
+neuron morphologies. Load SWC files and access compartments via `.root`,
+`.soma`, `.compartments`, and `.select(pattern)`. Includes automatic
+re-rooting of SWC files not rooted at soma.
+ 
+**Bundled morphologies from:**
+- [Allen Cell Types Database](https://celltypes.brain-map.org/)
+- Traub et al. 2005 thalamocortical network model
+- Classic published literature
 
-## Neuron Morphology (SWC) Improvements
+**Utilities:**
+- Convert GENESIS `.p` files to SWC format (`moose.swc_utils.p_to_swc`)
 
-- Improved support for loading neuron morphologies: SWC files with
-2-point soma (as used by Arbor) and 3-point soma formats are now
-handled correctly
-- Automated SWC compartmentalization using uniform RA and RM based on [ShapeShifter](https://github.com/neurord/ShapeShifter)
-- Added a dedicated `moose.loadSwc()` function for loading SWC files
-with optional electrical parameters (RM, RA, CM)
+### Bug Fixes
+ 
+- Python's `**` operator now works in MOOSE expressions
+  (e.g., `func.expr = 'x0**2'`), in addition to the existing `^` operator
+- Fixed `ReadSwc` to detect and handle 3-point soma and linear soma chains
+- Fixed `HHGateF2D::lookupB` not setting voltage and concentration
+  values from input vector
+  
+### Documentation
+ 
+- Updated Ubuntu build instructions with clearer steps
+- Fixed MOOSE website address in README
+ 
+## Credits and Citations
+ 
+### Ion Channel Library
+ 
+The channel parameters and omnimodel formulation are the work of the
+**ICGenealogy project** and the **Vogels group** at IST Austria.
+ 
+If you use `moose.channels` in your research, please cite:
+ 
+> Chintaluri, C., Podlaski, W., Bozelos, P. A., Gonçalves, P. J.,
+> Lueckmann, J.-M., Macke, J. H., & Vogels, T. P. (2025).
+> **An ion channel omnimodel for standardized biophysical neuron modelling.**
+> *bioRxiv*. https://doi.org/10.1101/2025.10.03.680368
+ 
+and the IonChannelGenealogy database:
+ 
+> Podlaski, W. F., Seeholzer, A., Groschner, L. N., Miesenboeck, G.,
+> Ranjan, R., & Vogels, T. P. (2017).
+> **Mapping the function of neuronal ion channels in model and experiment.**
+> *eLife*, 6, e22152.
+> https://doi.org/10.7554/eLife.22152
+ 
+The ICG web application and channel specification sheets are available at:
+https://icg.neurotheory.ox.ac.uk/
+ 
+### Morphology Utilities (ShapeShifter)
+> Developed by **Prof. Avrama Blackwell and her team**, George Mason University.
+> **ShapeShifter: a morphology processing utility for compartmental neuron models.**
+> https://github.com/neurord/ShapeShifter
 
-## Model Loading Improvements
-- Added explicit `moose.loadKkit()` function for loading GENESIS Kkit models
-- NeuroML2 model path is now configurable instead of being hardcoded
+> **Used in:** `moose.swc_utils`, `moose.morphologies` (GENESIS `.p` file support),
+> `python/moose/ShapeShifter/` 
 
-## Python Interface Improvements
-
-- Consistent and informative string representation for all MOOSE Python
-objects, making debugging and interactive use easier
-- `getFieldNames()` is now available as a method in MOOSE objects
-
-## Bug Fixes
-
-- Fixed incorrect behaviour when setting attributes on element fields
-via Python
-- Fixed an intermittent issue where expression evaluation could fail
-unpredictably under certain conditions
-- Fixed missing runtime dependencies for NeuroML2 module (pint, scipy)
-
-## Build and Packaging
-
-- Python bindings rebuilt on nanobind, replacing pybind11, resulting
-in faster and smaller code
-- Building MOOSE from source is now simpler, with fewer manual setup
-steps required
-- Updated CI workflows for the new build system
+If you use morphology conversion or reduction features in your research,
+please acknowledge **Prof. Avrama Blackwell's group** and the ShapeShifter project.
 
 # LICENSE
 
