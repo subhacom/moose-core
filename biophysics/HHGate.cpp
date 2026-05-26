@@ -456,13 +456,13 @@ void HHGate::fillFromExpr(const Eref& e)
     exprtk::expression<double> alpha_;
     exprtk::expression<double> beta_;
     exprtk::parser<double> parser_;
-    double v_;
+    double v_ = 0.0;
     // Add extra variables to allow intermediate expressions for cases
     // where there is conditional on alpha/beta or tau/inf values
-    double a_;
-    double b_;
-    double tau_;
-    double inf_;
+    double a_ = 0.0;
+    double b_ = 0.0;
+    double tau_ = 0.0;
+    double inf_ = 0.0;
     symTab_.add_variable("v", v_);
     symTab_.add_variable("c", v_);
     symTab_.add_variable("alpha", a_);
