@@ -654,6 +654,9 @@ ObjId convertToObjId(const nb::object &arg)
     }
     else if(nb::isinstance<ObjId>(arg)) {
         ret = nb::cast<ObjId>(arg);
+    } else if (nb::isinstance<ElementField>(arg)){
+
+        ret = nb::cast<ElementField>(arg).foid_;
     }
     else {
         throw nb::type_error("expected str, ObjId, Id, or MooseVec");

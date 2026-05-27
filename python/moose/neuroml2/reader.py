@@ -214,6 +214,75 @@ def _isVarInExpr(expr, var):
     return False
 
 
+def _outputDependsOn(ct, var):
+    """Return True if any *output* DerivedVariable of ComponentType `ct`
+    transitively depends on the primary input variable `var`.
+
+    NML2 ComponentTypes often declare intermediate DerivedVariables such as
+    ``V = v / VOLT_SCALE`` even when the final output expression does not
+    reference ``v``.  A naive search of every DerivedVariable value for `var`
+    therefore produces false positives.  This function walks only from the
+    output variables (those carrying an ``exposure`` attribute) backwards
+    through the intermediate variable graph, stopping at constants and unknown
+    names.
+
+    Parameters
+    ----------
+    ct : nml.ComponentType
+    var : str
+        Primary input variable name to search for (e.g. ``'v'``, ``'caConc'``).
+
+    Returns
+    -------
+    bool
+    """
+    # Build map: variable name → expression string (all derived vars)
+    var_expr = {}
+    for dyn in ct.Dynamics:
+        for dv in dyn.DerivedVariable:
+            var_expr[dv.name] = pythonize_expr(dv.value)
+        for cdv in dyn.ConditionalDerivedVariable:
+            # Combine condition and value strings so both paths are covered
+            parts = []
+            for case in cdv.Case:
+                if case.condition:
+                    parts.append(pythonize_expr(case.condition))
+                parts.append(pythonize_expr(case.value))
+            var_expr[cdv.name] = " ".join(parts)
+
+    # Identify output variable names (those with an exposure)
+    output_names = []
+    for dyn in ct.Dynamics:
+        for dv in dyn.DerivedVariable:
+            if dv.exposure is not None:
+                output_names.append(dv.name)
+        for cdv in dyn.ConditionalDerivedVariable:
+            if cdv.exposure is not None:
+                output_names.append(cdv.name)
+
+    def _refs(name, seen):
+        if name in seen:
+            return False
+        seen.add(name)
+        expr = var_expr.get(name)
+        if expr is None:
+            return name == var  # leaf: is it the target input?
+        if _isVarInExpr(expr, var):
+            return True
+        # Recurse into referenced intermediate variables
+        try:
+            parsed = ast.parse(expr)
+        except SyntaxError:
+            return False
+        for node in ast.walk(parsed):
+            if isinstance(node, ast.Name) and node.id in var_expr:
+                if _refs(node.id, seen):
+                    return True
+        return False
+
+    return any(_refs(name, set()) for name in output_names)
+
+
 def _getPredefinedGateDynamicParams(ngate):
     """Returns a dict of predefined parameters for gate dynamics listed in `PREDEFINED_GATE_DYN_PARAMS`"""
     return {
@@ -903,8 +972,16 @@ class NML2Reader(object):
         req_vars.update(self._variables)  # what's the use?
         if (vtab is None) or (len(vtab) == 0):
             req_vars["caConc"] = Q_(ctab, "mole / meter ** 3")
+            # Many NML2 ComponentTypes declare intermediate variables like
+            # V = v/VOLT_SCALE even when they are Ca-only.  Supplying a
+            # zero array for v prevents NameError in array_eval_component
+            # without affecting the output (which does not use v).
+            req_vars["v"] = Q_(np.zeros(len(ctab)), "V")
         elif (ctab is None) or (len(ctab) == 0):
             req_vars["v"] = Q_(vtab, "V")
+            # Symmetrically provide a dummy caConc so that ComponentTypes
+            # with boilerplate ca_conc = caConc / CONC_SCALE do not crash.
+            req_vars["caConc"] = Q_(np.zeros(len(vtab)), "mole / meter ** 3")
         else:
             # Get pair-wise coordinates for 2D table
             vv, cc = np.meshgrid(vtab, ctab)
@@ -917,6 +994,16 @@ class NML2Reader(object):
         rate = vals.get("x", vals.get("t", vals.get("r", None)))
         if rate is None:
             raise ValueError("Evaluation of expression returned None")
+        # If the expression is constant (scalar result), broadcast it to an
+        # array matching the input dimension so MOOSE gate tables are uniform.
+        if np.isscalar(rate) or (hasattr(rate, 'ndim') and rate.ndim == 0):
+            if (vtab is not None) and (ctab is not None):
+                n = len(vtab) * len(ctab)
+            elif ctab is not None and len(ctab) > 0:
+                n = len(ctab)
+            else:
+                n = len(vtab)
+            rate = np.full(n, float(rate))
         if (vtab is not None) and (ctab is not None):
             # Transpose meshgrid which creates m x n array from n-vec and
             # m-vec. MOOSE table assumes n x m lookup table where n is
@@ -1061,83 +1148,25 @@ class NML2Reader(object):
         return False
 
     def isDynamicsVoltageDependent(self, ct):
-        """Returns True if the dynamics of `ct` is Voltage dependent.
+        """Returns True if the *output* of ComponentType `ct` depends on `v`.
 
-        If any identifier in the value expression of a DerivedVariable
-        or ConditionalDerivedVariable in the Dynamics of this
-        ComponentType is `v`, we assume it is voltage dependent.
-
-        Parameters
-        ----------
-        ct : nml.ComponentType
-            ComponentType object
-
-        Returns
-        -------
-        bool:
-            `True` if the variable identifier 'v' appears anywhere in
-            the expressions for the dynamics, `False` otherwise.
-
+        Uses output-reachability analysis: only considers DerivedVariables
+        that are transitively referenced from an exposed (output) variable.
+        This avoids false positives from boilerplate ``V = v / VOLT_SCALE``
+        declarations that appear in many Ca-only NML2 channel definitions but
+        are not actually used in the output expression.
         """
-        v_var = 'v'
-        for dyn in ct.Dynamics:
-            for dv in dyn.DerivedVariable:
-                if _isVarInExpr(pythonize_expr(dv.value), v_var):
-                    return True
-            for cdv in dyn.ConditionalDerivedVariable:
-                for case_ in cdv.Case:
-                    if (
-                        (case_.condition is not None)
-                        and _isVarInExpr(
-                            pythonize_expr(case_.condition), v_var
-                        )
-                    ) or _isVarInExpr(pythonize_expr(case_.value), v_var):
-                        return True
-        return False
+        return _outputDependsOn(ct, 'v')
 
     def isDynamicsVoltageCaDependent(self, ct):
-        """Returns True if the dynamics of `ct` is dependent on both
-        voltage and calcium concentration.
+        """Returns True if the *output* of `ct` depends on both `v` and
+        `caConc`.
 
-        Identifiers `caConc` and `v` both appear in the value
-        expressions of the DerivedVariable or
-        ConditionalDerivedVariable elements in the Dynamics of this
-        ComponentType, we assume it is [Ca2+] and voltage dependent.
-
-        Gates whose dynamics depend on both voltage and Ca2+
-        concentration require a 2D interpolation table, and are
-        implemented as HHGate2D under HHChannel2D in moose. This test
-        is need for that.
-
-        Parameters
-        ----------
-        ct : nml.ComponentType
-            ComponentType object
-
+        Uses output-reachability analysis (see ``isDynamicsVoltageDependent``).
+        Gates whose dynamics are non-separably V+Ca dependent require a 2D
+        lookup table (HHGate2D / HHChannel2D).
         """
-        ca_var = 'caConc'
-        v_var = 'v'
-        ca_dep = False
-        v_dep = False
-        for dyn in ct.Dynamics:
-            for dv in dyn.DerivedVariable:
-                expr = pythonize_expr(dv.value)
-                ca_dep = _isVarInExpr(expr, ca_var)
-                v_dep = _isVarInExpr(expr, v_var)
-            for dv in dyn.ConditionalDerivedVariable:
-                for case_ in dv.Case:
-                    if case_.condition is None:
-                        cond_expr = ''
-                    else:
-                        cond_expr = pythonize_expr(case_.condition)
-                    v_expr = pythonize_expr(case_.value)
-                    ca_dep = _isVarInExpr(cond_expr, ca_var) or _isVarInExpr(
-                        v_expr, ca_var
-                    )
-                    v_dep = _isVarInExpr(cond_expr, v_var) or _isVarInExpr(
-                        v_expr, v_var
-                    )
-        return ca_dep and v_dep
+        return _outputDependsOn(ct, 'v') and _outputDependsOn(ct, 'caConc')
 
     def isChannelCaDependent(self, chan):
         """Returns True if `chan` is dependent on calcium concentration.
@@ -1213,10 +1242,15 @@ class NML2Reader(object):
                 if dyn.type in VOLTAGE_DEP_COMPONENTTYPES:
                     return True
                 ct = self.getComponentType(dyn)
-                if (ct is not None) and (
-                    ct.extends in VOLTAGE_DEP_COMPONENTTYPES + VOLTAGE_CA_DEP_COMPONENTTYPES
-                ):
-                    return True
+                if ct is not None:
+                    if ct.extends in VOLTAGE_DEP_COMPONENTTYPES:
+                        return True
+                    # For Ca-dep parent types, verify output actually uses v —
+                    # many Ca-only channels declare V = v/VOLT_SCALE but never
+                    # feed it into the output expression.
+                    if ct.extends in VOLTAGE_CA_DEP_COMPONENTTYPES:
+                        if _outputDependsOn(ct, 'v'):
+                            return True
         return False
 
     def isGateVoltageCaDependent(self, ngate):
@@ -1233,11 +1267,13 @@ class NML2Reader(object):
         for _, dyn in dynamics.items():
             if dyn is not None:
                 ct = self.getComponentType(dyn)
-                if (ct is not None) and (
-                    (ct.extends in VOLTAGE_CA_DEP_COMPONENTTYPES)
-                    or self.isDynamicsVoltageCaDependent(ct)
-                ):
-                    return True
+                if ct is not None:
+                    if ct.extends in VOLTAGE_CA_DEP_COMPONENTTYPES:
+                        # Only truly 2D if the output uses *both* v and caConc
+                        if _outputDependsOn(ct, 'v') and _outputDependsOn(ct, 'caConc'):
+                            return True
+                    elif self.isDynamicsVoltageCaDependent(ct):
+                        return True
         return False
 
     def setupCaDep(self, nmlcell, moosecell, membrane_properties):
@@ -1475,17 +1511,21 @@ class NML2Reader(object):
             mchan.Ypower = ngate.instances
         elif gate_letter == "Z":
             mchan.Zpower = ngate.instances
-        mgate.min = vmin
-        mgate.max = vmax
-        mgate.divs = vdivs
         mgate.useInterpolation = useInterpolation
         q10_scale = self._computeQ10Scale(ngate)
+
+        # Classify gate dependency to set up lookup-table ranges.
+        is_v_dep = self.isGateVoltageDependent(ngate)
+        is_ca_dep = self.isGateCaDependent(ngate)
 
         # --- Instantaneous gate (GateHHInstantaneous) ---
         # Only steady_state is defined; the gate variable always equals inf.
         # In MOOSE this is implemented by setting the instant bit and storing
         # inf in tableA, 1 in tableB, so that X = A/B = inf at every step.
         if _isInstantaneous(ngate):
+            mgate.min = vmin
+            mgate.max = vmax
+            mgate.divs = vdivs
             vtab = np.linspace(vmin, vmax, vdivs)
             inf = self.calculateRateFn(
                 ngate.steady_state, vtab, ctab=None, param_tabs={}
@@ -1501,13 +1541,30 @@ class NML2Reader(object):
             return mgate
 
         # --- Standard HH gate ---
+        # For purely Ca-dep gates, build the lookup table over concentration;
+        # for voltage-dep (or mixed) gates, build over voltage.
+        if is_v_dep:
+            mgate.min = vmin
+            mgate.max = vmax
+            mgate.divs = vdivs
+            vtab = np.linspace(vmin, vmax, vdivs)
+        elif is_ca_dep:
+            # Ca-only gate: 1D table indexed by [Ca2+]
+            mgate.min = cmin
+            mgate.max = cmax
+            mgate.divs = cdivs
+            vtab = None
+            if gate_letter == "Z":
+                mchan.useConcentration = 1
+        else:
+            mgate.min = vmin
+            mgate.max = vmax
+            mgate.divs = vdivs
+            vtab = np.linspace(vmin, vmax, vdivs)
+
         alpha, beta, tau, inf = (None, None, None, None)
         param_tabs = {}
-        if self.isGateVoltageDependent(ngate):
-            vtab = np.linspace(vmin, vmax, vdivs)
-        else:
-            vtab = None
-        if self.isGateCaDependent(ngate):
+        if is_ca_dep:
             ctab = np.linspace(cmin, cmax, cdivs)
         else:
             ctab = None
@@ -1680,7 +1737,10 @@ class NML2Reader(object):
         # END DEBUG
         return mgate
 
-    def createHHChannel(self, chan, vmin=-150e-3, vmax=100e-3, vdivs=3000):
+    def createHHChannel(
+        self, chan, vmin=-150e-3, vmax=100e-3, vdivs=3000,
+        cmin=0, cmax=10.0, cdivs=5000,
+    ):
         mchan = moose.HHChannel(f"{self.lib.path}/{chan.id}")
         mgates = [
             moose.element(x) for x in [mchan.gateX, mchan.gateY, mchan.gateZ]
@@ -1705,6 +1765,9 @@ class NML2Reader(object):
                 vmin=vmin,
                 vmax=vmax,
                 vdivs=vdivs,
+                cmin=cmin,
+                cmax=cmax,
+                cdivs=cdivs,
             )
             logger_.debug(f"Updated HHGate {mgate.path}")
         logger_.info(
@@ -1866,7 +1929,8 @@ class NML2Reader(object):
                 )
             else:
                 mchan = self.createHHChannel(
-                    chan, vmin=vmin, vmax=vmax, vdivs=vdivs
+                    chan, vmin=vmin, vmax=vmax, vdivs=vdivs,
+                    cmin=cmin, cmax=cmax, cdivs=cdivs,
                 )
 
             self.id_to_ionChannel[chan.id] = chan
