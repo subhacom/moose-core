@@ -13,6 +13,7 @@
 
 import ast
 import os
+import re
 import math
 import logging
 import numpy as np
@@ -75,7 +76,8 @@ VOLTAGE_DEP_COMPONENTTYPES = [
 
 VOLTAGE_CA_DEP_COMPONENTTYPES = [
     "baseVoltageConcDepRate",
-    "baseVoltageConcDepVariable" "baseVoltageConcDepTime",
+    "baseVoltageConcDepVariable",
+    "baseVoltageConcDepTime",
 ]
 
 
@@ -212,12 +214,108 @@ def _isVarInExpr(expr, var):
     return False
 
 
+def _outputDependsOn(ct, var):
+    """Return True if any *output* DerivedVariable of ComponentType `ct`
+    transitively depends on the primary input variable `var`.
+
+    NML2 ComponentTypes often declare intermediate DerivedVariables such as
+    ``V = v / VOLT_SCALE`` even when the final output expression does not
+    reference ``v``.  A naive search of every DerivedVariable value for `var`
+    therefore produces false positives.  This function walks only from the
+    output variables (those carrying an ``exposure`` attribute) backwards
+    through the intermediate variable graph, stopping at constants and unknown
+    names.
+
+    Parameters
+    ----------
+    ct : nml.ComponentType
+    var : str
+        Primary input variable name to search for (e.g. ``'v'``, ``'caConc'``).
+
+    Returns
+    -------
+    bool
+    """
+    # Build map: variable name → expression string (all derived vars)
+    var_expr = {}
+    for dyn in ct.Dynamics:
+        for dv in dyn.DerivedVariable:
+            var_expr[dv.name] = pythonize_expr(dv.value)
+        for cdv in dyn.ConditionalDerivedVariable:
+            # Combine condition and value strings so both paths are covered
+            parts = []
+            for case in cdv.Case:
+                if case.condition:
+                    parts.append(pythonize_expr(case.condition))
+                parts.append(pythonize_expr(case.value))
+            var_expr[cdv.name] = " ".join(parts)
+
+    # Identify output variable names (those with an exposure)
+    output_names = []
+    for dyn in ct.Dynamics:
+        for dv in dyn.DerivedVariable:
+            if dv.exposure is not None:
+                output_names.append(dv.name)
+        for cdv in dyn.ConditionalDerivedVariable:
+            if cdv.exposure is not None:
+                output_names.append(cdv.name)
+
+    def _refs(name, seen):
+        if name in seen:
+            return False
+        seen.add(name)
+        expr = var_expr.get(name)
+        if expr is None:
+            return name == var  # leaf: is it the target input?
+        if _isVarInExpr(expr, var):
+            return True
+        # Recurse into referenced intermediate variables
+        try:
+            parsed = ast.parse(expr)
+        except SyntaxError:
+            return False
+        for node in ast.walk(parsed):
+            if isinstance(node, ast.Name) and node.id in var_expr:
+                if _refs(node.id, seen):
+                    return True
+        return False
+
+    return any(_refs(name, set()) for name in output_names)
+
+
 def _getPredefinedGateDynamicParams(ngate):
     """Returns a dict of predefined parameters for gate dynamics listed in `PREDEFINED_GATE_DYN_PARAMS`"""
     return {
         param: getattr(ngate, param, None)
         for param in PREDEFINED_GATE_DYN_PARAMS
     }
+
+
+def _allGates(chan):
+    """Return all gate objects from a NeuroML IonChannel across every gate
+    list attribute that ``updateHHGate`` knows how to handle.
+
+    NeuroML defines several HH gate subtypes. All carry some combination of
+    ``forward_rate``, ``reverse_rate``, ``time_course``, and ``steady_state``
+    attributes, so ``updateHHGate`` handles them uniformly via
+    ``getattr(..., None)``.  The ``gate_hh_instantaneouses`` type carries only
+    ``steady_state`` and is detected separately by ``_isInstantaneous``.
+    """
+    return (
+        getattr(chan, "gates", [])
+        + getattr(chan, "gate_hh_rates", [])
+        + getattr(chan, "gate_hh_tau_infs", [])
+        + getattr(chan, "gate_h_hrates_taus", [])
+        + getattr(chan, "gate_h_hrates_infs", [])
+        + getattr(chan, "gate_h_hrates_tau_infs", [])
+        + getattr(chan, "gate_hh_instantaneouses", [])
+    )
+
+
+def _isInstantaneous(ngate):
+    """Return True if ``ngate`` is an instantaneous gate (steady_state only,
+    no time dynamics)."""
+    return isinstance(ngate, nml.GateHHInstantaneous)
 
 
 def _isConcDep(ct):
@@ -357,6 +455,14 @@ class NML2Reader(object):
         self.pop_to_cell_type = {}
         self.seg_id_to_comp_name = {}
         self.network = None
+        # Gate interpolation table parameters — set by read() and used
+        # when recomputing gate tables for vShift channel densities.
+        self._vmin = -150e-3
+        self._vmax = 100e-3
+        self._vdivs = 3000
+        self._cmin = 0.0
+        self._cmax = 10.0
+        self._cdivs = 5000
 
     def read(
         self,
@@ -403,6 +509,12 @@ class NML2Reader(object):
 
 
         """
+        self._vmin = vmin
+        self._vmax = vmax
+        self._vdivs = vdivs
+        self._cmin = cmin
+        self._cmax = cmax
+        self._cdivs = cdivs
         filename = os.path.realpath(filename)
         self.doc = nml.loaders.read_neuroml2_file(
             filename, include_includes=True, verbose=self.verbose
@@ -795,9 +907,7 @@ class NML2Reader(object):
     def isPassiveChan(self, chan):
         if chan.type == "ionChannelPassive":
             return True
-        if hasattr(chan, "gates"):
-            return len(chan.gate_hh_rates) + len(chan.gates) == 0
-        return False
+        return len(_allGates(chan)) == 0
 
     def evaluate_moose_component(self, ct, variables):
         print("[INFO ] Not implemented.")
@@ -862,8 +972,16 @@ class NML2Reader(object):
         req_vars.update(self._variables)  # what's the use?
         if (vtab is None) or (len(vtab) == 0):
             req_vars["caConc"] = Q_(ctab, "mole / meter ** 3")
+            # Many NML2 ComponentTypes declare intermediate variables like
+            # V = v/VOLT_SCALE even when they are Ca-only.  Supplying a
+            # zero array for v prevents NameError in array_eval_component
+            # without affecting the output (which does not use v).
+            req_vars["v"] = Q_(np.zeros(len(ctab)), "V")
         elif (ctab is None) or (len(ctab) == 0):
             req_vars["v"] = Q_(vtab, "V")
+            # Symmetrically provide a dummy caConc so that ComponentTypes
+            # with boilerplate ca_conc = caConc / CONC_SCALE do not crash.
+            req_vars["caConc"] = Q_(np.zeros(len(vtab)), "mole / meter ** 3")
         else:
             # Get pair-wise coordinates for 2D table
             vv, cc = np.meshgrid(vtab, ctab)
@@ -876,6 +994,16 @@ class NML2Reader(object):
         rate = vals.get("x", vals.get("t", vals.get("r", None)))
         if rate is None:
             raise ValueError("Evaluation of expression returned None")
+        # If the expression is constant (scalar result), broadcast it to an
+        # array matching the input dimension so MOOSE gate tables are uniform.
+        if np.isscalar(rate) or (hasattr(rate, 'ndim') and rate.ndim == 0):
+            if (vtab is not None) and (ctab is not None):
+                n = len(vtab) * len(ctab)
+            elif ctab is not None and len(ctab) > 0:
+                n = len(ctab)
+            else:
+                n = len(vtab)
+            rate = np.full(n, float(rate))
         if (vtab is not None) and (ctab is not None):
             # Transpose meshgrid which creates m x n array from n-vec and
             # m-vec. MOOSE table assumes n x m lookup table where n is
@@ -956,6 +1084,9 @@ class NML2Reader(object):
             segments = getSegments(nmlcell, chdens, sg_to_segments)
             condDensity = SI(chdens.cond_density)
             erev = SI(chdens.erev)
+            # channel_density_v_shifts carry an additional voltage shift that
+            # displaces the gate activation curves along the voltage axis.
+            vshift = SI(chdens.v_shift) if hasattr(chdens, "v_shift") and chdens.v_shift is not None else 0.0
             try:
                 ionChannel = self.id_to_ionChannel[chdens.ion_channel]
             except KeyError:
@@ -965,7 +1096,7 @@ class NML2Reader(object):
             if self.verbose:
                 logger_.info(
                     f"Setting density of channel {chdens.id} in {segments}"
-                    f"to {condDensity}; erev={erev} "
+                    f"to {condDensity}; erev={erev} vshift={vshift} "
                     f"(passive: {self.isPassiveChan(ionChannel)})"
                 )
 
@@ -981,6 +1112,7 @@ class NML2Reader(object):
                         self.nml_segs_to_moose[seg.id],
                         condDensity,
                         erev,
+                        vshift=vshift,
                     )
 
     def isDynamicsCaDependent(self, ct):
@@ -1016,83 +1148,25 @@ class NML2Reader(object):
         return False
 
     def isDynamicsVoltageDependent(self, ct):
-        """Returns True if the dynamics of `ct` is Voltage dependent.
+        """Returns True if the *output* of ComponentType `ct` depends on `v`.
 
-        If any identifier in the value expression of a DerivedVariable
-        or ConditionalDerivedVariable in the Dynamics of this
-        ComponentType is `v`, we assume it is voltage dependent.
-
-        Parameters
-        ----------
-        ct : nml.ComponentType
-            ComponentType object
-
-        Returns
-        -------
-        bool:
-            `True` if the variable identifier 'v' appears anywhere in
-            the expressions for the dynamics, `False` otherwise.
-
+        Uses output-reachability analysis: only considers DerivedVariables
+        that are transitively referenced from an exposed (output) variable.
+        This avoids false positives from boilerplate ``V = v / VOLT_SCALE``
+        declarations that appear in many Ca-only NML2 channel definitions but
+        are not actually used in the output expression.
         """
-        v_var = 'v'
-        for dyn in ct.Dynamics:
-            for dv in dyn.DerivedVariable:
-                if _isVarInExpr(pythonize_exp(dv.value), v_var):
-                    return True
-            for cdv in dyn.ConditionalDerivedVariable:
-                for case_ in cdv.Case:
-                    if (
-                        (case_.condition is not None)
-                        and _isVarInExpr(
-                            pythonize_expr(case_.condition), v_var
-                        )
-                    ) or _isVarInExpr(pythonize_expr(case_.value), v_var):
-                        return True
-        return False
+        return _outputDependsOn(ct, 'v')
 
     def isDynamicsVoltageCaDependent(self, ct):
-        """Returns True if the dynamics of `ct` is dependent on both
-        voltage and calcium concentration.
+        """Returns True if the *output* of `ct` depends on both `v` and
+        `caConc`.
 
-        Identifiers `caConc` and `v` both appear in the value
-        expressions of the DerivedVariable or
-        ConditionalDerivedVariable elements in the Dynamics of this
-        ComponentType, we assume it is [Ca2+] and voltage dependent.
-
-        Gates whose dynamics depend on both voltage and Ca2+
-        concentration require a 2D interpolation table, and are
-        implemented as HHGate2D under HHChannel2D in moose. This test
-        is need for that.
-
-        Parameters
-        ----------
-        ct : nml.ComponentType
-            ComponentType object
-
+        Uses output-reachability analysis (see ``isDynamicsVoltageDependent``).
+        Gates whose dynamics are non-separably V+Ca dependent require a 2D
+        lookup table (HHGate2D / HHChannel2D).
         """
-        ca_var = 'caConc'
-        v_var = 'v'
-        ca_dep = False
-        v_dep = False
-        for dyn in ct.Dynamics:
-            for dv in dyn.DerivedVariable:
-                expr = pythonize_expr(dv.value)
-                ca_dep = _isVarInExpr(expr, ca_var)
-                v_dep = _isVarInExpr(expr, v_var)
-            for dv in dyn.ConditionalDerivedVariable:
-                for case_ in dv.Case:
-                    if case_.condition is None:
-                        cond_expr = ''
-                    else:
-                        cond_expr = pythonize_expr(case_.condition)
-                    v_expr = pythonize_expr(case_.value)
-                    ca_dep = _isVarInExpr(cond_expr, ca_var) or _isVarInExpr(
-                        v_expr, ca_var
-                    )
-                    v_dep = _isVarInExpr(cond_expr, v_var) or _isVarInExpr(
-                        v_expr, v_var
-                    )
-        return ca_dep and v_dep
+        return _outputDependsOn(ct, 'v') and _outputDependsOn(ct, 'caConc')
 
     def isChannelCaDependent(self, chan):
         """Returns True if `chan` is dependent on calcium concentration.
@@ -1108,7 +1182,7 @@ class NML2Reader(object):
             NeuroML IonChannel element
 
         """
-        for gate in chan.gates + chan.gate_hh_rates:
+        for gate in _allGates(chan):
             if self.isGateCaDependent(gate):
                 return True
         return False
@@ -1127,7 +1201,7 @@ class NML2Reader(object):
         chan: nml.IonChannel
             IonChannel element to be checked.
         """
-        for gate in chan.gates + chan.gate_hh_rates:
+        for gate in _allGates(chan):
             if self.isGateVoltageCaDependent(gate):
                 return True
         return False
@@ -1168,10 +1242,15 @@ class NML2Reader(object):
                 if dyn.type in VOLTAGE_DEP_COMPONENTTYPES:
                     return True
                 ct = self.getComponentType(dyn)
-                if (ct is not None) and (
-                    ct.extends in VOLTAGE_DEP_COMPONENTTYPES + VOLTAGE_CA_DEP_COMPONENTTYPES
-                ):
-                    return True
+                if ct is not None:
+                    if ct.extends in VOLTAGE_DEP_COMPONENTTYPES:
+                        return True
+                    # For Ca-dep parent types, verify output actually uses v —
+                    # many Ca-only channels declare V = v/VOLT_SCALE but never
+                    # feed it into the output expression.
+                    if ct.extends in VOLTAGE_CA_DEP_COMPONENTTYPES:
+                        if _outputDependsOn(ct, 'v'):
+                            return True
         return False
 
     def isGateVoltageCaDependent(self, ngate):
@@ -1188,11 +1267,13 @@ class NML2Reader(object):
         for _, dyn in dynamics.items():
             if dyn is not None:
                 ct = self.getComponentType(dyn)
-                if (ct is not None) and (
-                    (ct.extends in VOLTAGE_CA_DEP_COMPONENTTYPES)
-                    or self.isDynamicsVoltageCaDependent(ct)
-                ):
-                    return True
+                if ct is not None:
+                    if ct.extends in VOLTAGE_CA_DEP_COMPONENTTYPES:
+                        # Only truly 2D if the output uses *both* v and caConc
+                        if _outputDependsOn(ct, 'v') and _outputDependsOn(ct, 'caConc'):
+                            return True
+                    elif self.isDynamicsVoltageCaDependent(ct):
+                        return True
         return False
 
     def setupCaDep(self, nmlcell, moosecell, membrane_properties):
@@ -1231,10 +1312,20 @@ class NML2Reader(object):
                     if caPool.path != "/":
                         moose.connect(caPool, "concOut", mchan, "concen")
 
-    def copyChannel(self, chdens, comp, condDensity, erev):
-        """Copy moose prototype for `chdens` condutcance density to `comp`
-        compartment.
+    def copyChannel(self, chdens, comp, condDensity, erev, vshift=0.0):
+        """Copy moose prototype for `chdens` conductance density to `comp`.
 
+        Parameters
+        ----------
+        chdens : NeuroML channel density element
+        comp : moose.Compartment
+        condDensity : float
+        erev : float
+        vshift : float
+            Voltage shift (SI, Volts) from a ``channelDensityVShift`` element.
+            When non-zero the gate tables for the copied channel are recomputed
+            with a voltage array shifted by ``-vshift`` so that the activation
+            curve is displaced by ``+vshift`` along the voltage axis.
         """
         proto_chan = None
         try:
@@ -1254,14 +1345,90 @@ class NML2Reader(object):
 
         if self.verbose:
             logger_.info(
-                f"Copying {chdens.id} to {comp}, {condDensity}; erev={erev}"
+                f"Copying {chdens.id} to {comp}, {condDensity}; "
+                f"erev={erev} vshift={vshift}"
             )
         chid = moose.copy(proto_chan, comp, chdens.id)
         chan = moose.element(chid)
         chan.Gbar = sarea(comp) * condDensity
         chan.Ek = erev
         moose.connect(chan, "channel", comp, "channel")
+        if vshift != 0.0:
+            self._applyVShift(chan, self.id_to_ionChannel[chdens.ion_channel], vshift)
         return chan
+
+    def _applyVShift(self, mchan, nchan, vshift):
+        """Recompute gate tables of `mchan` with activation shifted by `vshift`.
+
+        A positive ``vshift`` shifts the activation curve to higher voltages:
+        the gate now behaves as if it were evaluated at ``v - vshift`` rather
+        than ``v``.  Concretely, the gate tables are recomputed over a voltage
+        array ``[vmin - vshift, vmax - vshift]`` (shifted down by ``vshift``),
+        which — when looked up at the real membrane voltage — produces the same
+        values as the unshifted gate would at ``v - vshift``.
+
+        Setting ``tableA`` / ``tableB`` on the copy triggers MOOSE's
+        copy-on-write for HHGate so the prototype is never modified.
+
+        Parameters
+        ----------
+        mchan : moose.HHChannel or moose.HHChannel2D
+            The already-copied channel instance in the compartment.
+        nchan : nml.IonChannel
+            The original NeuroML channel description.
+        vshift : float
+            Voltage shift in Volts.
+        """
+        vmin = self._vmin
+        vmax = self._vmax
+        vdivs = self._vdivs
+        # Shifted voltage array: evaluating the rate at (v - vshift) is
+        # equivalent to precomputing the table over [vmin-vshift, vmax-vshift]
+        # and keeping the lookup range as [vmin, vmax].
+        vtab = np.linspace(vmin - vshift, vmax - vshift, vdivs)
+
+        mgates = [moose.element(x) for x in [mchan.gateX, mchan.gateY, mchan.gateZ]]
+        all_nml_gates = _gates_sorted(_allGates(nchan))
+
+        for ngate, mgate in zip(all_nml_gates, mgates):
+            if ngate is None:
+                continue
+            if _isInstantaneous(ngate):
+                inf = self.calculateRateFn(ngate.steady_state, vtab)
+                mgate.tableA = inf
+                mgate.tableB = np.ones_like(inf)
+                continue
+            q10 = self._computeQ10Scale(ngate)
+            alpha, beta, tau, inf = None, None, None, None
+            param_tabs = {}
+            fwd = getattr(ngate, "forward_rate", None)
+            rev = getattr(ngate, "reverse_rate", None)
+            if fwd is not None and rev is not None:
+                alpha = self.calculateRateFn(fwd, vtab)
+                beta = self.calculateRateFn(rev, vtab)
+                param_tabs = {
+                    "alpha": Q_(alpha, "1/s"),
+                    "beta": Q_(beta, "1/s"),
+                }
+            if getattr(ngate, "time_course", None) is not None:
+                tau = self.calculateRateFn(
+                    ngate.time_course, vtab, param_tabs=param_tabs
+                )
+            elif alpha is not None and beta is not None:
+                tau = 1.0 / (alpha + beta)
+            if getattr(ngate, "steady_state", None) is not None:
+                inf = self.calculateRateFn(
+                    ngate.steady_state, vtab, param_tabs=param_tabs
+                )
+            elif alpha is not None and beta is not None:
+                inf = alpha / (alpha + beta)
+            if tau is not None and inf is not None:
+                mgate.tableA = q10 * inf / tau
+                mgate.tableB = q10 * 1.0 / tau
+        logger_.debug(
+            f"Applied vshift={vshift} V to {mchan.path}: "
+            f"gate tables recomputed over [{vmin - vshift:.4f}, {vmax - vshift:.4f}] V"
+        )
 
     def _is_standard_nml_rate(self, rate):
         return (
@@ -1337,31 +1504,73 @@ class NML2Reader(object):
 
         """
         # Set the moose gate powers from nml gate instance count
-        if mgate.name.endswith("X"):
+        gate_letter = mgate.name[-1]   # 'X', 'Y', or 'Z'
+        if gate_letter == "X":
             mchan.Xpower = ngate.instances
-        elif mgate.name.endswith("Y"):
+        elif gate_letter == "Y":
             mchan.Ypower = ngate.instances
-        elif mgate.name.endswith("Z"):
+        elif gate_letter == "Z":
             mchan.Zpower = ngate.instances
-        mgate.min = vmin
-        mgate.max = vmax
-        mgate.divs = vdivs
         mgate.useInterpolation = useInterpolation
         q10_scale = self._computeQ10Scale(ngate)
+
+        # Classify gate dependency to set up lookup-table ranges.
+        is_v_dep = self.isGateVoltageDependent(ngate)
+        is_ca_dep = self.isGateCaDependent(ngate)
+
+        # --- Instantaneous gate (GateHHInstantaneous) ---
+        # Only steady_state is defined; the gate variable always equals inf.
+        # In MOOSE this is implemented by setting the instant bit and storing
+        # inf in tableA, 1 in tableB, so that X = A/B = inf at every step.
+        if _isInstantaneous(ngate):
+            mgate.min = vmin
+            mgate.max = vmax
+            mgate.divs = vdivs
+            vtab = np.linspace(vmin, vmax, vdivs)
+            inf = self.calculateRateFn(
+                ngate.steady_state, vtab, ctab=None, param_tabs={}
+            )
+            mgate.tableA = inf
+            mgate.tableB = np.ones_like(inf)
+            instant_bits = {"X": 1, "Y": 2, "Z": 4}
+            mchan.instant = mchan.instant | instant_bits[gate_letter]
+            logger_.debug(
+                f"Instantaneous gate {ngate.id} set on {mchan.path} "
+                f"(instant={mchan.instant})"
+            )
+            return mgate
+
+        # --- Standard HH gate ---
+        # For purely Ca-dep gates, build the lookup table over concentration;
+        # for voltage-dep (or mixed) gates, build over voltage.
+        if is_v_dep:
+            mgate.min = vmin
+            mgate.max = vmax
+            mgate.divs = vdivs
+            vtab = np.linspace(vmin, vmax, vdivs)
+        elif is_ca_dep:
+            # Ca-only gate: 1D table indexed by [Ca2+]
+            mgate.min = cmin
+            mgate.max = cmax
+            mgate.divs = cdivs
+            vtab = None
+            if gate_letter == "Z":
+                mchan.useConcentration = 1
+        else:
+            mgate.min = vmin
+            mgate.max = vmax
+            mgate.divs = vdivs
+            vtab = np.linspace(vmin, vmax, vdivs)
+
         alpha, beta, tau, inf = (None, None, None, None)
         param_tabs = {}
-        if self.isGateVoltageDependent(ngate):
-            vtab = np.linspace(vmin, vmax, vdivs)
-        else:
-            vtab = None
-        if self.isGateCaDependent(ngate):
+        if is_ca_dep:
             ctab = np.linspace(cmin, cmax, cdivs)
         else:
             ctab = None
-        # First try computing alpha and beta from fwd and rev rate
-        # specs. Set the gate tables using alpha and beta by default.
-        fwd = ngate.forward_rate
-        rev = ngate.reverse_rate
+        # First try computing alpha and beta from fwd and rev rate specs.
+        fwd = getattr(ngate, "forward_rate", None)
+        rev = getattr(ngate, "reverse_rate", None)
         if (fwd is not None) and (rev is not None):
             alpha = self.calculateRateFn(fwd, vtab, ctab=ctab)
             beta = self.calculateRateFn(rev, vtab, ctab=ctab)
@@ -1374,9 +1583,7 @@ class NML2Reader(object):
         # channel definition. The results depend on the order of
         # execution.
 
-        # A `timeCourse` element indicates tau is not #
-        # straightforward 1/(alpha+beta) but tweaked from alpha
-        # and beta computed above
+        # A `timeCourse` element overrides the straightforward 1/(alpha+beta)
         if getattr(ngate, "time_course", None) is not None:
             tau = self.calculateRateFn(
                 ngate.time_course,
@@ -1387,9 +1594,7 @@ class NML2Reader(object):
         elif (alpha is not None) and (beta is not None):
             tau = 1.0 / (alpha + beta)
 
-        # A `steadyState` element indicates inf is not
-        # straightforward, but tweaked from alpha and beta computed
-        # above
+        # A `steadyState` element overrides the straightforward alpha/(alpha+beta)
         if getattr(ngate, "steady_state", None) is not None:
             inf = self.calculateRateFn(
                 ngate.steady_state,
@@ -1400,27 +1605,14 @@ class NML2Reader(object):
         elif (alpha is not None) and (beta is not None):
             inf = alpha / (alpha + beta)
 
-        # Should update the gate tables only if `tau` or `inf` were
-        # tweaked, but this is simpler than checking the cascading
-        # evaluation above.
+        if tau is None or inf is None:
+            raise RuntimeError(
+                f"Could not determine tau/inf for gate {ngate.id} "
+                f"in channel {mchan.name}. Check that forward_rate/"
+                "reverse_rate or time_course/steady_state are defined."
+            )
         mgate.tableA = q10_scale * inf / tau
         mgate.tableB = q10_scale * 1.0 / tau
-        # DEBUG
-        # np.savetxt(
-        #     f"{mchan.name}.{ngate.id}.inf.txt",
-        #     np.block([vtab[:, np.newaxis], inf[:, np.newaxis]]),
-        # )
-        # np.savetxt(
-        #     f"{mchan.name}.{ngate.id}.tau.txt",
-        #     np.block([vtab[:, np.newaxis], inf[:, np.newaxis]]),
-        # )
-        # import matplotlib.pyplot as plt
-
-        # fig, ax = plt.subplots(nrows=1, ncols=2)
-        # ax[0].plot(vtab, inf)
-        # ax[1].plot(vtab, tau)
-        # fig.suptitle(f"{mchan.name}/{ngate.id}")
-        # END DEBUG
         return mgate
 
     def updateHHGate2D(
@@ -1545,23 +1737,24 @@ class NML2Reader(object):
         # END DEBUG
         return mgate
 
-    def createHHChannel(self, chan, vmin=-150e-3, vmax=100e-3, vdivs=3000):
+    def createHHChannel(
+        self, chan, vmin=-150e-3, vmax=100e-3, vdivs=3000,
+        cmin=0, cmax=10.0, cdivs=5000,
+    ):
         mchan = moose.HHChannel(f"{self.lib.path}/{chan.id}")
         mgates = [
             moose.element(x) for x in [mchan.gateX, mchan.gateY, mchan.gateZ]
         ]
-        assert (
-            len(chan.gate_hh_rates) <= 3
-        ), "HHChannel allows only up to 3 gates"
+        nml_gates = _allGates(chan)
+        assert len(nml_gates) <= 3, "HHChannel allows only up to 3 gates"
 
         if self.verbose:
             logger_.info(
-                "== Creating channel: "
-                f"{chan.id} ({chan.gates}, {chan.gate_hh_rates})"
+                f"== Creating channel: {chan.id} ({nml_gates})"
                 f"-> {mchan} ({mgates})"
             )
         # Sort all_gates such that they come in x, y, z order.
-        all_gates = _gates_sorted(chan.gates + chan.gate_hh_rates)
+        all_gates = _gates_sorted(nml_gates)
         for ngate, mgate in zip(all_gates, mgates):
             if ngate is None:
                 continue
@@ -1572,6 +1765,9 @@ class NML2Reader(object):
                 vmin=vmin,
                 vmax=vmax,
                 vdivs=vdivs,
+                cmin=cmin,
+                cmax=cmax,
+                cdivs=cdivs,
             )
             logger_.debug(f"Updated HHGate {mgate.path}")
         logger_.info(
@@ -1619,18 +1815,16 @@ class NML2Reader(object):
         mgates = [
             moose.element(x) for x in [mchan.gateX, mchan.gateY, mchan.gateZ]
         ]
-        assert (
-            len(chan.gate_hh_rates) <= 3
-        ), "HHChannel allows only up to 3 gates"
+        nml_gates = _allGates(chan)
+        assert len(nml_gates) <= 3, "HHChannel2D allows only up to 3 gates"
 
         if self.verbose:
             logger_.info(
-                "== Creating channel: "
-                f"{chan.id} ({chan.gates}, {chan.gate_hh_rates})"
+                f"== Creating channel: {chan.id} ({nml_gates})"
                 f"-> {mchan} ({mgates})"
             )
         # Sort all_gates such that they come in x, y, z order.
-        all_gates = _gates_sorted(chan.gates + chan.gate_hh_rates)
+        all_gates = _gates_sorted(nml_gates)
         for ngate, mgate in zip(all_gates, mgates):
             if ngate is None:
                 continue
@@ -1735,7 +1929,8 @@ class NML2Reader(object):
                 )
             else:
                 mchan = self.createHHChannel(
-                    chan, vmin=vmin, vmax=vmax, vdivs=vdivs
+                    chan, vmin=vmin, vmax=vmax, vdivs=vdivs,
+                    cmin=cmin, cmax=cmax, cdivs=cdivs,
                 )
 
             self.id_to_ionChannel[chan.id] = chan

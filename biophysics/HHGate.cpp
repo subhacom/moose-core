@@ -240,7 +240,7 @@ const Cinfo* HHGate::initCinfo()
         &tweakAlpha,        // Dest
         &tweakTau,          // Dest
         &setupGate,         // Dest
-        &fillFromExpr,       // Dest
+        &fillFromExpr,      // Dest
     };
 
     static string doc[] = {
@@ -254,18 +254,17 @@ const Cinfo* HHGate::initCinfo()
         " This takes the voltage and state variable from the channel,"
         " computes the new value of the state variable and a scaling,"
         " depending on gate power, for the conductance.\n"
-	"This class uses a pair of lookup tables to quickly"
-	" find the gating terms for a given voltage.\n"
-	"To populate the tables one can directly assign precomputed arrays"
-	" to `tableA` and `tableB` fields, or use specify string equations"
-	" for `alphaExpr/betaExpr` or `tauExpr/infExpr`."
-	" This requires the fields the range of input voltages be specified"
-	" through the fields `min`, `max` and `divs`.\n"
-	" When the gate equations can be expressed in the standard form"
-	" `y(x) = (A + B * x) / (C + exp((x + D) / F))` one can "
-	" set `alphaParms` or call `setupAlpha()` or `setupTau()`"
-	" functions with the proper arguments to setup the tables."
-	,
+        "This class uses a pair of lookup tables to quickly"
+        " find the gating terms for a given voltage.\n"
+        "To populate the tables one can directly assign precomputed arrays"
+        " to `tableA` and `tableB` fields, or use specify string equations"
+        " for `alphaExpr/betaExpr` or `tauExpr/infExpr`."
+        " This requires the fields the range of input voltages be specified"
+        " through the fields `min`, `max` and `divs`.\n"
+        " When the gate equations can be expressed in the standard form"
+        " `y(x) = (A + B * x) / (C + exp((x + D) / F))` one can "
+        " set `alphaParms` or call `setupAlpha()` or `setupTau()`"
+        " functions with the proper arguments to setup the tables.",
     };
 
     static Dinfo<HHGate> dinfo;
@@ -316,11 +315,11 @@ HHGate::HHGate(Id originalChanId, Id originalGateId)
 
 double HHGate::lookupTable(const vector<double>& tab, double v) const
 {
-    if(v <= xmin_)
+    if (v <= xmin_)
         return tab[0];
-    if(v >= xmax_)
+    if (v >= xmax_)
         return tab.back();
-    if(lookupByInterpolation_) {
+    if (lookupByInterpolation_) {
         unsigned int index = static_cast<unsigned int>((v - xmin_) * invDx_);
         assert(tab.size() > index);
         double frac = (v - xmin_ - index / invDx_) * invDx_;
@@ -343,18 +342,18 @@ double HHGate::lookupB(double v) const
 
 void HHGate::lookupBoth(double v, double* A, double* B) const
 {
-    if(v <= xmin_) {
+    if (v <= xmin_) {
         *A = A_[0];
         *B = B_[0];
     }
-    else if(v >= xmax_) {
+    else if (v >= xmax_) {
         *A = A_.back();
         *B = B_.back();
     }
     else {
         unsigned int index = static_cast<unsigned int>((v - xmin_) * invDx_);
         assert(A_.size() > index && B_.size() > index);
-        if(lookupByInterpolation_) {
+        if (lookupByInterpolation_) {
             double frac = (v - xmin_ - index / invDx_) * invDx_;
             *A = A_[index] * (1 - frac) + A_[index + 1] * frac;
             *B = B_[index] * (1 - frac) + B_[index + 1] * frac;
@@ -373,13 +372,13 @@ vector<double> HHGate::getAlpha(const Eref& e) const
 
 void HHGate::setAlpha(const Eref& e, vector<double> val)
 {
-    if(val.size() != 5) {
+    if (val.size() != 5) {
         cout << "Error: HHGate::setAlpha on " << e.id().path()
              << ": Number of entries on argument vector should be 5, was "
              << val.size() << endl;
         return;
     }
-    if(checkOriginal(e.id(), "alpha")) {
+    if (checkOriginal(e.id(), "alpha")) {
         alpha_ = val;
         updateTauMinf();
         updateTables();
@@ -393,13 +392,13 @@ vector<double> HHGate::getBeta(const Eref& e) const
 
 void HHGate::setBeta(const Eref& e, vector<double> val)
 {
-    if(val.size() != 5) {
+    if (val.size() != 5) {
         cout << "Error: HHGate::setBeta on " << e.id().path()
              << ": Number of entries on argument vector should be 5, was "
              << val.size() << endl;
         return;
     }
-    if(checkOriginal(e.id(), "beta")) {
+    if (checkOriginal(e.id(), "beta")) {
         beta_ = val;
         updateTauMinf();
         updateTables();
@@ -413,13 +412,13 @@ vector<double> HHGate::getTau(const Eref& e) const
 
 void HHGate::setTau(const Eref& e, vector<double> val)
 {
-    if(val.size() != 5) {
+    if (val.size() != 5) {
         cout << "Error: HHGate::setTau on " << e.id().path()
              << ": Number of entries on argument vector should be 5, was "
              << val.size() << endl;
         return;
     }
-    if(checkOriginal(e.id(), "tau")) {
+    if (checkOriginal(e.id(), "tau")) {
         tau_ = val;
         updateAlphaBeta();
         updateTables();
@@ -433,13 +432,13 @@ vector<double> HHGate::getMinfinity(const Eref& e) const
 
 void HHGate::setMinfinity(const Eref& e, vector<double> val)
 {
-    if(val.size() != 5) {
+    if (val.size() != 5) {
         cout << "Error: HHGate::setMinfinity on " << e.id().path()
              << ": Number of entries on argument vector should be 5, was "
              << val.size() << endl;
         return;
     }
-    if(checkOriginal(e.id(), "mInfinity")) {
+    if (checkOriginal(e.id(), "mInfinity")) {
         mInfinity_ = val;
         updateAlphaBeta();
         updateTables();
@@ -449,20 +448,20 @@ void HHGate::setMinfinity(const Eref& e, vector<double> val)
 // Fill the A/B tables by evaluating gate formulae
 void HHGate::fillFromExpr(const Eref& e)
 {
-    if(form_ == 0) {
+    if (form_ == 0) {
         return;
     }
     exprtk::symbol_table<double> symTab_;
     exprtk::expression<double> alpha_;
     exprtk::expression<double> beta_;
     exprtk::parser<double> parser_;
-    double v_;
+    double v_ = 0.0;
     // Add extra variables to allow intermediate expressions for cases
     // where there is conditional on alpha/beta or tau/inf values
-    double a_;
-    double b_;
-    double tau_;
-    double inf_;
+    double a_ = 0.0;
+    double b_ = 0.0;
+    double tau_ = 0.0;
+    double inf_ = 0.0;
     symTab_.add_variable("v", v_);
     symTab_.add_variable("c", v_);
     symTab_.add_variable("alpha", a_);
@@ -473,31 +472,31 @@ void HHGate::fillFromExpr(const Eref& e)
     alpha_.register_symbol_table(symTab_);
     beta_.register_symbol_table(symTab_);
 
-    if(moose::trim(alphaExpr_).length() == 0) {
+    if (moose::trim(alphaExpr_).length() == 0) {
         cerr << "Error: Element: " << e.objId().path()
              << ": HHGate::tabFillExpr: empty expression for A" << endl;
         return;
     }
-    if(!parser_.compile(alphaExpr_, alpha_)) {
+    if (!parser_.compile(alphaExpr_, alpha_)) {
         cerr << "Error: Element: " << e.objId().path()
              << ": HHGate::tabFillExpr: cannot compile expression!\n"
              << alphaExpr_ << endl
              << parser_.error() << endl;
         return;
     }
-    if(moose::trim(alphaExpr_).length() == 0) {
+    if (moose::trim(alphaExpr_).length() == 0) {
         cerr << "Error: Element: " << e.objId().path()
              << ": HHGate::tabFillExpr: empty expression for B" << endl;
         return;
     }
-    if(!parser_.compile(betaExpr_, beta_)) {
+    if (!parser_.compile(betaExpr_, beta_)) {
         cerr << "Error: Element: " << e.objId().path()
              << ": HHGate::tabFillExpr: cannot compile expression!\n"
              << betaExpr_ << endl
              << parser_.error() << endl;
         return;
     }
-    if((xmax_ == 1) && (xmin_ == 0)) {
+    if ((xmax_ == 1) && (xmin_ == 0)) {
         cout << "Warning: " << e.objId().path()
              << ": HHGate::tabFillExpr: `min` and `max` have default values. "
                 "Did you forget to"
@@ -508,34 +507,35 @@ void HHGate::fillFromExpr(const Eref& e)
     invDx_ = static_cast<double>(xdivs) / (xmax_ - xmin_);
     double dv = (xmax_ - xmin_) / xdivs;
     double prevA{0}, prevB{0};
-    for(int ii = 0; ii <= xdivs; ++ii) {
+    for (int ii = 0; ii <= xdivs; ++ii) {
         v_ = xmin_ + ii * dv;
         // Check singularity to avoid division by 0/nan values
         double a_{alpha_.value()}, b_{beta_.value()};
-	// Check for nan
-	if (a_ != a_){
-	    a_ = prevA;
-	}
-	if (b_ != b_){
-	    b_ = prevB;
-	}
-        if(form_ == 1) {  // alpha/beta	    
-            b_ += a_;     // B = alpha + beta
+        // Check for nan
+        if (a_ != a_) {
+            a_ = prevA;
+        }
+        if (b_ != b_) {
+            b_ = prevB;
+        }
+        if (form_ == 1) {  // alpha/beta
+            b_ += a_;      // B = alpha + beta
             A_[ii] = a_;
-            B_[ii] = fabs(b_) < SINGULARITY? SINGULARITY: b_;
-	    prevA = a_;
-	    prevB = B_[ii] - a_;
+            B_[ii] = fabs(b_) < SINGULARITY ? SINGULARITY : b_;
+            prevA = a_;
+            prevB = B_[ii] - a_;
         }
         else {  // form = 2, tau/inf
-	    if (fabs(a_) < SINGULARITY){
-		a_ = prevA;
-		b_ = prevB;
-	    } else {
-		B_[ii] = 1 / a_;
-		A_[ii] = b_ / a_;
-		prevA = a_;
-		prevB = b_;
-	    }
+            if (a_ <= 0.0) {
+                a_ = prevA;
+                b_ = prevB;
+            }
+            else {
+                B_[ii] = 1 / a_;
+                A_[ii] = b_ / a_;
+                prevA = a_;
+                prevB = b_;
+            }
         }
     }
 }
@@ -547,7 +547,7 @@ string HHGate::getAlphaExpr(const Eref& e) const
 
 void HHGate::setAlphaExpr(const Eref& e, string expr)
 {
-    if(checkOriginal(e.id(), "alphaExpr")) {
+    if (checkOriginal(e.id(), "alphaExpr")) {
         form_ = 1;
         alphaExpr_ = expr;
     }
@@ -560,7 +560,7 @@ string HHGate::getBetaExpr(const Eref& e) const
 
 void HHGate::setBetaExpr(const Eref& e, string expr)
 {
-    if(checkOriginal(e.id(), "betaExpr")) {
+    if (checkOriginal(e.id(), "betaExpr")) {
         form_ = 1;
         betaExpr_ = expr;
     }
@@ -573,7 +573,7 @@ string HHGate::getTauExpr(const Eref& e) const
 
 void HHGate::setTauExpr(const Eref& e, string expr)
 {
-    if(checkOriginal(e.id(), "tauExpr")) {
+    if (checkOriginal(e.id(), "tauExpr")) {
         form_ = 2;
         alphaExpr_ = expr;
     }
@@ -586,7 +586,7 @@ string HHGate::getInfExpr(const Eref& e) const
 
 void HHGate::setInfExpr(const Eref& e, string expr)
 {
-    if(checkOriginal(e.id(), "infExpr")) {
+    if (checkOriginal(e.id(), "infExpr")) {
         form_ = 2;
         betaExpr_ = expr;
     }
@@ -604,10 +604,10 @@ double HHGate::getMin(const Eref& e) const
 
 void HHGate::setMin(const Eref& e, double val)
 {
-    if(checkOriginal(e.id(), "min")) {
+    if (checkOriginal(e.id(), "min")) {
         xmin_ = val;
         unsigned int xdivs = A_.size() - 1;
-        if(isDirectTable_ && xdivs > 0) {
+        if (isDirectTable_ && xdivs > 0) {
             // Stuff here to stretch out table using interpolation.
             invDx_ = static_cast<double>(xdivs) / (xmax_ - val);
             tabFill(A_, xdivs, val, xmax_);
@@ -626,10 +626,10 @@ double HHGate::getMax(const Eref& e) const
 
 void HHGate::setMax(const Eref& e, double val)
 {
-    if(checkOriginal(e.id(), "max")) {
+    if (checkOriginal(e.id(), "max")) {
         xmax_ = val;
         unsigned int xdivs = A_.size() - 1;
-        if(isDirectTable_ && xdivs > 0) {
+        if (isDirectTable_ && xdivs > 0) {
             // Set up using direct assignment of table values.
             invDx_ = static_cast<double>(xdivs) / (val - xmin_);
             tabFill(A_, xdivs, xmin_, val);
@@ -649,8 +649,8 @@ unsigned int HHGate::getDivs(const Eref& e) const
 
 void HHGate::setDivs(const Eref& e, unsigned int val)
 {
-    if(checkOriginal(e.id(), "divs")) {
-        if(isDirectTable_) {
+    if (checkOriginal(e.id(), "divs")) {
+        if (isDirectTable_) {
             invDx_ = static_cast<double>(val) / (xmax_ - xmin_);
             tabFill(A_, val, xmin_, xmax_);
             tabFill(B_, val, xmin_, xmax_);
@@ -672,12 +672,12 @@ vector<double> HHGate::getTableA(const Eref& e) const
 
 void HHGate::setTableA(const Eref& e, vector<double> v)
 {
-    if(v.size() < 2) {
+    if (v.size() < 2) {
         cout << "Warning: HHGate::setTableA: size must be >= 2 entries on "
              << e.id().path() << endl;
         return;
     }
-    if(checkOriginal(e.id(), "tableA")) {
+    if (checkOriginal(e.id(), "tableA")) {
         isDirectTable_ = 1;
         A_ = v;
         unsigned int xdivs = A_.size() - 1;
@@ -693,9 +693,9 @@ vector<double> HHGate::getTableB(const Eref& e) const
 
 void HHGate::setTableB(const Eref& e, vector<double> v)
 {
-    if(checkOriginal(e.id(), "tableB")) {
+    if (checkOriginal(e.id(), "tableB")) {
         isDirectTable_ = 1;
-        if(A_.size() != v.size()) {
+        if (A_.size() != v.size()) {
             cout << "Warning: HHGate::setTableB: size should be same as table "
                     "A: "
                  << v.size() << " != " << A_.size() << ". Ignoring.\n";
@@ -713,23 +713,23 @@ bool HHGate::getUseInterpolation(const Eref& e) const
 
 void HHGate::setUseInterpolation(const Eref& e, bool val)
 {
-    if(checkOriginal(e.id(), "useInterpolation"))
+    if (checkOriginal(e.id(), "useInterpolation"))
         lookupByInterpolation_ = val;
 }
 
 void HHGate::setupAlpha(const Eref& e, vector<double> parms)
 {
-    if(checkOriginal(e.id(), "setupAlpha")) {
-        if(parms.size() != 13) {
+    if (checkOriginal(e.id(), "setupAlpha")) {
+        if (parms.size() != 13) {
             cout << "HHGate::setupAlpha: Error: parms.size() != 13\n";
             return;
         }
         setupTables(parms, false);
         alpha_.resize(5, 0);
         beta_.resize(5, 0);
-        for(unsigned int i = 0; i < 5; ++i)
+        for (unsigned int i = 0; i < 5; ++i)
             alpha_[i] = parms[i];
-        for(unsigned int i = 5; i < 10; ++i)
+        for (unsigned int i = 5; i < 10; ++i)
             beta_[i - 5] = parms[i];
         form_ = 0;
     }
@@ -752,8 +752,8 @@ vector<double> HHGate::getAlphaParms(const Eref& e) const
 
 void HHGate::setupTau(const Eref& e, vector<double> parms)
 {
-    if(checkOriginal(e.id(), "setupTau")) {
-        if(parms.size() != 13) {
+    if (checkOriginal(e.id(), "setupTau")) {
+        if (parms.size() != 13) {
             cout << "HHGate::setupTau: Error: parms.size() != 13\n";
             return;
         }
@@ -783,7 +783,7 @@ void HHGate::setupTables(const vector<double>& parms, bool doTau)
     static const int XDIVS = 10;
     static const int XMIN = 11;
     static const int XMAX = 12;
-    if(parms[XDIVS] < 1)
+    if (parms[XDIVS] < 1)
         return;
     unsigned int xdivs = static_cast<unsigned int>(parms[XDIVS]);
 
@@ -802,14 +802,14 @@ void HHGate::setupTables(const vector<double>& parms, bool doTau)
     double temp2 = 0.0;
     unsigned int i;
 
-    for(i = 0; i <= xdivs; i++) {
-        if(fabs(parms[4]) < SINGULARITY) {
+    for (i = 0; i <= xdivs; i++) {
+        if (fabs(parms[4]) < SINGULARITY) {
             temp = 0.0;
             A_[i] = temp;
         }
         else {
             temp2 = parms[2] + exp((x + parms[3]) / parms[4]);
-            if(fabs(temp2) < SINGULARITY) {
+            if (fabs(temp2) < SINGULARITY) {
                 temp2 = parms[2] + exp((x + dx / 10.0 + parms[3]) / parms[4]);
                 temp = (parms[0] + parms[1] * (x + dx / 10)) / temp2;
 
@@ -827,12 +827,12 @@ void HHGate::setupTables(const vector<double>& parms, bool doTau)
                 A_[i] = temp;
             }
         }
-        if(fabs(parms[9]) < SINGULARITY) {
+        if (fabs(parms[9]) < SINGULARITY) {
             B_[i] = 0.0;
         }
         else {
             temp2 = parms[7] + exp((x + parms[8]) / parms[9]);
-            if(fabs(temp2) < SINGULARITY) {
+            if (fabs(temp2) < SINGULARITY) {
                 temp2 = parms[7] + exp((x + dx / 10.0 + parms[8]) / parms[9]);
                 temp = (parms[5] + parms[6] * (x + dx / 10)) / temp2;
                 temp2 = parms[7] + exp((x - dx / 10.0 + parms[8]) / parms[9]);
@@ -850,7 +850,7 @@ void HHGate::setupTables(const vector<double>& parms, bool doTau)
         // the relation to the GENESIS version clearer.
         // Note the additional SINGULARITY check, to fix a bug
         // in the earlier code.
-        if(doTau == 0 && fabs(temp2) > SINGULARITY)
+        if (doTau == 0 && fabs(temp2) > SINGULARITY)
             B_[i] += temp;
 
         prevAentry = A_[i];
@@ -860,11 +860,11 @@ void HHGate::setupTables(const vector<double>& parms, bool doTau)
 
     prevAentry = 0.0;
     prevBentry = 0.0;
-    if(doTau) {
-        for(i = 0; i <= xdivs; i++) {
+    if (doTau) {
+        for (i = 0; i <= xdivs; i++) {
             temp = A_[i];
             temp2 = B_[i];
-            if(fabs(temp) < SINGULARITY) {
+            if (fabs(temp) < SINGULARITY) {
                 A_[i] = prevAentry;
                 B_[i] = prevBentry;
             }
@@ -889,12 +889,12 @@ void HHGate::tweakTables(bool doTau)
     unsigned int i;
     unsigned int size = A_.size();
     assert(size == B_.size());
-    if(doTau) {
-        for(i = 0; i < size; i++) {
+    if (doTau) {
+        for (i = 0; i < size; i++) {
             double temp = A_[i];
             double temp2 = B_[i];
-            if(fabs(temp) < SINGULARITY) {
-                if(temp < 0.0)
+            if (fabs(temp) < SINGULARITY) {
+                if (temp < 0.0)
                     temp = -SINGULARITY;
                 else
                     temp = SINGULARITY;
@@ -904,7 +904,7 @@ void HHGate::tweakTables(bool doTau)
         }
     }
     else {
-        for(i = 0; i < size; i++)
+        for (i = 0; i < size; i++)
             B_[i] = A_[i] + B_[i];
     }
 }
@@ -918,10 +918,10 @@ void HHGate::setupGate(const Eref& e, vector<double> parms)
     // HHGate form of alpha, alpha+beta, assuming that the alpha gate
     // has already been setup. This uses tweakTables.
     // We may need to resize the tables if they don't match here.
-    if(!checkOriginal(e.id(), "setupGate"))
+    if (!checkOriginal(e.id(), "setupGate"))
         return;
 
-    if(parms.size() != 9) {
+    if (parms.size() != 9) {
         cout << "HHGate::setupGate: Error: parms.size() != 9\n";
         return;
     }
@@ -938,10 +938,10 @@ void HHGate::setupGate(const Eref& e, vector<double> parms)
 
     vector<double>& ip = (isBeta) ? B_ : A_;
 
-    if(size <= 0)  // Look up size, min, max from the interpol
+    if (size <= 0)  // Look up size, min, max from the interpol
     {
         size = ip.size() - 1;
-        if(size <= 0) {
+        if (size <= 0) {
             cout << "Error: setupGate has zero size\n";
             return;
         }
@@ -952,24 +952,24 @@ void HHGate::setupGate(const Eref& e, vector<double> parms)
 
     double dx = (max - min) / static_cast<double>(size);
     double x = min + dx / 2.0;
-    for(int i = 0; i <= size; i++) {
-        if(fabs(F) < SINGULARITY) {
+    for (int i = 0; i <= size; i++) {
+        if (fabs(F) < SINGULARITY) {
             ip[i] = 0.0;
         }
         else {
             double temp2 = C + exp((x + D) / F);
-            if(fabs(temp2) < SINGULARITY)
+            if (fabs(temp2) < SINGULARITY)
                 ip[i] = ip[i - 1];
             else
                 ip[i] = (A + B * x) / temp2;
         }
     }
 
-    if(isBeta) {
+    if (isBeta) {
         assert(A_.size() > 0);
         // Here we ensure that the tables are the same size
-        if(A_.size() != B_.size()) {
-            if(A_.size() > B_.size()) {
+        if (A_.size() != B_.size()) {
+            if (A_.size() > B_.size()) {
                 // Note that the tabFill expects to allocate the
                 // terminating entry, so we put in size - 1.
                 tabFill(B_, A_.size() - 1, xmin_, xmax_);
@@ -997,7 +997,7 @@ void HHGate::setupGate(const Eref& e, vector<double> parms)
 void HHGate::tabFill(vector<double>& table, unsigned int newXdivs,
                      double newXmin, double newXmax)
 {
-    if(newXdivs < 3) {
+    if (newXdivs < 3) {
         cout << "Error: tabFill: # divs must be >= 3. Not filling table.\n";
         return;
     }
@@ -1008,7 +1008,7 @@ void HHGate::tabFill(vector<double>& table, unsigned int newXdivs,
     bool origLookupMode = lookupByInterpolation_;
     lookupByInterpolation_ = 1;
 
-    for(unsigned int i = 0; i <= newXdivs; ++i) {
+    for (unsigned int i = 0; i <= newXdivs; ++i) {
         table[i] = lookupTable(table, newXmin + i * newDx);
     }
 
@@ -1025,7 +1025,7 @@ void HHGate::updateTauMinf()
 
 void HHGate::updateTables()
 {
-    if(alpha_.size() == 0 || beta_.size() == 0)
+    if (alpha_.size() == 0 || beta_.size() == 0)
         return;
     vector<double> parms = alpha_;
     parms.insert(parms.end(), beta_.begin(), beta_.end());
