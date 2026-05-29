@@ -508,34 +508,35 @@ void HHGate::fillFromExpr(const Eref& e)
     invDx_ = static_cast<double>(xdivs) / (xmax_ - xmin_);
     double dv = (xmax_ - xmin_) / xdivs;
     double prevA{0}, prevB{0};
-    for(int ii = 0; ii <= xdivs; ++ii) {
+    for (int ii = 0; ii <= xdivs; ++ii) {
         v_ = xmin_ + ii * dv;
         // Check singularity to avoid division by 0/nan values
         double a_{alpha_.value()}, b_{beta_.value()};
-	// Check for nan
-	if (a_ != a_){
-	    a_ = prevA;
-	}
-	if (b_ != b_){
-	    b_ = prevB;
-	}
-        if(form_ == 1) {  // alpha/beta	    
-            b_ += a_;     // B = alpha + beta
+        // Check for nan
+        if (a_ != a_) {
+            a_ = prevA;
+        }
+        if (b_ != b_) {
+            b_ = prevB;
+        }
+        if (form_ == 1) {  // alpha/beta
+            b_ += a_;      // B = alpha + beta
             A_[ii] = a_;
-            B_[ii] = fabs(b_) < SINGULARITY? SINGULARITY: b_;
-	    prevA = a_;
-	    prevB = B_[ii] - a_;
+            B_[ii] = fabs(b_) < SINGULARITY ? SINGULARITY : b_;
+            prevA = a_;
+            prevB = B_[ii] - a_;
         }
         else {  // form = 2, tau/inf
-	    if (fabs(a_) < SINGULARITY){
-		a_ = prevA;
-		b_ = prevB;
-	    } else {
-		B_[ii] = 1 / a_;
-		A_[ii] = b_ / a_;
-		prevA = a_;
-		prevB = b_;
-	    }
+            if (a_ <= 0.0) {
+                a_ = prevA;
+                b_ = prevB;
+            }
+            else {
+                B_[ii] = 1 / a_;
+                A_[ii] = b_ / a_;
+                prevA = a_;
+                prevB = b_;
+            }
         }
     }
 }
