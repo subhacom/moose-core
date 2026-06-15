@@ -87,6 +87,24 @@ for p in _moose.wildcardFind("/##[TYPE=Cinfo]"):
 from moose._moose import *
 
 
+# Override C++ builtin element() to convert to right class
+def element(obj):
+    """Convert path/object to a moose object of the appropriate
+    type. For Vec object it returns the first element
+
+    Parameters
+    ----------
+    obj: str, ObjId, Id, vec, instance of any moose class
+        The element to be converted
+
+    Returns
+    -------
+    A moose object of the appropriate class.
+    """
+    if isinstance(obj, _moose.vec):
+        obj = obj[0]
+    return __to_melement(_moose.element(obj))
+
 def version():
     """Returns moose version string."""
     return _moose.__version__
