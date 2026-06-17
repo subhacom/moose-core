@@ -291,7 +291,10 @@ bool setFieldGeneric(const ObjId &oid, const string &fieldName,
     if(fieldType == "int")
         return Field<int>::set(oid, fieldName, nb::cast<int>(val));
     if(fieldType == "bool")
-        return Field<bool>::set(oid, fieldName, nb::cast<bool>(val));
+        // Use Python truthiness (like `bool(val)`) so that ints (0/1) and
+        // other objects convert as a Python user would expect. nanobind's
+        // bool caster is strict and only accepts actual True/False.
+        return Field<bool>::set(oid, fieldName, nb::cast<bool>(nb::bool_(val)));
     if(fieldType == "string")
         return Field<string>::set(oid, fieldName, nb::cast<string>(val));
     if(fieldType == "vector<string>")

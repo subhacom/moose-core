@@ -196,8 +196,15 @@ bool MooseVec::setAttribute(const string& name, const nb::object& val)
         if(rttType == "int")
             return setAttrOneToOne<int>(
                 name, nb::cast<vector<int>>(val));
-        if(rttType == "bool")
-            return setAttrOneToOne<bool>(name, nb::cast<vector<bool>>(val));
+        if(rttType == "bool") {
+            // Convert each element via Python truthiness (like `bool(x)`) so a
+            // list of ints (0/1) works; nanobind's bool caster is strict and
+            // only accepts True/False.
+            vector<bool> bvec;
+            for(auto item : val)
+                bvec.push_back(nb::cast<bool>(nb::bool_(item)));
+            return setAttrOneToOne<bool>(name, bvec);
+        }
         if(rttType == "string")
             return setAttrOneToOne<string>(name, nb::cast<vector<string>>(val));
     }
@@ -211,7 +218,9 @@ bool MooseVec::setAttribute(const string& name, const nb::object& val)
             return setAttrOneToAll< int>(name,
                 nb::cast<int>(val));
         if(rttType == "bool")
-            return setAttrOneToAll<bool>(name, nb::cast<bool>(val));
+            // Use Python truthiness so ints (0/1) and other objects convert
+            // as expected; nanobind's bool caster only accepts True/False.
+            return setAttrOneToAll<bool>(name, nb::cast<bool>(nb::bool_(val)));
           if (rttType == "string")
               return setAttrOneToAll<string>(name, nb::cast<string>(val));
     }
