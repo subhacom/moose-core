@@ -286,7 +286,7 @@ constexpr const char* getFieldGeneric = R"(Get field `field` of element `obj`.
 Parameters
 ----------
 obj: melement
-    object to retrieve field of.
+    object to retrieve field of
 field: str
     name of the field to be retrieved
 
@@ -295,6 +295,18 @@ Returns
 field value if `field` names a valueFinfo; if `field` names a
 destFinfo, the corresponding callable; a LookupField or ElementField
 object for those finfo types.
+)";
+
+constexpr const char* setFieldGeneric = R"(Set field `field` of element `obj` using value `value`.
+
+Parameters
+----------
+obj: melement
+    object to set field of
+field: str
+    name of the field to be set
+value: value type
+    value to assign to the field
 )";
 
 constexpr const char* setClock =
