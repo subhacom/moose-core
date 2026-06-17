@@ -399,6 +399,9 @@ Designed to simulate neural systems at multiple scales: From subcellular compone
     m.def("getField", &pymoose::getFieldGeneric, nb::arg("obj"),
           nb::arg("field"), docs::getFieldGeneric);
 
+    m.def("setField", &pymoose::setFieldGeneric, nb::arg("obj"),
+        nb::arg("field"), nb::arg("value"), docs::setFieldGeneric);
+
     m.def("setClock", &pymoose::setClock, nb::arg("tick"), nb::arg("dt"),
           docs::setClock);
     m.def("useClock", &pymoose::useClock, nb::arg("tick"), nb::arg("path"),
