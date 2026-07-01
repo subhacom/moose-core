@@ -136,7 +136,6 @@ def make_prototype(db, modeldb_id: int, suffix: str, sm_model='best',
         gate.min            = -0.12    # V  (-120 mV)
         gate.max            =  0.08    # V  ( +80 mV)
         gate.useInterpolation = True
+        gate.fillFromExpr()
 
     return chan
-
-
