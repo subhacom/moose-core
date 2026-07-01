@@ -274,7 +274,8 @@ def condense_swc(
     max_len  : Max electrotonic length per output compartment (default 0.1)
     f        : Frequency [Hz] for AC lambda; 0 = DC lambda (default)
     rad_diff : Max fractional radius difference for merging (default 0.1)
-    out_path : Output SWC path; None → temp file
+    out_path : Output SWC path; None → a temp file (the source directory is
+               never written to, so bundled/read-only inputs are safe).
     """
     lf = _lambda_factor(RM, RA, CM, f)
     segs, by_idx = _read_swc(swc_path)
