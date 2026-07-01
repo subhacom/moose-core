@@ -46,7 +46,8 @@ https://github.com/MooseNeuro/moose-examples.
 - A set of jupyter notebooks with step by step examples with explanation are available here:
 https://github.com/MooseNeuro/moose-notebooks.
 
-# v4.3.0 – Major Release "Lavang Latika"
+# v4.3.1 – Incremental Release over v4.3.0 "Lavang Latika"
+
 [`Lavang Latika`](https://en.wikipedia.org/wiki/Laung_lata) (also known as 
 Lobongo Lotika or Laung Lata) is a traditional Indian sweet from Bengal, 
 Eastern Uttar Pradesh, Odisha, and Bihar. It is made of flour pastry filled 
@@ -99,6 +100,29 @@ Now you can import moose in a Python script or interpreter with the statement:
 ```
 >>> import moose
 ```
+## Updates in 4.3.1
+
+### Bug Fixes
+- Fixed `moose.element()` to return the correct MOOSE object type
+  instead of a generic object
+- Fixed boolean field assignment to accept Python integers 0 and 1
+  in addition to True/False
+- Fixed an issue where valid very small time constant (tau) values
+  were incorrectly treated as singular in HH gate expressions
+- Fixed ICG channel prototypes producing NaN values during simulation
+  when copied from a prototype in the library
+- Fixed NeuroML2 reader failing to load Ca-dependent ion channels
+  correctly
+- Fixed a NameError that could occur when loading NeuroML2 channels
+  with custom dynamics
+
+### Improvements
+- Reinstated `setField` function for backward compatibility with
+  existing scripts
+- Added `plotMorphology` and `plotMorphologyGraph` utilities for
+  quick visual inspection of loaded neuron morphologies
+- Improved NeuroML2 reader to handle more gate types including
+  instantaneous gates and voltage-shift channel densities
 
 ## What's New in 4.3.0
  
