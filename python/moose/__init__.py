@@ -313,7 +313,7 @@ def loadSwc(
     RM=1.0,
     RA=1.0,
     CM=0.01,
-    max_len=0.1,
+    max_len: "float | None" = 0.1,
     f=0.0,
     rad_diff=0.1,
 ):

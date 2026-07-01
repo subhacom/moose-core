@@ -36,6 +36,7 @@ Quick start
 """
 
 from pathlib import Path
+from typing import Optional, Tuple
 
 
 # ── MorphologyResult ──────────────────────────────────────────────────────────
@@ -97,6 +98,42 @@ class MorphologyResult:
         """
         import moose
         return moose.wildcardFind(f'{self.root.path}/{pattern}')
+
+    def plot(self, **kwargs):
+        """Display this cell's morphology.
+
+        Thin wrapper around :func:`moose.utils.plotMorphology`; all keyword
+        arguments (``projection``, ``color``, ``diam_scale``, ``ax``, ...) are
+        forwarded.  Returns the matplotlib Axes.
+
+        Example
+        -------
+        ::
+
+            cell = moose.morphologies.load('traub91_CA3', '/neuron')
+            cell.plot(projection='xy', color='type')
+        """
+        import moose.utils
+        return moose.utils.plotMorphology(self.root, **kwargs)
+
+    def plotGraph(self, **kwargs):
+        """Display this cell as a force-directed graph (schematic topology).
+
+        Thin wrapper around :func:`moose.utils.plotMorphologyGraph`; useful for
+        abstract/collinear models (e.g. ``traub91_CA3``) that collapse to a
+        line when drawn to physical scale with :meth:`plot`.  All keyword
+        arguments (``dim``, ``color``, ``with_labels``, ...) are forwarded.
+        Returns the matplotlib Axes.
+
+        Example
+        -------
+        ::
+
+            cell = moose.morphologies.load('traub91_CA3', '/neuron')
+            cell.plotGraph(color='type', with_labels=True)
+        """
+        import moose.utils
+        return moose.utils.plotMorphologyGraph(self.root, **kwargs)
 
     def __repr__(self):
         return (f'MorphologyResult(root={self.root.path!r}, '
@@ -169,6 +206,7 @@ def list() -> None:
 
 
 def load(name_or_path: str, moose_path: str,
+         condense: Optional[bool] = None,
          RM: float = 1.0, RA: float = 1.0, CM: float = 0.01,
          max_len: float = 0.1, f: float = 0.0,
          rad_diff: float = 0.1) -> MorphologyResult:
@@ -182,6 +220,15 @@ def load(name_or_path: str, moose_path: str,
         ``'CA1_pyramidal'``) **or** a filesystem path to an SWC file.
     moose_path : str
         MOOSE element path where the cell will be created (e.g. ``'/neuron'``).
+    condense : bool or None
+        Whether to condense the morphology (merge electrotonically short,
+        similar-radius segments) before loading.
+
+        * ``None`` (default) — auto: bundled registry samples are loaded
+          **as-is** (they already ship at their intended resolution), while
+          user-supplied SWC files are condensed.
+        * ``True`` — always condense, using ``max_len``/``f``/``rad_diff``.
+        * ``False`` — never condense; load the SWC coordinates verbatim.
     RM : float
         Specific membrane resistance (Ω·m²).  Default 1.0.
     RA : float
@@ -189,8 +236,8 @@ def load(name_or_path: str, moose_path: str,
     CM : float
         Specific membrane capacitance (F/m²).  Default 0.01.
     max_len : float
-        Maximum electrotonic length per compartment; ``moose.loadSwc`` uses
-        this to condense the morphology.  Pass ``None`` to skip condensation.
+        Maximum electrotonic length per compartment when condensing.
+        Ignored when condensation is skipped.
     f : float
         Frequency (Hz) for AC lambda calculation; 0 = DC (default).
     rad_diff : float
@@ -202,26 +249,34 @@ def load(name_or_path: str, moose_path: str,
     """
     import moose
 
-    swc_path = _resolve_path(name_or_path)
+    swc_path, is_bundled = _resolve_path(name_or_path)
+    if condense is None:
+        # Registry samples ship at their intended resolution; only condense
+        # user-supplied files by default.
+        condense = not is_bundled
     root = moose.loadSwc(str(swc_path), moose_path,
                          RM=RM, RA=RA, CM=CM,
-                         max_len=max_len, f=f, rad_diff=rad_diff)
+                         max_len=(max_len if condense else None),
+                         f=f, rad_diff=rad_diff)
     return MorphologyResult(root)
 
 
 # ── path resolution ───────────────────────────────────────────────────────────
 
-def _resolve_path(name_or_path: str) -> Path:
+def _resolve_path(name_or_path: str) -> Tuple[Path, bool]:
     """
-    Return a Path to an SWC file.
+    Resolve an SWC reference to ``(Path, is_bundled)``.
+
+    ``is_bundled`` is ``True`` when *name_or_path* matched a short name in the
+    bundled registry, ``False`` when it was an existing filesystem path.
 
     Checks (in order):
-    1. Bundled registry by short name.
-    2. Filesystem path as given.
+    1. Filesystem path as given.
+    2. Bundled registry by short name.
     """
     p = Path(name_or_path)
     if p.exists():
-        return p
+        return p, False
 
     # Try bundled registry
     try:
@@ -230,7 +285,7 @@ def _resolve_path(name_or_path: str) -> Path:
         data_dir = Path(__file__).parent / 'data'
         bundled  = data_dir / entry['filename']
         if bundled.exists():
-            return bundled
+            return bundled, True
         raise FileNotFoundError(
             f'Bundled SWC file {entry["filename"]!r} not found in package data. '
             f'Re-install pymoose or provide the file path directly.'

@@ -19,17 +19,8 @@ from moose._registry_base import Registry
 
 _registry = Registry('Morphology', 'moose.morphologies.load()')
 
-_registry.add([
-    {
-        'name':        'traub91_CA1',
-        'filename':    'swc/traub91_CA1.swc',
-        'species':     'rat',
-        'cell_type':   'CA1 pyramidal',
-        'region':      'hippocampus CA1',
-        'source':      'Traub et al. 1991, J Neurophysiol 66:635-650',
-        'description': '19-compartment CA1 pyramidal (Traub et al. 1991)',
-    },
-    {
+_registry.add(
+    [{
         'name':        'traub91_CA3',
         'filename':    'swc/traub91_CA3.swc',
         'species':     'rat',
