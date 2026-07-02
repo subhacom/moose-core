@@ -17,18 +17,12 @@ Lavang Latika
   were incorrectly treated as singular in HH gate expressions
 - Fixed ICG channel prototypes producing NaN values during simulation
   when copied from a prototype in the library
-- Fixed NeuroML2 reader failing to load Ca-dependent ion channels
-  correctly
-- Fixed a NameError that could occur when loading NeuroML2 channels
-  with custom dynamics
 
 ### Improvements
 - Reinstated `setField` function for backward compatibility with
   existing scripts
 - Added `plotMorphology` and `plotMorphologyGraph` utilities for
   quick visual inspection of loaded neuron morphologies
-- Improved NeuroML2 reader to handle more gate types including
-  instantaneous gates and voltage-shift channel densities
 
 
 ## [4.3.0] - 2026-05-21
