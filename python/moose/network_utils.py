@@ -68,6 +68,101 @@ def morphologyToGraphviz(filename=None, pat='/##[TYPE=Compartment]'):
     return True
 
 
+# ---------------------------------------------------------------------------
+# Compartment connectivity traversal
+# ---------------------------------------------------------------------------
+
+# Shared-message fields linking a compartment to its parent (proximal side).
+# Asymmetric Compartment uses `axial`; SymCompartment uses `proximal`.
+_PARENT_LINK_FIELDS = ('axial', 'proximal')
+
+# All shared-message fields linking a compartment to any neighbour, used when
+# walking connectivity from a seed compartment.  Asymmetric compartments use
+# axial/raxial; SymCompartment adds proximal/distal/sibling.
+_ALL_LINK_FIELDS = ('axial', 'raxial', 'proximal', 'distal', 'sibling')
+
+# className -> set of shared-message field names it actually defines.  Cached
+# so we probe only fields that exist (querying an absent neighbour field emits
+# a C++ warning rather than raising).
+_sharedFieldCache = {}
+
+
+def _sharedFields(comp):
+    cls = comp.className
+    if cls not in _sharedFieldCache:
+        _sharedFieldCache[cls] = set(_moose.getFieldNames(comp, 'sharedFinfo'))
+    return _sharedFieldCache[cls]
+
+
+def getCompartmentNeighbors(comp, fields=_ALL_LINK_FIELDS):
+    """Return compartments directly linked to `comp` via any of `fields`.
+
+    Topology comes from the compartment's connection messages, not the element
+    tree, so this works whether compartments are nested or laid out flat under
+    a container.  Fields the compartment's class does not define (e.g.
+    `proximal` on an asymmetric Compartment) are skipped, so it works uniformly
+    for Compartment and SymCompartment.
+
+    :param comp: moose Compartment (or SymCompartment) element.
+    :param fields: iterable of shared-message field names to follow.
+        Defaults to all axial/raxial/proximal/distal/sibling links; pass
+        ``_PARENT_LINK_FIELDS`` to get only parent-side neighbours.
+    :returns: list of unique neighbouring compartment elements.
+    """
+    valid = _sharedFields(comp)
+    out, seen = [], set()
+    for field in fields:
+        if field not in valid:
+            continue
+        for n in comp.neighbors[field]:
+            el = _moose.element(n)
+            if el.path not in seen:
+                seen.add(el.path)
+                out.append(el)
+    return out
+
+
+def getConnectedCompartments(seed):
+    """Return every compartment connected to `seed`, via a breadth-first walk
+    of axial/raxial connectivity.
+
+    Passing any single compartment (typically the soma) therefore returns the
+    whole connected cell, in breadth-first order from the seed.
+
+    :param seed: moose Compartment (or SymCompartment) element.
+    :returns: list of compartment elements including `seed`.
+    """
+    from collections import deque
+    order, visited = [], {seed.path}
+    queue = deque([seed])
+    while queue:
+        comp = queue.popleft()
+        order.append(comp)
+        for nbr in getCompartmentNeighbors(comp):
+            if nbr.path not in visited:
+                visited.add(nbr.path)
+                queue.append(nbr)
+    return order
+
+
+def getCompartments(root):
+    """Resolve `root` to the list of compartments it refers to.
+
+    * A single Compartment / SymCompartment -> the whole connected cell,
+      found by walking axial/raxial connectivity (see
+      :func:`getConnectedCompartments`).
+    * Any other element (Neuron, Neutral, ...) -> every compartment in its
+      subtree.
+
+    :param root: path string or moose element.
+    :returns: list of compartment elements.
+    """
+    root = _moose.element(root)
+    if _moose.wildcardFind('{}[ISA=Compartment]'.format(root.path)):
+        return getConnectedCompartments(root)
+    return list(_moose.wildcardFind('{}/##[ISA=Compartment]'.format(root.path)))
+
+
 def chemicalReactionNetworkToGraphviz(compt, path=None):
     """Write chemical reaction network to a graphviz file.
 

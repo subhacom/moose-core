@@ -87,6 +87,24 @@ for p in _moose.wildcardFind("/##[TYPE=Cinfo]"):
 from moose._moose import *
 
 
+# Override C++ builtin element() to convert to right class
+def element(obj):
+    """Convert path/object to a moose object of the appropriate
+    type. For Vec object it returns the first element
+
+    Parameters
+    ----------
+    obj: str, ObjId, Id, vec, instance of any moose class
+        The element to be converted
+
+    Returns
+    -------
+    A moose object of the appropriate class.
+    """
+    if isinstance(obj, _moose.vec):
+        obj = obj[0]
+    return __to_melement(_moose.element(obj))
+
 def version():
     """Returns moose version string."""
     return _moose.__version__
@@ -295,7 +313,7 @@ def loadSwc(
     RM=1.0,
     RA=1.0,
     CM=0.01,
-    max_len=0.1,
+    max_len: "float | None" = 0.1,
     f=0.0,
     rad_diff=0.1,
 ):
