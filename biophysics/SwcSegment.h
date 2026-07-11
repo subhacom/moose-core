@@ -53,6 +53,10 @@ class SwcSegment
 			return myIndex_;
 		}
 
+		void setIndex( unsigned int idx ) {
+			myIndex_ = idx;
+		}
+
 		void addChild( unsigned int kid ) {
 			kids_.push_back( kid );
 		}
