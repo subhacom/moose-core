@@ -14,8 +14,9 @@ from moose import _moose
 
 from ..base import ModelLoadError
 from . import units
+from .common import participants
 from .identify import identify
-from .mathconv import to_exprtk, UnsupportedMath, AVOGADRO
+from .mathconv import to_exprtk, UnsupportedMath
 from .normalize import normalize
 from .report import LoadReport
 
@@ -25,19 +26,19 @@ class SBMLValidationError(Exception):
 
 
 class _Context:
-    def __init__(self, model, root, report):
-        self.model = model
+    def __init__(self, root, report):
         self.root = root
         self.report = report
         self.compartment = {}       # sid -> CubeMesh
         self.comp_size = {}         # sid -> SBML size value (SBML units)
+        self.comp_vol_m3 = {}       # sid -> compartment volume in m^3
         self.species = {}           # sid -> Pool/BufPool
         self.species_info = {}      # sid -> {'comp', 'substance_units', 'boundary', 'constant'}
         self.const_param = {}       # sid -> float (constant global parameters)
         self.variable = {}          # sid -> Pool/BufPool proxy holding a raw scalar value
         self.assign_targets = set() # ids on the LHS of an assignment rule
         self.rate_targets = set()   # ids on the LHS of a rate rule
-        self.subst_factor = AVOGADRO
+        self.subst_factor = units.AVOGADRO
 
 
 # ----------------------------------------------------------------------
@@ -109,6 +110,7 @@ def _create_compartments(model, ctx):
         mesh.volume = units.volume(comp)
         ctx.compartment[sid] = mesh
         ctx.comp_size[sid] = comp.getSize() if comp.isSetSize() else 1.0
+        ctx.comp_vol_m3[sid] = mesh.volume
 
 
 def _create_species(model, ctx):
@@ -119,17 +121,13 @@ def _create_species(model, ctx):
         parent = ctx.compartment[comp_sid]
         boundary = sp.getBoundaryCondition()
         constant = sp.getConstant()
-        # Pool if its value is integrated (by reactions or a rate rule);
-        # BufPool if it is held/assigned (constant, boundary, or set by an
-        # assignment rule). A rate rule wins even over boundaryCondition.
-        if sid in ctx.rate_targets:
-            cls = _moose.Pool
-        elif constant or boundary or sid in ctx.assign_targets:
-            cls = _moose.BufPool
-        else:
-            cls = _moose.Pool
+        # BufPool if the value is held/assigned (constant, boundary, or set by
+        # an assignment rule); Pool if it is integrated (by reactions or a rate
+        # rule). A rate rule wins even over boundaryCondition.
+        held = (constant or boundary or sid in ctx.assign_targets)
+        cls = _moose.BufPool if held and sid not in ctx.rate_targets else _moose.Pool
         pool = cls('%s/%s' % (parent.path, sid))
-        pool.nInit = units.species_ninit(sp, model.getCompartment(comp_sid))
+        pool.nInit = units.species_ninit(sp, model.getCompartment(comp_sid), ctx.subst_factor)
         ctx.species[sid] = pool
         ctx.species_info[sid] = {
             'comp': comp_sid,
@@ -171,34 +169,63 @@ def _classify_rules(model, ctx):
 
 
 def _reaction_home(reac, ctx):
-    """The compartment a reaction is created in (its first substrate's, else
-    first product's), and that compartment's volume."""
-    if reac.getNumReactants():
-        sid = reac.getReactant(0).getSpecies()
-    elif reac.getNumProducts():
-        sid = reac.getProduct(0).getSpecies()
-    else:
-        return None, 1.0
-    info = ctx.species_info.get(sid)
+    """(mesh, compartment-id) the reaction is created in: its first substrate's,
+    else first product's compartment."""
+    subs, prds, _ = participants(reac)
+    refs = subs or prds
+    if not refs:
+        return None, None
+    info = ctx.species_info.get(refs[0][0])
     if info is None:
-        return None, 1.0
-    return ctx.compartment[info['comp']], ctx.comp_size[info['comp']]
+        return None, None
+    return ctx.compartment[info['comp']], info['comp']
+
+
+def _inv(sid, ctx, substance_scale):
+    """Factor relating a species' rate-law value to its MOOSE concentration:
+    value = inv * conc. (Inverse of the value->conc scale.)"""
+    info = ctx.species_info[sid]
+    comp = info['comp']
+    if info['substance_units']:            # value is an amount
+        return ctx.comp_vol_m3[comp] / substance_scale
+    size_scale = ctx.comp_vol_m3[comp] / ctx.comp_size[comp]  # m^3 per size unit
+    return size_scale / substance_scale
+
+
+def _si_massaction(result, reac, home_cid, ctx):
+    """Convert value-space Kf/Kb to SI (mM-based) constants."""
+    ss = ctx.subst_factor / units.AVOGADRO           # substance_scale (mol/unit)
+    pref = ss / ctx.comp_vol_m3[home_cid]            # substance_scale / V_home[m^3]
+    subs, prds, _ = participants(reac)
+    kf = result['Kf_val'] * pref
+    kb = result['Kb_val'] * pref
+    for sid, st in subs:
+        kf *= _inv(sid, ctx, ss) ** st
+    for sid, st in prds:
+        kb *= _inv(sid, ctx, ss) ** st
+    for c in result.get('catalysts', set()):
+        kf *= _inv(c, ctx, ss)
+        kb *= _inv(c, ctx, ss)
+    return kf, kb
+
+
+def _si_mmenz(result, subs0, home_cid, ctx):
+    """Convert value-space kcat/Km to SI (kcat 1/s, Km in mM)."""
+    ss = ctx.subst_factor / units.AVOGADRO
+    kcat = result['kcat_val'] * _inv(result['enzyme'], ctx, ss) * ss / ctx.comp_vol_m3[home_cid]
+    km = result['Km_val'] / _inv(subs0, ctx, ss)
+    return kcat, km
 
 
 def _wire(mreac, reac, ctx):
     """Connect substrate/product pools to a Reac/MMenz, honoring stoichiometry."""
-    for i in range(reac.getNumReactants()):
-        ref = reac.getReactant(i)
-        pool = ctx.species.get(ref.getSpecies())
-        if pool is not None:
-            for _ in range(int(_stoich(ref))):
-                _moose.connect(mreac, 'sub', pool, 'reac', 'OneToOne')
-    for i in range(reac.getNumProducts()):
-        ref = reac.getProduct(i)
-        pool = ctx.species.get(ref.getSpecies())
-        if pool is not None:
-            for _ in range(int(_stoich(ref))):
-                _moose.connect(mreac, 'prd', pool, 'reac', 'OneToOne')
+    subs, prds, _ = participants(reac)
+    for field, refs in (('sub', subs), ('prd', prds)):
+        for sid, st in refs:
+            pool = ctx.species.get(sid)
+            if pool is not None:
+                for _ in range(int(st)):
+                    _moose.connect(mreac, field, pool, 'reac', 'OneToOne')
 
 
 def _reac_id(reac, index):
@@ -214,16 +241,15 @@ def _create_reactions(model, ctx):
         reac = model.getReaction(r)
         if reac.getFast():
             ctx.report.unsupported_add('fast reaction %r (no QSS handling)' % reac.getId())
-        home, vol = _reaction_home(reac, ctx)
+        home, home_cid = _reaction_home(reac, ctx)
         result = None
         if home is not None:
-            result = identify(reac, model, ctx.const_param, ctx.comp_size,
-                              variable_names, vol)
+            result = identify(reac, ctx.const_param, ctx.comp_size, variable_names)
         if result is None:
             fallback.append(reac)
         elif result['kind'] == 'massaction':
             mr = _moose.Reac('%s/%s' % (home.path, _reac_id(reac, r)))
-            mr.Kf, mr.Kb = result['Kf'], result['Kb']
+            mr.Kf, mr.Kb = _si_massaction(result, reac, home_cid, ctx)
             _wire(mr, reac, ctx)
             # A catalyst (modifier that enters the rate multiplicatively) is
             # wired as substrate AND product so it drives the rate without
@@ -237,7 +263,8 @@ def _create_reactions(model, ctx):
         elif result['kind'] == 'mmenz' and result['enzyme'] in ctx.species:
             enzpool = ctx.species[result['enzyme']]
             mm = _moose.MMenz('%s/%s' % (enzpool.path, _reac_id(reac, r)))
-            mm.Km, mm.kcat = result['Km'], result['kcat']
+            mm.kcat, mm.Km = _si_mmenz(result, reac.getReactant(0).getSpecies(),
+                                       home_cid, ctx)
             _moose.connect(enzpool, 'nOut', mm, 'enzDest')
             _wire(mm, reac, ctx)
             ctx.report.reactions_native += 1
@@ -252,13 +279,12 @@ def _build_fallback_functions(reactions, ctx):
     Sum_j netstoich_ij * KL_j."""
     contrib = {}  # sid -> list of (netstoich, reaction)
     for reac in reactions:
+        subs, prds, _ = participants(reac)
         net = {}
-        for j in range(reac.getNumReactants()):
-            ref = reac.getReactant(j)
-            net[ref.getSpecies()] = net.get(ref.getSpecies(), 0.0) - _stoich(ref)
-        for j in range(reac.getNumProducts()):
-            ref = reac.getProduct(j)
-            net[ref.getSpecies()] = net.get(ref.getSpecies(), 0.0) + _stoich(ref)
+        for sid, st in subs:
+            net[sid] = net.get(sid, 0.0) - st
+        for sid, st in prds:
+            net[sid] = net.get(sid, 0.0) + st
         for sid, ns in net.items():
             if ns == 0.0:
                 continue
@@ -374,10 +400,6 @@ def _setup_solver(ctx, solver):
         stoich.reacSystemPath = comp.path + '/##'
 
 
-def _stoich(ref):
-    return ref.getStoichiometry() if ref.isSetStoichiometry() else 1.0
-
-
 # ----------------------------------------------------------------------
 # public handler
 # ----------------------------------------------------------------------
@@ -410,9 +432,9 @@ class SBMLHandler:
             raise ModelLoadError('Model has no compartments', filepath, loadpath)
 
         root = _moose.Neutral(loadpath)
-        ctx = _Context(model, root, report)
-        # Single consistent scale: n = amount*NA, V = SBML size (see units.py).
-        ctx.subst_factor = units.AVOGADRO
+        ctx = _Context(root, report)
+        # SI: n = (SBML amount) * NA * substance_scale, volumes in m^3 (units.py).
+        ctx.subst_factor = units.AVOGADRO * units.substance_scale(model)
 
         _classify_rules(model, ctx)
         _create_compartments(model, ctx)

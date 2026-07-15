@@ -121,11 +121,11 @@ def test_symbolic_catalyst_extraction():
     kl.setMath(libsbml.parseL3Formula('k * E * S'))
     p = kl.createLocalParameter(); p.setId('k'); p.setValue(0.5)
 
-    res = symbolic.analyze(r, {'c': 1.0}, 1.0)
+    res = symbolic.analyze(r, {'c': 1.0})
     assert res is not None and res['kind'] == 'massaction'
     assert res['catalysts'] == {'E'}
-    assert abs(res['Kf'] - 0.5) < 1e-9
-    assert abs(res['Kb']) < 1e-12
+    assert abs(res['Kf_val'] - 0.5) < 1e-9
+    assert abs(res['Kb_val']) < 1e-12
 
 
 @pytest.mark.parametrize('fname', ['00001-sbml-l3v1.xml', 'Kholodenko.sbml'])
@@ -145,6 +145,11 @@ def test_matches_roadrunner(fname):
     r.timeCourseSelections = ['time'] + ['[%s]' % s for s in sids]
     ref = r.simulate(0, runtime, 201)
 
+    # MOOSE reports concentration in SI mM; RoadRunner in the model's own units.
+    # Convert: mM = value * substance_scale / size_scale.
+    from moose.io.sbml import units as sbml_units
+    ss = sbml_units.substance_scale(model)
+
     root = '/rr_' + fname.split('.')[0].replace('-', '_')
     SBMLHandler().read(path, root)
     grid = np.linspace(0, runtime, 40)
@@ -153,8 +158,10 @@ def test_matches_roadrunner(fname):
               if 'Pool' in e.className]
         if not el:
             continue
+        comp = model.getCompartment(model.getSpecies(sid).getCompartment())
+        cfac = ss / sbml_units.size_scale(comp)
         t, v = _sim(root, el[0].path, runtime)
-        rvals = np.interp(grid, ref[:, 0], ref[:, i + 1])
+        rvals = np.interp(grid, ref[:, 0], ref[:, i + 1]) * cfac
         mvals = np.interp(grid, t, v)
-        denom = max(np.max(np.abs(rvals)), 1e-9)
+        denom = max(np.max(np.abs(rvals)), 1e-12)
         assert np.max(np.abs(rvals - mvals)) / denom < 2e-2, sid

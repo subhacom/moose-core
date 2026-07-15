@@ -1,14 +1,15 @@
-"""Numeric identification of native kinetics hidden in arbitrary rate laws.
+"""Recognize native MOOSE kinetics in an arbitrary SBML rate law.
 
 Many BioModels write mass-action or Michaelis-Menten kinetics in non-canonical
 algebraic forms (expanded polynomials, ``pow`` for stoichiometry, an explicit
-compartment factor, reversible ``k1*A*B - k2*C`` collapsed, ...). Rather than
-pattern-match the syntax, we evaluate the rate law at many random operating
-points and least-squares-fit the mass-action / MM functional form. If the fit
-is exact the reaction is that kinetics regardless of how it was written, and we
-recover the constants. Anything that does not fit falls back to a Function.
+compartment factor, reversible ``k1*A*B - k2*C`` collapsed, ...). The primary
+recognizer is :func:`symbolic.analyze`, which decomposes the rate law's algebra
+regardless of how it was written. Its result is then numerically self-verified
+here: an independent evaluator reconstructs the rate at many random points and
+checks it against the original law, so a bad extraction falls back to a
+Function rather than silently mis-simulating.
 
-Recognizing native forms matters because native Reac/Enz/MMenz (a) are faster,
+Recognizing native forms matters because native Reac/MMenz (a) are faster,
 (b) support the stochastic (GSSA) solver, and (c) are the ONLY way to couple
 reactions across compartments (via fixXreacs); a Function cannot read a pool in
 another compartment's solver.
@@ -20,6 +21,8 @@ import libsbml
 import numpy as np
 
 from . import symbolic
+from .common import participants
+from .units import AVOGADRO
 
 _UNARY = {
     libsbml.AST_FUNCTION_EXP: math.exp,
@@ -43,7 +46,7 @@ def _eval(node, values):
     if t == libsbml.AST_NAME:
         return values.get(node.getName(), 1.0)
     if t == libsbml.AST_NAME_AVOGADRO:
-        return 6.022140857e23
+        return AVOGADRO
     if t == libsbml.AST_NAME_TIME:
         return values.get('t', 0.0)
     if t == libsbml.AST_CONSTANT_PI:
@@ -79,20 +82,19 @@ def referenced_names(node, out):
         referenced_names(node.getChild(i), out)
 
 
-def identify(reac, model, const_params, comp_sizes, variable_names, home_volume):
+def identify(reac, const_params, comp_sizes, variable_names):
     """Recognize native kinetics in a reaction's rate law.
 
-    Symbolic decomposition (``symbolic.analyze``) is the primary recognizer --
-    it recovers the reaction structure and exact constants. The result is then
-    numerically self-verified: we reconstruct the rate the native objects would
-    produce and sample-check it against the original rate law, so a bad
-    extraction falls back to the (validated) Function path rather than
-    silently mis-simulating.
+    Symbolic decomposition (``symbolic.analyze``) recovers the reaction
+    structure and constants in the rate law's own value space; the result is
+    numerically self-verified (reconstruct the rate and sample-check it against
+    the original law) so a bad extraction falls back to the Function path. The
+    caller converts the value-space constants to SI MOOSE units.
 
-    Returns a mapping dict or ``None``:
+    Returns a mapping dict (value space) or ``None``:
 
-    * ``{'kind':'massaction', 'Kf', 'Kb', 'catalysts': set()}``
-    * ``{'kind':'mmenz', 'kcat', 'Km', 'enzyme'}``
+    * ``{'kind':'massaction', 'Kf_val', 'Kb_val', 'catalysts': set()}``
+    * ``{'kind':'mmenz', 'kcat_val', 'Km_val', 'enzyme'}``
     """
     kl = reac.getKineticLaw()
     if kl is None or kl.getMath() is None:
@@ -108,50 +110,21 @@ def identify(reac, model, const_params, comp_sizes, variable_names, home_volume)
     subst = dict(const_params)
     subst.update(comp_sizes)
 
-    # Per-species factor relating a rate-law value to a MOOSE concentration:
-    # amount (hasOnlySubstanceUnits) species carry value = conc*volume, so
-    # their factor is the compartment volume; concentration species use 1.
-    scale = _species_scale(reac, model, comp_sizes)
-
-    mapping = symbolic.analyze(reac, subst, home_volume, scale)
+    mapping = symbolic.analyze(reac, subst)
     if mapping is None:
         return None
-    if not _verify(reac, mapping, subst, home_volume, scale):
+    if not _verify(reac, mapping, subst):
         return None
     return mapping
 
 
-def _species_scale(reac, model, comp_sizes):
-    scale = {}
-
-    def add(sid):
-        sp = model.getSpecies(sid)
-        if sp is not None and sp.getHasOnlySubstanceUnits():
-            scale[sid] = comp_sizes.get(sp.getCompartment(), 1.0)
-        else:
-            scale[sid] = 1.0
-
-    for i in range(reac.getNumReactants()):
-        add(reac.getReactant(i).getSpecies())
-    for i in range(reac.getNumProducts()):
-        add(reac.getProduct(i).getSpecies())
-    for i in range(reac.getNumModifiers()):
-        add(reac.getModifier(i).getSpecies())
-    return scale
-
-
-def _verify(reac, mapping, subst, V, scale, n=24, tol=1e-6):
-    """Sample the original rate law and the rate the chosen native objects
-    would reproduce (in MOOSE concentration = value/scale); accept only if they
-    agree everywhere."""
+def _verify(reac, mapping, subst, n=24, tol=1e-6):
+    """Sample the original rate law and the rate the recognized native form
+    reproduces (both in the rate law's value space); accept only if they agree
+    everywhere. Unit conversion to SI is the caller's job and is exact given a
+    correct structural match, so verifying in value space is sufficient."""
     ast = reac.getKineticLaw().getMath()
-    subs = [(reac.getReactant(i).getSpecies(),
-             reac.getReactant(i).getStoichiometry() or 1.0)
-            for i in range(reac.getNumReactants())]
-    prds = [(reac.getProduct(i).getSpecies(),
-             reac.getProduct(i).getStoichiometry() or 1.0)
-            for i in range(reac.getNumProducts())]
-    mods = [reac.getModifier(i).getSpecies() for i in range(reac.getNumModifiers())]
+    subs, prds, mods = participants(reac)
     species = sorted(set([s for s, _ in subs] + [s for s, _ in prds] + mods))
 
     base = dict(subst)
@@ -172,26 +145,22 @@ def _verify(reac, mapping, subst, V, scale, n=24, tol=1e-6):
             return False
         if not np.isfinite(r_orig):
             return False
-        # MOOSE concentration of each species = rate-law value / scale.
-        def conc(sid):
-            return v[sid] / scale.get(sid, 1.0)
 
         if mapping['kind'] == 'massaction':
-            cats = mapping.get('catalysts', set())
             cat = 1.0
-            for c in cats:
-                cat *= conc(c)
+            for c in mapping.get('catalysts', set()):
+                cat *= v[c]
             fwd = cat
             for s, st in subs:
-                fwd *= conc(s) ** st
+                fwd *= v[s] ** st
             bwd = cat
             for s, st in prds:
-                bwd *= conc(s) ** st
-            r_recon = V * (mapping['Kf'] * fwd - mapping['Kb'] * bwd)
+                bwd *= v[s] ** st
+            r_recon = mapping['Kf_val'] * fwd - mapping['Kb_val'] * bwd
         elif mapping['kind'] == 'mmenz':
-            e = conc(mapping['enzyme'])
-            s = conc(subs[0][0])
-            r_recon = V * mapping['kcat'] * e * s / (mapping['Km'] + s)
+            e = v[mapping['enzyme']]
+            s = v[subs[0][0]]
+            r_recon = mapping['kcat_val'] * e * s / (mapping['Km_val'] + s)
         else:
             return False
         worst = max(worst, abs(r_orig - r_recon))

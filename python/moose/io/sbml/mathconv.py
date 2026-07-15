@@ -16,12 +16,22 @@ emit a silently wrong expression.
 
 import libsbml
 
-# Avogadro's number, matching MOOSE (kinetics/PoolBase.cpp / lookupVolumeFromMesh).
-AVOGADRO = 6.022140857e23
+from .units import AVOGADRO
 
 
 class UnsupportedMath(Exception):
     """The MathML tree contains a construct MOOSE cannot express."""
+
+
+# MathML relational operators -> exprtk (used inside piecewise / triggers).
+_RELATIONAL = {
+    libsbml.AST_RELATIONAL_LT: '<',
+    libsbml.AST_RELATIONAL_LEQ: '<=',
+    libsbml.AST_RELATIONAL_GT: '>',
+    libsbml.AST_RELATIONAL_GEQ: '>=',
+    libsbml.AST_RELATIONAL_EQ: '==',
+    libsbml.AST_RELATIONAL_NEQ: '!=',
+}
 
 
 # MathML built-in unary functions -> exprtk name (applied as name(arg)).
@@ -129,18 +139,10 @@ def _emit(node, resolve):
         return _piecewise(node, resolve)
 
     # --- relational / logical (used inside piecewise / triggers) --------
-    rel = {
-        libsbml.AST_RELATIONAL_LT: '<',
-        libsbml.AST_RELATIONAL_LEQ: '<=',
-        libsbml.AST_RELATIONAL_GT: '>',
-        libsbml.AST_RELATIONAL_GEQ: '>=',
-        libsbml.AST_RELATIONAL_EQ: '==',
-        libsbml.AST_RELATIONAL_NEQ: '!=',
-    }
-    if t in rel:
+    if t in _RELATIONAL:
         return '(%s %s %s)' % (
             _emit(node.getChild(0), resolve),
-            rel[t],
+            _RELATIONAL[t],
             _emit(node.getChild(1), resolve),
         )
     if t == libsbml.AST_LOGICAL_AND:

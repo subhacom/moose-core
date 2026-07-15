@@ -20,6 +20,9 @@ identify.verify) before trusting it.
 import libsbml
 import sympy as sp
 
+from .common import participants
+from .units import AVOGADRO
+
 
 def _num(x):
     """Return x as a plain float, or None if it still contains free symbols
@@ -59,7 +62,7 @@ def ast_to_sympy(node, syms):
         n = node.getName()
         return syms.setdefault(n, sp.Symbol(n))
     if t == libsbml.AST_NAME_AVOGADRO:
-        return sp.Float(6.022140857e23)
+        return sp.Float(AVOGADRO)
     if t == libsbml.AST_NAME_TIME:
         return syms.setdefault('t', sp.Symbol('t'))
     if t == libsbml.AST_CONSTANT_PI:
@@ -85,21 +88,14 @@ def ast_to_sympy(node, syms):
     raise ValueError('unhandled AST node type %d' % t)
 
 
-def analyze(reac, subst, home_volume, species_scale=None):
-    """Return a native-mapping dict or None.
+def analyze(reac, subst):
+    """Return a native-mapping dict or None, with constants in the rate law's
+    own (value) space. The caller converts these to SI MOOSE units.
 
-    ``species_scale`` maps a species id to the factor relating its rate-law
-    value to a MOOSE concentration: 1 for a concentration species, its
-    compartment volume for an amount (hasOnlySubstanceUnits) species (whose
-    value is an amount = conc*volume). It is folded into the extracted Kf/Kb so
-    amount species map to a native Reac correctly.
-
-    * ``{'kind':'massaction', 'Kf', 'Kb', 'catalysts': set()}`` -- Kf/Kb in
-      MOOSE concentration units.
-    * ``{'kind':'mmenz', 'kcat', 'Km', 'enzyme'}``.
+    * ``{'kind':'massaction', 'Kf_val', 'Kb_val', 'catalysts': set()}`` --
+      Kf_val/Kb_val are the polynomial monomial coefficients.
+    * ``{'kind':'mmenz', 'kcat_val', 'Km_val', 'enzyme'}``.
     """
-    if species_scale is None:
-        species_scale = {}
     kl = reac.getKineticLaw()
     if kl is None or kl.getMath() is None:
         return None
@@ -118,13 +114,9 @@ def analyze(reac, subst, home_volume, species_scale=None):
         smap[syms[p.getId()]] = sp.Float(p.getValue())
     expr = expr.xreplace(smap)
 
-    subs = [(reac.getReactant(i).getSpecies(),
-             int(reac.getReactant(i).getStoichiometry() or 1))
-            for i in range(reac.getNumReactants())]
-    prds = [(reac.getProduct(i).getSpecies(),
-             int(reac.getProduct(i).getStoichiometry() or 1))
-            for i in range(reac.getNumProducts())]
-    mods = [reac.getModifier(i).getSpecies() for i in range(reac.getNumModifiers())]
+    subs, prds, mods = participants(reac)
+    subs = [(s, int(st)) for s, st in subs]
+    prds = [(s, int(st)) for s, st in prds]
 
     spset = set([s for s, _ in subs] + [s for s, _ in prds] + mods)
     gens = [syms[s] for s in spset if s in syms and syms[s] in expr.free_symbols]
@@ -133,13 +125,13 @@ def analyze(reac, subst, home_volume, species_scale=None):
     sub_st = {syms[s]: st for s, st in subs if s in syms}
     prd_st = {syms[s]: st for s, st in prds if s in syms}
 
-    ma = _mass_action(expr, gens, sub_st, prd_st, subs, prds, home_volume, species_scale)
+    ma = _mass_action(expr, gens, sub_st, prd_st, subs, prds)
     if ma is not None:
         return ma
-    return _michaelis_menten(expr, syms, subs, prds, mods, home_volume)
+    return _michaelis_menten(expr, syms, subs, prds, mods)
 
 
-def _mass_action(expr, gens, sub_st, prd_st, subs, prds, V, scale):
+def _mass_action(expr, gens, sub_st, prd_st, subs, prds):
     try:
         poly = sp.Poly(expr, *gens)
     except (sp.PolynomialError, sp.GeneratorsError):
@@ -155,23 +147,16 @@ def _mass_action(expr, gens, sub_st, prd_st, subs, prds, V, scale):
         if cf is None:
             return None  # symbolic coefficient -> not constant mass-action
         ge = {g: exps[gidx[g]] for g in poly.gens}
-        # Fold the per-species value->concentration factor into the constant:
-        # value^exp = (conc*scale)^exp, so the conc-based rate constant picks up
-        # prod(scale^exp) over the monomial.
-        factor = 1.0
-        for g in poly.gens:
-            factor *= scale.get(str(g), 1.0) ** ge.get(g, 0)
-        cf_eff = cf * factor
         # forward term: contains every substrate at >= its stoichiometry, coeff>0
         fwd = bool(subs) and all(ge.get(g, 0) >= st for g, st in sub_st.items()) and cf > 0
         bwd = bool(prds) and all(ge.get(g, 0) >= st for g, st in prd_st.items()) and cf < 0
         if fwd:
-            Kf = cf_eff
+            Kf = cf
             for g in poly.gens:
                 if ge.get(g, 0) > sub_st.get(g, 0):
                     catalysts.add(str(g))
         elif bwd:
-            Kb = -cf_eff
+            Kb = -cf
             for g in poly.gens:
                 if ge.get(g, 0) > prd_st.get(g, 0):
                     catalysts.add(str(g))
@@ -179,15 +164,14 @@ def _mass_action(expr, gens, sub_st, prd_st, subs, prds, V, scale):
             return None
     if Kf is None and Kb is None:
         return None
-    return {'kind': 'massaction',
-            'Kf': (Kf or 0.0) / V,
-            'Kb': (Kb or 0.0) / V,
+    return {'kind': 'massaction', 'Kf_val': Kf or 0.0, 'Kb_val': Kb or 0.0,
             'catalysts': catalysts}
 
 
-def _michaelis_menten(expr, syms, subs, prds, mods, V):
+def _michaelis_menten(expr, syms, subs, prds, mods):
     # MOOSE MMenz requires exactly the enzyme+single-substrate form and at
-    # least one product.
+    # least one product. Constants are in value space (kcat_val includes any
+    # compartment factor the caller removes via the SI conversion).
     if len(subs) != 1 or not mods or not prds:
         return None
     S = syms.get(subs[0][0])
@@ -207,11 +191,11 @@ def _michaelis_menten(expr, syms, subs, prds, mods, V):
     Km = _num(a0 / a1)
     if Km is None or Km <= 0:
         return None
-    gain = b1 / a1  # = V * kcat * E
+    gain = b1 / a1  # = (V) * kcat * E   in value space
     for enz in mods:
         e = syms.get(enz)
         if e is not None and e in gain.free_symbols:
             kcat = _num(gain / e)
             if kcat is not None and kcat > 0:
-                return {'kind': 'mmenz', 'enzyme': enz, 'kcat': kcat / V, 'Km': Km}
+                return {'kind': 'mmenz', 'enzyme': enz, 'kcat_val': kcat, 'Km_val': Km}
     return None

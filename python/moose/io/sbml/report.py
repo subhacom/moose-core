@@ -7,7 +7,6 @@ so tests can track it as a regression metric.
 """
 
 from dataclasses import dataclass, field
-from typing import List
 
 
 @dataclass
@@ -16,22 +15,19 @@ class LoadReport:
     loadpath: str = ''
 
     # counts of what mapped, and how
-    reactions_native: int = 0      # Reac / MMenz / Enz
+    reactions_native: int = 0      # Reac / MMenz
     reactions_function: int = 0    # arbitrary rate law via Function
     rate_rules: int = 0
     assignment_rules: int = 0
 
-    normalized: List[str] = field(default_factory=list)
+    normalized: list = field(default_factory=list)
 
     # things we could not represent (each entry is a human-readable reason)
-    unsupported: List[str] = field(default_factory=list)
-    warnings: List[str] = field(default_factory=list)
+    unsupported: list = field(default_factory=list)
+    warnings: list = field(default_factory=list)
 
     def unsupported_add(self, msg):
         self.unsupported.append(msg)
-
-    def warn(self, msg):
-        self.warnings.append(msg)
 
     @property
     def fully_supported(self):
