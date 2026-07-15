@@ -10,8 +10,9 @@
 #include "../basecode/header.h"
 #include "Nernst.h"
 
-const double Nernst::R_OVER_F = 8.6171458e-5;
-const double Nernst::ZERO_CELSIUS = 273.15;
+// R/F = k_B/e, taken from the shared constants so it stays consistent with
+// the R and F values used elsewhere.
+const double Nernst::R_OVER_F = moose::consts::R_OVER_F;
 
 	///////////////////////////////////////////////////////
 	// MsgSrc definitions

@@ -15,6 +15,7 @@
 using namespace std;
 
 #include "../basecode/SparseMatrix.h"
+#include "../basecode/Constants.h"   // moose::consts::NA
 #include "DiffPoolVec.h"
 
 /**
@@ -157,12 +158,11 @@ void DiffPoolVec::advance( double dt )
 
 void DiffPoolVec::reinit( const vector< double >& vols ) // Not called by the clock, but by parent.
 {
-	const double NA_ = 6.0221415e23;
     assert( n_.size() == concInit_.size() );
 	// vector< double > vols( concInit_.size(), 1.0 );
 	vector< double > nInit( concInit_.size(), 0.0 );
 	for ( size_t i = 0; i < concInit_.size(); ++i )
-		nInit[i] = concInit_[i] * NA_ * vols[i];
+		nInit[i] = concInit_[i] * moose::consts::NA * vols[i];
 
     prev_ = n_ = nInit;
 }

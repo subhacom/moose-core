@@ -100,8 +100,6 @@ class DifShell: public DifShellBase{
   double innerArea_;
 
   static const double EPSILON;
-  /// Faraday's constant (Coulomb / Mole)
-  static const double F;
 
 };
 

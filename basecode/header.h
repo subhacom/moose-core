@@ -25,10 +25,14 @@
 
 using namespace std;
 
-constexpr double PI = 3.141592653589793;
-constexpr double NA = 6.0221415e23;
-constexpr double FaradayConst =  96485.3415; // s A / mol
-constexpr double GasConst = 8.3144621; // R, units are J/(K.mol)
+// Physical/math constants live in moose::consts (basecode/Constants.h) so they
+// have a single source of truth shared with pymoose. These aliases keep the
+// long-standing unqualified names (PI, NA, ...) working across the codebase.
+#include "Constants.h"
+using moose::consts::PI;
+using moose::consts::NA;
+using moose::consts::FaradayConst;
+using moose::consts::GasConst;
 
 typedef unsigned short BindIndex;
 
