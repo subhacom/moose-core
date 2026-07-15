@@ -356,6 +356,9 @@ def loadSwc(
 def loadKkit(filename, modelpath, solverclass="gsl"):
     """Load Kkit model
 
+    ... deprecated:: 4.3.2
+        Use :function:`moose.loadModel`
+
     Parameters
     ----------
     filename: str
@@ -372,7 +375,10 @@ def loadKkit(filename, modelpath, solverclass="gsl"):
         moose.element if succcessful else None.
 
     """
-    return model_utils.mooseReadKkitGenesis(filename, modelpath, solverclass)
+    warnings.warn('loadKkit() is deprectaed. Use moose.loadModel() instead.',
+                  DeprecationWarning,
+                  stacklevel=2)
+    return model_utils._loadModel(filename, modelpath, solverclass)
 
 
 def showfields(el, field="*", showtype=False):
