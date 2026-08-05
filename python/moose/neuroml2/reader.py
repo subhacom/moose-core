@@ -16,6 +16,7 @@ import os
 import re
 import math
 import logging
+import warnings
 import numpy as np
 from collections import defaultdict
 import pint
@@ -37,12 +38,14 @@ nml_not_available_msg = ""
 try:
     import neuroml as nml
     import pyneuroml.pynml as pynml
-except ImportError as error:
-    raise ImportError(
-        "Could not import neuroml/pyneuroml. "
-        "Please make sure you have pyneuroml installed "
-        "(`pip install pyneuroml`)"
-    ) from error
+except ImportError:
+    nml = None
+    pynml = None
+    warnings.warn(
+        "pyneuroml is not installed; NeuroML2 reading support will be "
+        "unavailable. Install python3-pyneuroml to enable it.",
+        UserWarning,
+    )
 
 
 PREDEFINED_RATEFN_MAP = {
@@ -509,6 +512,10 @@ class NML2Reader(object):
 
 
         """
+        if nml is None:
+            raise ImportError(
+                "pyneuroml is not installed; NeuroML2 reading is unavailable."
+            )
         self._vmin = vmin
         self._vmax = vmax
         self._vdivs = vdivs
