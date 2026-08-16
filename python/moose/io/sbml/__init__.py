@@ -39,9 +39,16 @@ A cross-compartment coupling that is *not* native mass-action is reported
 unsupported and no solver is built: the Function fallback reads pools by index
 within one solver's scope and cannot reach across compartments.
 
+Diffusion constants declared with the SBML Level 3 *spatial* package are read
+onto ``pool.diffConst``. They only take physical effect once the spatial
+geometry (coordinate systems / domains) is turned into a multi-voxel MOOSE
+mesh, which is not built yet -- so a spatial model is reported as simulated
+well-mixed for now.
+
 Hard limits (reported, not faked): SBML discrete events and algebraic rules
 have no MOOSE equivalent; non-mass-action cross-compartment coupling; and
-genuine diffusion needs a diffusion constant, which core SBML does not encode.
+SBML-spatial geometry is not yet mapped to a mesh (only its diffusion
+constants are captured).
 """
 
 from .reader import SBMLHandler, SBMLValidationError
