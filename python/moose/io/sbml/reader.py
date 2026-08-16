@@ -160,6 +160,41 @@ def _create_parameters(model, ctx):
             ctx.const_param[sid] = value
 
 
+def _read_diffusion(model, ctx):
+    """Read SBML-spatial diffusion coefficients into pool.diffConst.
+
+    In the SBML Level 3 *spatial* package a diffusion constant is a Parameter
+    carrying a DiffusionCoefficient that names the species it applies to. We
+    copy the (isotropic) value onto the MOOSE pool so it is not lost. NOTE: this
+    only takes physical effect once the spatial *geometry* is turned into a
+    multi-voxel mesh -- until then every compartment is a single well-mixed
+    voxel and diffConst is inert. That geometry mapping is not built yet, so a
+    spatial model is reported as simulated well-mixed."""
+    plug = model.getPlugin('spatial')
+    if plug is None:
+        return
+    for i in range(model.getNumParameters()):
+        p = model.getParameter(i)
+        sp = p.getPlugin('spatial')
+        if sp is None or not sp.isSetDiffusionCoefficient():
+            continue
+        dc = sp.getDiffusionCoefficient()
+        sid = dc.getVariable()
+        pool = ctx.species.get(sid)
+        if pool is None:
+            continue
+        if dc.getType() != libsbml.SPATIAL_DIFFUSIONKIND_ISOTROPIC:
+            ctx.report.unsupported_add(
+                'anisotropic/tensor diffusion for %r reduced to isotropic' % sid)
+        pool.diffConst = p.getValue() if p.isSetValue() else 0.0
+    geom = plug.getGeometry() if plug.isSetGeometry() else None
+    if geom is not None and geom.getNumGeometryDefinitions() > 0:
+        ctx.report.unsupported_add(
+            'SBML-spatial geometry (coordinate systems / domains) is not mapped '
+            'to a MOOSE mesh yet; the model is simulated well-mixed and '
+            'diffusion constants have no spatial effect')
+
+
 def _classify_rules(model, ctx):
     for i in range(model.getNumRules()):
         rule = model.getRule(i)
@@ -575,6 +610,7 @@ class SBMLHandler:
         _create_compartments(model, ctx)
         _create_species(model, ctx)
         _create_parameters(model, ctx)
+        _read_diffusion(model, ctx)
         _create_reactions(model, ctx)
         _create_rules(model, ctx)
         _detect_unsupported(model, ctx)

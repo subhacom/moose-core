@@ -303,3 +303,33 @@ def test_doqcs_multicompartment_sbml():
     t, v = _sim('/camp', pools[0].path, 20.0)
     assert np.all(np.isfinite(v))
     assert np.all(v >= -1e-6)
+
+
+def test_spatial_diffusion_coefficient_read():
+    """A diffusion constant declared with the SBML Level 3 spatial package
+    (a Parameter carrying a DiffusionCoefficient) is copied onto the species'
+    pool.diffConst."""
+    import libsbml
+    ns = libsbml.SBMLNamespaces(3, 1, 'spatial', 1)
+    doc = libsbml.SBMLDocument(ns)
+    doc.setPackageRequired('spatial', True)
+    m = doc.createModel()
+    c = m.createCompartment()
+    c.setId('cyt'); c.setConstant(True); c.setSize(1.0); c.setSpatialDimensions(3)
+    s = m.createSpecies()
+    s.setId('S'); s.setCompartment('cyt'); s.setInitialConcentration(1.0)
+    s.setConstant(False); s.setBoundaryCondition(False)
+    s.setHasOnlySubstanceUnits(False)
+    p = m.createParameter()
+    p.setId('S_diff'); p.setValue(2.5e-12); p.setConstant(True)
+    dc = p.getPlugin('spatial').createDiffusionCoefficient()
+    dc.setVariable('S'); dc.setType(libsbml.SPATIAL_DIFFUSIONKIND_ISOTROPIC)
+
+    import tempfile
+    fn = tempfile.mktemp(suffix='.xml')
+    libsbml.writeSBMLToFile(doc, fn)
+    h = SBMLHandler()
+    h.read(fn, '/spdiff')
+    pool = [e for e in moose.wildcardFind('/spdiff/##/S[0]')
+            if 'Pool' in e.className][0]
+    assert abs(pool.diffConst - 2.5e-12) < 1e-20, pool.diffConst
