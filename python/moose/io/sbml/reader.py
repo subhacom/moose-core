@@ -39,6 +39,7 @@ class _Context:
         self.assign_targets = set() # ids on the LHS of an assignment rule
         self.rate_targets = set()   # ids on the LHS of a rate rule
         self.subst_factor = units.AVOGADRO
+        self.unsupported_xcompt = False  # non-native cross-compartment coupling seen
 
 
 # ----------------------------------------------------------------------
@@ -168,17 +169,57 @@ def _classify_rules(model, ctx):
             ctx.rate_targets.add(rule.getVariable())
 
 
-def _reaction_home(reac, ctx):
-    """(mesh, compartment-id) the reaction is created in: its first substrate's,
-    else first product's compartment."""
+def _reac_compartments(reac, ctx):
+    """Set of compartment-ids the reaction's substrates and products live in."""
     subs, prds, _ = participants(reac)
-    refs = subs or prds
-    if not refs:
+    comps = set()
+    for sid, _ in list(subs) + list(prds):
+        info = ctx.species_info.get(sid)
+        if info is not None:
+            comps.add(info['comp'])
+    return comps
+
+
+def _reaction_home(reac, ctx):
+    """(mesh, compartment-id) the reaction is created in. For a single-
+    compartment reaction that is its compartment; for a cross-compartment
+    reaction the smallest-volume participating compartment -- the numerically
+    stable placement recommended by moose-examples/crossComptSimpleReac. The
+    rate constants are set in volume-independent number space (see
+    _num_massaction), so this choice does not affect the kinetics."""
+    comps = _reac_compartments(reac, ctx)
+    if not comps:
         return None, None
-    info = ctx.species_info.get(refs[0][0])
-    if info is None:
-        return None, None
-    return ctx.compartment[info['comp']], info['comp']
+    cid = min(comps, key=lambda c: ctx.comp_vol_m3[c])
+    return ctx.compartment[cid], cid
+
+
+def _elem_compartment(elem, ctx):
+    """Compartment-id whose mesh contains this MOOSE element, or None."""
+    path = elem.path
+    for cid, mesh in ctx.compartment.items():
+        mp = mesh.path
+        if path == mp or path.startswith(mp + '/'):
+            return cid
+    return None
+
+
+def _spans_compartments(kind, name, target_comp, inputs, ctx):
+    """True (and reported unsupported) if a Function reading ``inputs`` and
+    writing ``target_comp`` would have to reach across compartments -- a MOOSE
+    Function reads pools by index within one solver's scope, so a foreign read
+    is out of bounds and would crash the multi-compartment solver."""
+    comps = set(_elem_compartment(e, ctx) for e in inputs.order)
+    comps.discard(None)
+    if target_comp is not None:
+        comps.add(target_comp)
+    if len(comps) > 1:
+        ctx.report.unsupported_add(
+            '%s for %r spans compartments %s; a MOOSE Function cannot read '
+            'pools outside its own solver' % (kind, name, sorted(comps)))
+        ctx.unsupported_xcompt = True
+        return True
+    return False
 
 
 def _inv(sid, ctx, substance_scale):
@@ -217,6 +258,40 @@ def _si_mmenz(result, subs0, home_cid, ctx):
     return kcat, km
 
 
+def _num_massaction(result, reac, ctx):
+    """Number-space rate constants (numKf/numKb, units 1/s scaled by molecule
+    counts) for a mass-action reaction. Unlike the concentration-space Kf/Kb,
+    these do not reference any single compartment volume, so they are correct
+    for a cross-compartment reaction whose substrates and products sit in
+    different volumes -- and fixXreacs preserves numKf/numKb verbatim when it
+    splits the reaction. Derivation: MOOSE flux [molecules/s] must equal the
+    SBML extensive rate [substance/s] times subst_factor, giving
+    numKf = Kf_val * subst_factor * prod_i f(species_i)^stoich_i, where the
+    per-species factor f folds one power of subst_factor back out (and the
+    SBML compartment size for concentration species)."""
+    sf = ctx.subst_factor
+    subs, prds, _ = participants(reac)
+
+    def f(sid):
+        info = ctx.species_info[sid]
+        if info['substance_units']:          # rate law sees an amount
+            return 1.0 / sf
+        return 1.0 / (ctx.comp_size[info['comp']] * sf)  # ...sees a concentration
+
+    numkf = result['Kf_val'] * sf
+    for sid, st in subs:
+        numkf *= f(sid) ** st
+    numkb = result['Kb_val'] * sf
+    for sid, st in prds:
+        numkb *= f(sid) ** st
+    # A catalyst enters both monomials once (M -> M + P), unconsumed.
+    for c in result.get('catalysts', ()):
+        fc = f(c)
+        numkf *= fc
+        numkb *= fc
+    return numkf, numkb
+
+
 def _wire(mreac, reac, ctx):
     """Connect substrate/product pools to a Reac/MMenz, honoring stoichiometry."""
     subs, prds, _ = participants(reac)
@@ -242,14 +317,29 @@ def _create_reactions(model, ctx):
         if reac.getFast():
             ctx.report.unsupported_add('fast reaction %r (no QSS handling)' % reac.getId())
         home, home_cid = _reaction_home(reac, ctx)
+        xcompt = len(_reac_compartments(reac, ctx)) > 1
         result = None
         if home is not None:
             result = identify(reac, ctx.const_param, ctx.comp_size, variable_names)
+        # A cross-compartment reaction has to become a native Reac/MMenz: the
+        # Function fallback reads pools by index within one solver's scope and
+        # cannot span compartments (it would read out of bounds and crash).
+        if xcompt and (result is None or result['kind'] != 'massaction'):
+            ctx.report.unsupported_add(
+                'cross-compartment reaction %r is not native mass-action; '
+                'no Function fallback across compartments' % reac.getId())
+            ctx.unsupported_xcompt = True
+            continue
         if result is None:
             fallback.append(reac)
         elif result['kind'] == 'massaction':
             mr = _moose.Reac('%s/%s' % (home.path, _reac_id(reac, r)))
-            mr.Kf, mr.Kb = _si_massaction(result, reac, home_cid, ctx)
+            if xcompt:
+                # Volume-independent number-space constants; fixXreacs preserves
+                # numKf/numKb when it splits the reaction across the junction.
+                mr.numKf, mr.numKb = _num_massaction(result, reac, ctx)
+            else:
+                mr.Kf, mr.Kb = _si_massaction(result, reac, home_cid, ctx)
             _wire(mr, reac, ctx)
             # A catalyst (modifier that enters the rate multiplicatively) is
             # wired as substrate AND product so it drives the rate without
@@ -307,6 +397,9 @@ def _build_fallback_functions(reactions, ctx):
             ctx.report.unsupported_add(
                 'species %r derivative not built: %s' % (sid, e))
             continue
+        if _spans_compartments('derivative', sid, ctx.species_info[sid]['comp'],
+                               inputs, ctx):
+            continue
         expr = '%r*(%s)' % (ctx.subst_factor, ' + '.join(pieces))
         pool = ctx.species[sid]
         fn = _make_function('%s/dot' % pool.path, expr, inputs)
@@ -334,6 +427,9 @@ def _create_rules(model, ctx):
         target, scale, _is_species = _rule_target(var, ctx)
         if target is None:
             ctx.report.unsupported_add('rule target %r not found' % var)
+            continue
+        if _spans_compartments('rule', var, _elem_compartment(target, ctx),
+                               inputs, ctx):
             continue
 
         if rule.isAssignment():
@@ -366,38 +462,77 @@ def _detect_unsupported(model, ctx):
     if model.getNumEvents() > 0:
         ctx.report.unsupported_add(
             '%d event(s): MOOSE has no discrete-event support' % model.getNumEvents())
-    if model.getNumCompartments() > 1:
-        ctx.report.unsupported_add(
-            '%d compartments: cross-compartment coupling not yet supported '
-            '(single-compartment models only)' % model.getNumCompartments())
+
+
+def _position_compartments(compts):
+    """Chain compartments along x so successive CubeMeshes abut (shifting both
+    x0 and x1 preserves each width, hence each volume). Adjacent meshes are
+    what buildMeshJunctions needs to couple diffusion. Mirrors
+    moose.chemUtil.add_Delete_ChemicalSolver.positionCompt."""
+    for i in range(len(compts) - 1):
+        compts[i + 1].x1 += compts[i].x1
+        compts[i + 1].x0 += compts[i].x1
 
 
 def _setup_solver(ctx, solver):
-    """One Ksolve+Stoich per compartment (see moose-examples
-    crossComptSimpleReac). Each pool is then solved with its own compartment's
-    volume, which a single shared Stoich got wrong for multi-compartment
-    models."""
+    """Add one Ksolve(+Dsolve)+Stoich per compartment. For multi-compartment
+    models the cross-compartment reactions are first split by fixXreacs into
+    per-compartment halves that talk to local proxy pools; the two solvers then
+    exchange those proxies (Ksolve<->Ksolve), and a Dsolve mesh junction couples
+    any diffusing pools. See moose-examples/crossComptSimpleReac and
+    moose.chemUtil setCompartmentSolver."""
     if solver == 'ee':
         return
-    # Cross-compartment Function coupling is not yet handled and crashes the
-    # multi-Stoich solver; leave such models unsolved (flagged in the report).
-    if len(ctx.compartment) > 1:
-        return
-    for comp in ctx.compartment.values():
+    compts = list(ctx.compartment.values())
+    multi = len(compts) > 1
+    if multi:
+        # A non-native cross-compartment coupling would leave a hole in the ODEs
+        # (no Function can cross compartments), so refuse to build a solver that
+        # would silently simulate the wrong system.
+        if ctx.unsupported_xcompt:
+            ctx.report.unsupported_add(
+                'solver not built: model has cross-compartment coupling that '
+                'is not native mass-action')
+            return
+        from moose.fixXreacs import fixXreacs
+        compts = sorted(compts, key=lambda c: c.volume)  # smallest first
+        _position_compartments(compts)
+        fixXreacs(ctx.root.path)
+
+    for comp in compts:
         if solver == 'gssa':
             ksolve = _moose.Gsolve('%s/ksolve' % comp.path)
         else:
             ksolve = _moose.Ksolve('%s/ksolve' % comp.path)
             # Many BioModels are stiff; LSODA (like RoadRunner's CVODE) handles
-            # them where the default explicit RKF45 diverges.
-            try:
-                ksolve.method = 'lsoda'
-            except Exception:
-                pass
+            # them where the default explicit RKF45 diverges. Only for a single
+            # compartment though: LSODA does not integrate the cross-compartment
+            # proxy exchange that couples a multi-compartment model.
+            if not multi:
+                try:
+                    ksolve.method = 'lsoda'
+                except Exception:
+                    pass
+        dsolve = _moose.Dsolve('%s/dsolve' % comp.path) if multi else None
         stoich = _moose.Stoich('%s/stoich' % comp.path)
-        stoich.compartment = comp
         stoich.ksolve = ksolve
-        stoich.reacSystemPath = comp.path + '/##'
+        if dsolve is not None:
+            stoich.dsolve = dsolve
+        stoich.compartment = comp
+        stoich.reacSystemPath = comp.path + '/##'  # last: this triggers the build
+
+    if multi:
+        # Couple diffusion across each adjacent (volume-sorted) mesh pair. Pure
+        # reaction transport already works through the Ksolve proxy exchange, so
+        # a junction that finds no shared voxels is harmless -- guard it anyway.
+        dsolves = [_moose.element(c.path + '/dsolve') for c in compts]
+        for i in range(len(dsolves) - 1):
+            try:
+                dsolves[i + 1].buildMeshJunctions(dsolves[i])
+            except Exception as e:
+                ctx.report.warnings.append(
+                    'mesh junction %s<->%s failed: %s'
+                    % (compts[i].name, compts[i + 1].name, e))
 
 
 # ----------------------------------------------------------------------
