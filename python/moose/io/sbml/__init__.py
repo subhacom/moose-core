@@ -23,8 +23,25 @@ enrichment, never required. The reader is a general SBML->ODE compiler:
    faithfully (events, algebraic rules, unresolved symbols) is recorded, so
    the reader never silently mis-simulates.
 
+Multiple compartments
+---------------------
+A model with several compartments gets one Ksolve+Dsolve+Stoich per
+compartment. Reactions that span compartments (a reactant and product in
+different compartments -- i.e. transport) are placed in the smaller-volume
+compartment and then split by ``fixXreacs`` into per-compartment halves coupled
+through proxy pools; the two solvers exchange those proxies each tick, and a
+Dsolve mesh junction couples any species carrying a diffusion constant. Because
+that exchange is operator-split at the solver tick, multi-compartment models
+need a fine simulation ``dt`` for accuracy (and use the default explicit
+integrator -- LSODA cannot cross the junction).
+
+A cross-compartment coupling that is *not* native mass-action is reported
+unsupported and no solver is built: the Function fallback reads pools by index
+within one solver's scope and cannot reach across compartments.
+
 Hard limits (reported, not faked): SBML discrete events and algebraic rules
-have no MOOSE equivalent.
+have no MOOSE equivalent; non-mass-action cross-compartment coupling; and
+genuine diffusion needs a diffusion constant, which core SBML does not encode.
 """
 
 from .reader import SBMLHandler, SBMLValidationError
