@@ -5,7 +5,6 @@
 
 import os
 import moose._moose as _moose
-from moose import neuroml2
 
 import logging
 
@@ -192,7 +191,7 @@ def mooseReadNML2(filepath, modelpath, verbose=False):
     if not nml2Import_:
         raise RuntimeError("Could not load NML2 support:\n %s" % nml2ImportError_)
 
-    reader = neuroml2.NML2Reader(verbose=verbose)
+    reader = _neuroml2.NML2Reader(verbose=verbose)
     reader.read(filepath, modelpath)
     return reader
 

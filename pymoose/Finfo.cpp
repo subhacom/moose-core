@@ -9,6 +9,8 @@
 //
 // =====================================================================================
 
+#include <functional>
+
 #include "../basecode/header.h"
 #include "../builtins/Variable.h"
 #include "../utility/print_function.hpp"
