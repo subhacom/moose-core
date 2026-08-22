@@ -10,7 +10,9 @@ import logging
 
 logger_ = logging.getLogger("moose.model")
 
-# sbml import.
+# sbml import (DEPRECATED: mass-action-only, annotation-dependent; kept for
+# moose.readSBML()/moose.writeSBML(), the explicit legacy API -- see
+# moose.SBML.readSBML.mooseReadSBML's own deprecation warning).
 sbmlImport_, sbmlError_ = True, ""
 try:
     import moose.SBML.readSBML as _readSBML
@@ -18,6 +20,16 @@ try:
 except Exception as e:
     sbmlImport_ = False
     sbmlError_ = str(e)
+
+# sbml2 import: the newer moose.io.sbml reader/writer (symbolic rate-law
+# recognition, multi-compartment cross-reactions, no annotations needed).
+# This is what loadModel()/_loadModel() dispatch SBML files to.
+sbml2Import_, sbml2Error_ = True, ""
+try:
+    from moose.io.sbml import SBMLHandler as _SBMLHandler
+except Exception as e:
+    sbml2Import_ = False
+    sbml2Error_ = str(e)
 
 # NeuroML2 import.
 nml2Import_, nml2ImportError_ = True, ""
@@ -48,9 +60,24 @@ except Exception as e:
     mergechemImport_ = False
     mergechemError_ = str(e)
 
+def _normalize_solver(solverclass):
+    """Map the many spellings loadModel()/readSBML() accept for a solver
+    class to the canonical 'gssa' / 'gsl' / 'ee' every backend understands."""
+    sc = solverclass.lower().replace(" ", "")
+    if sc in ["gssa", "gillespie", "stochastic", "gsolve"]:
+        return "gssa"
+    if sc in ["gsl", "deterministic", "rungekutta", "rk5", "rk"]:
+        return "gsl"
+    return "ee"
+
+
 # SBML related functions.
 def mooseReadSBML(filepath, loadpath, solver="ee", validate="on"):
-    """Load SBML model (inner helper function for readSBML)."""
+    """DEPRECATED: load SBML model with the legacy reader (inner helper
+    function for moose.readSBML). loadModel() does not use this -- see
+    mooseReadSBML2 for the reader it actually dispatches to. Kept only for
+    moose.readSBML(), the explicit legacy API; see
+    moose.SBML.readSBML.mooseReadSBML's own deprecation warning."""
     global sbmlImport_, sbmlError_
     if not sbmlImport_:
         raise ImportError(
@@ -58,19 +85,42 @@ def mooseReadSBML(filepath, loadpath, solver="ee", validate="on"):
         )
 
     modelpath = _readSBML.mooseReadSBML(filepath, loadpath, solver, validate)
-    sc = solver.lower().replace(" ", "")
-    if sc in ["gssa", "gillespie", "stochastic", "gsolve"]:
-        method = "gssa"
-    elif sc in ["gsl", "deterministic", "rungekutta", "rk5", "rk"]:
-        method = "gsl"
-    else:
-        method = "ee"
-
+    method = _normalize_solver(solver)
     if method != "ee":
         _chemUtil.add_Delete_ChemicalSolver.mooseAddChemSolver(
             modelpath[0].path, method
         )
     return modelpath
+
+
+def mooseReadSBML2(filepath, loadpath, solver="gsl", validate=False):
+    """Load an SBML model with the newer moose.io.sbml reader (inner helper
+    function for loadModel()).
+
+    Unlike the legacy mooseReadSBML/moose.SBML.readSBML, this recognizes
+    mass-action/Michaelis-Menten kinetics symbolically (not just by grabbing
+    the first two kinetic-law parameters), supports multi-compartment
+    cross-compartment reactions, and needs no MOOSE-specific annotations. Any
+    construct it cannot represent faithfully (events, algebraic rules, ...)
+    is recorded rather than silently dropped -- see the returned handler's
+    ``report`` (also logged at WARNING level here if non-empty).
+
+    ``validate`` defaults to False here (unlike SBMLHandler.read's own
+    stricter default): loadModel() is a best-effort "just load whatever this
+    file is" entry point, so a real-world file with a minor validation
+    complaint should still load with its gaps reported, not raise.
+    """
+    global sbml2Import_, sbml2Error_
+    if not sbml2Import_:
+        raise ImportError(
+            "moose.io.sbml could not be loaded because of '%s'" % sbml2Error_
+        )
+    handler = _SBMLHandler()
+    element = handler.read(
+        filepath, loadpath, solver=_normalize_solver(solver), validate=validate)
+    if handler.report is not None and not handler.report.fully_supported:
+        logger_.warning(handler.report.summary())
+    return element
 
 
 def mooseWriteSBML(modelpath, filepath, sceneitems={}):
@@ -200,45 +250,89 @@ def mooseWriteNML2(outfile):
     raise NotImplementedError("Writing to NML2 is not supported yet")
 
 
-def _loadModel(filename, modelpath, solverclass="gsl"):
-    """Private dispatcher
-    """
+# ----------------------------------------------------------------------
+# loadModel() dispatch: one small loader function per format, selected by
+# file extension via _EXT_LOADERS. The only ambiguous extension is .xml
+# (shared by SBML and NeuroML2), resolved by sniffing the root element
+# instead of guessing-by-trial-and-error.
+# ----------------------------------------------------------------------
+def _load_native(filename, modelpath, solverclass):
+    """.swc / .p: handled entirely inside the C++ core."""
+    return _moose.loadModelInternal(filename, modelpath, solverclass)
 
+
+def _load_kkit(filename, modelpath, solverclass):
+    """.g / .cspace: GENESIS kkit/cspace chemical models. Always loaded
+    unsolved (ee) first, then a real solver is attached only if requested --
+    mirrors mooseAddChemSolver's own contract."""
+    element = _moose.loadModelInternal(filename, modelpath, "ee")
+    method = _normalize_solver(solverclass)
+    if method != "ee":
+        _chemUtil.add_Delete_ChemicalSolver.mooseAddChemSolver(modelpath, method)
+    return element
+
+
+def _load_sbml(filename, modelpath, solverclass):
+    return mooseReadSBML2(filename, modelpath, solverclass)
+
+
+def _load_nml2(filename, modelpath, solverclass):
+    return mooseReadNML2(filename, modelpath)
+
+
+def _sniff_xml_format(filename):
+    """SBML and NeuroML2 both use '.xml'; tell them apart by root element
+    instead of trial-and-error (attempt one reader, catch, attempt the
+    other) -- that would run partial, discarded loads and blur real parse
+    errors from either reader into an unhelpful generic failure."""
+    with open(filename, "r", encoding="utf-8", errors="ignore") as f:
+        head = f.read(4096)
+    if "<sbml" in head:
+        return "sbml"
+    if "<neuroml" in head or "<Lems" in head:
+        return "nml2"
+    return None
+
+
+def _load_xml(filename, modelpath, solverclass):
+    fmt = _sniff_xml_format(filename)
+    if fmt == "sbml":
+        return _load_sbml(filename, modelpath, solverclass)
+    if fmt == "nml2":
+        return _load_nml2(filename, modelpath, solverclass)
+    raise ValueError(
+        "%r has a .xml extension but its root element is neither <sbml> "
+        "nor <neuroml>/<Lems>; cannot tell SBML from NeuroML2." % filename)
+
+
+_EXT_LOADERS = {
+    ".swc": _load_native,
+    ".p": _load_native,
+    ".g": _load_kkit,
+    ".cspace": _load_kkit,
+    ".sbml": _load_sbml,
+    ".nml": _load_nml2,
+    ".xml": _load_xml,
+}
+
+_SUPPORTED_FORMATS = (
+    "GENESIS KKIT (.g), GENESIS CSPACE (.cspace), GENESIS PROTO (.p), "
+    "SWC (.swc), SBML (.xml, .sbml), NeuroML (.xml, .nml)"
+)
+
+
+def _loadModel(filename, modelpath, solverclass="gsl"):
+    """Private dispatcher for loadModel(): pick a loader by file extension
+    and load. Errors from the chosen loader propagate as-is -- they are the
+    real reason the load failed and are more useful than a generic
+    "unknown model type" from a swallowed exception."""
     if not os.path.isfile(os.path.realpath(filename)):
         raise FileNotFoundError("Model file '%s' not found." % filename)
 
     ext = os.path.splitext(filename)[1]
-    sc = solverclass.lower().replace(" ", "")
-    if ext in [".swc", ".p"]:
-        return _moose.loadModelInternal(filename, modelpath, solverclass)
-
-    if ext in [".g", ".cspace"]:
-        # only if genesis or cspace file and method != ee then only
-        # mooseAddChemSolver is called.
-        ret = _moose.loadModelInternal(filename, modelpath, "ee")
-        method = "ee"
-        if sc in ["gssa", "gillespie", "stochastic", "gsolve"]:
-            method = "gssa"
-        elif sc in ["gsl", "deterministic", "rungekutta", "rk5", "rk"]:
-            method = "gsl"
-
-        if method != "ee":
-            _chemUtil.add_Delete_ChemicalSolver.mooseAddChemSolver(modelpath, method)
-        return ret
-
-    if ext in (".xml", ".sbml"):
-        try:
-            model, _ = mooseReadSBML(filename, modelpath, solverclass)
-            return model
-        except Exception:
-            pass
-
-    if ext in (".xml", ".nml"):
-        try:
-            print('Loading NeuroML2 file', filename)
-            return mooseReadNML2(filename, modelpath)
-        except Exception:
-            pass
-
-
-    raise ValueError(f"Unknown model type: {filename}'. Supported formats: GENESIS KKIT (.g), GENESIS CSPACE (.cspace), GENESIS PROTO (.p), SWC (.swc), SBML (.xml, .sbml), NeuroML (.xml, .nml)")
+    loader = _EXT_LOADERS.get(ext)
+    if loader is None:
+        raise ValueError(
+            "Unknown model type: %r. Supported formats: %s"
+            % (filename, _SUPPORTED_FORMATS))
+    return loader(filename, modelpath, solverclass)

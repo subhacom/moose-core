@@ -299,11 +299,22 @@ def loadModel(filename, modelpath, solverclass="gsl"):
     melement
         moose.element if succcessful else None.
 
+    Notes
+    -----
+    A ``.xml``/``.sbml`` file is loaded with the ``moose.io.sbml`` reader
+    (symbolic mass-action/Michaelis-Menten recognition, multi-compartment
+    cross-reactions, no MOOSE-specific annotations needed); anything it
+    cannot represent faithfully is logged, not silently dropped. This is
+    not the same reader as the deprecated ``moose.readSBML``.
+
+    A ``.xml`` file is disambiguated from NeuroML2 by its root element
+    (``<sbml>`` vs. ``<neuroml>``/``<Lems>``), not by trial and error.
+
     See also
     --------
     moose.readNML2
     moose.writeNML2 (NotImplemented)
-    moose.readSBML
+    moose.readSBML (deprecated)
     moose.writeSBML
     """
     return model_utils._loadModel(filename, modelpath, solverclass)
@@ -511,7 +522,15 @@ def doc(arg, paged=True):
 
 # SBML related functions.
 def readSBML(filepath, loadpath, solver="ee", validate=True):
-    """Load SBML model.
+    """Load SBML model with the legacy reader.
+
+    .. deprecated::
+        Maps every reaction to mass-action Kf/Kb by reading the first two
+        kinetic-law parameters positionally, and relies on MOOSE-specific
+        annotations for anything beyond that. Prefer ``moose.loadModel()``
+        or ``moose.io.sbml.SBMLHandler``, which recognize
+        mass-action/Michaelis-Menten kinetics symbolically, support
+        multi-compartment cross-reactions, and need no annotations.
 
     Parameters
     ----------

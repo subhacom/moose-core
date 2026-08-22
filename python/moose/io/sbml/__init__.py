@@ -49,9 +49,30 @@ Hard limits (reported, not faked): SBML discrete events and algebraic rules
 have no MOOSE equivalent; non-mass-action cross-compartment coupling; and
 SBML-spatial geometry is not yet mapped to a mesh (only its diffusion
 constants are captured).
+
+``handler.py`` adapts ``reader.read``/``writer.write`` to the
+``moose.io.base.FormatHandler`` protocol as ``SBMLHandler`` -- the public
+entry point re-exported below.
+
+Writing
+-------
+``SBMLHandler.write`` (``writer.py``) is the inverse map: compartments,
+Pool/BufPool, Reac, MMenz, Enz and diffusion constants go out as standard
+SBML, using the same unit convention the reader assumes on the way in
+(substance=mole, volume in m^3, species amount-based) so a model written by
+this package reads back through this package unchanged. A Function driving a
+pool via 'increment'/'setN' is converted to a rate/assignment rule by
+substituting its x0, x1, ... inputs and parsing the result as an SBML
+formula; constructs that parser can't express (or a pool mixing native
+kinetics with a Function remainder) are reported unsupported rather than
+silently dropped. See ``writer.py``'s docstring for the exact rate-constant
+conversions.
 """
 
-from .reader import SBMLHandler, SBMLValidationError
-from .report import LoadReport
+from .handler import SBMLHandler
+from .reader import SBMLValidationError
+from .report import LoadReport, WriteReport
+from .writer import UnsupportedModel
 
-__all__ = ['SBMLHandler', 'SBMLValidationError', 'LoadReport']
+__all__ = ['SBMLHandler', 'SBMLValidationError', 'LoadReport', 'WriteReport',
+           'UnsupportedModel']
