@@ -543,6 +543,18 @@ int wildcardRelativeFind( ObjId start, const vector< string >& path,
         return 1;
     }
 
+    // '.' and '..' are POSIX-style path segments (current/parent element),
+    // not object names to search for -- unlike Shell::chopPath (used for
+    // ordinary path lookup), Shell::chopString does not special-case them,
+    // so they arrive here as literal path segments. Without this check,
+    // singleLevelWildcard would search for a *child named* "." or ".."
+    // and silently find nothing, e.g. './#[ISA=HHChannel]' would always
+    // return empty (issue #18).
+    if ( path[depth] == "." )
+        return wildcardRelativeFind( start, path, depth + 1, ret );
+    if ( path[depth] == ".." )
+        return wildcardRelativeFind( Neutral::parent( start ), path, depth + 1, ret );
+
     if ( singleLevelWildcard( start, path[depth], currentLevelIds ) > 0 )
     {
         vector< ObjId >::iterator i;
