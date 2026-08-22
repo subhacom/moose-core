@@ -307,6 +307,34 @@ def _si_mmenz(result, subs0, home_cid, ctx):
     return kcat, km
 
 
+def _synthesize_enzyme(ctx, comp_sid):
+    """A Michaelis-Menten rate law that lumps a constant, untracked enzyme
+    concentration into its Vmax (V*S/(Km+S), no declared modifier -- see
+    symbolic._michaelis_menten's docstring for why real curated SBML does
+    this) still maps to a native MMenz: invent a BufPool held at the
+    concentration that makes kcat*E reconstruct exactly the same Vmax, with
+    the enzyme's *value-space* reading fixed at 1 by construction -- so
+    _si_mmenz's existing kcat/Km conversion (which only depends on the
+    enzyme's compartment and substance_units, never its stored value) needs
+    no special-casing. Returns the new species id."""
+    n = 0
+    sid = '_impliedEnz0'
+    while sid in ctx.species_info:
+        n += 1
+        sid = '_impliedEnz%d' % n
+    ctx.species_info[sid] = {
+        'comp': comp_sid,
+        'substance_units': False,
+        'boundary': True,
+        'constant': True,
+    }
+    ss = ctx.subst_factor / units.AVOGADRO
+    pool = _moose.BufPool('%s/%s' % (ctx.compartment[comp_sid].path, sid))
+    pool.concInit = 1.0 / _inv(sid, ctx, ss)  # value-space reading == 1
+    ctx.species[sid] = pool
+    return sid
+
+
 def _num_massaction(result, reac, ctx):
     """Number-space rate constants (numKf/numKb, units 1/s scaled by molecule
     counts) for a mass-action reaction. Unlike the concentration-space Kf/Kb,
@@ -399,14 +427,23 @@ def _create_reactions(model, ctx):
                     _moose.connect(mr, 'sub', pool, 'reac', 'OneToOne')
                     _moose.connect(mr, 'prd', pool, 'reac', 'OneToOne')
             ctx.report.reactions_native += 1
-        elif result['kind'] == 'mmenz' and result['enzyme'] in ctx.species:
-            enzpool = ctx.species[result['enzyme']]
-            mm = _moose.MMenz('%s/%s' % (enzpool.path, _reac_id(reac, r)))
-            mm.kcat, mm.Km = _si_mmenz(result, reac.getReactant(0).getSpecies(),
-                                       home_cid, ctx)
-            _moose.connect(enzpool, 'nOut', mm, 'enzDest')
-            _wire(mm, reac, ctx)
-            ctx.report.reactions_native += 1
+        elif result['kind'] == 'mmenz':
+            if result['enzyme'] is None:
+                # Lumped-Vmax law, no declared modifier (see
+                # symbolic._michaelis_menten) -- still native, with an
+                # invented constant-concentration enzyme pool standing in
+                # for the untracked one the SBML file folded into Vmax.
+                result['enzyme'] = _synthesize_enzyme(ctx, home_cid)
+            if result['enzyme'] in ctx.species:
+                enzpool = ctx.species[result['enzyme']]
+                mm = _moose.MMenz('%s/%s' % (enzpool.path, _reac_id(reac, r)))
+                mm.kcat, mm.Km = _si_mmenz(result, reac.getReactant(0).getSpecies(),
+                                           home_cid, ctx)
+                _moose.connect(enzpool, 'nOut', mm, 'enzDest')
+                _wire(mm, reac, ctx)
+                ctx.report.reactions_native += 1
+            else:
+                fallback.append(reac)
         else:
             fallback.append(reac)
     _build_fallback_functions(fallback, ctx)

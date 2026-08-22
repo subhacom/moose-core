@@ -14,11 +14,16 @@ enrichment, never required. The reader is a general SBML->ODE compiler:
    and inspect its algebra): a polynomial with <=2 monomials is mass-action
    (exact Kf/Kb; a modifier appearing multiplicatively is a *catalyst*, mapped
    as a buffered substrate+product), and a degree-1 rational in one substrate
-   is Michaelis-Menten (kcat/Km) -> native Reac / MMenz. The extraction is
-   numerically self-verified (``identify.py``); anything not recognized (or
-   that fails verification) is compiled to a MOOSE ``Function`` (exprtk via
-   ``mathconv.py``) driving the same Ksolve ODE system. Rate rules and
-   assignment rules likewise become Functions.
+   is Michaelis-Menten (kcat/Km) -> native Reac / MMenz -- including a rate law
+   that lumps a constant, untracked enzyme concentration into Vmax and
+   declares no modifier at all (common in curated SBML exports of models
+   whose original, e.g. GENESIS/kkit, form held a phosphatase concentration
+   fixed and explicit): a synthetic constant-concentration enzyme pool is
+   invented so it still maps natively rather than falling back. The
+   extraction is numerically self-verified (``identify.py``); anything not
+   recognized (or that fails verification) is compiled to a MOOSE
+   ``Function`` (exprtk via ``mathconv.py``) driving the same Ksolve ODE
+   system. Rate rules and assignment rules likewise become Functions.
 3. **Report** (``report.py``): every construct that could not be represented
    faithfully (events, algebraic rules, unresolved symbols) is recorded, so
    the reader never silently mis-simulates.
