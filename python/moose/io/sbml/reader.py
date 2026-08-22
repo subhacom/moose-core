@@ -47,7 +47,21 @@ class _Context:
 # ----------------------------------------------------------------------
 class _Inputs:
     """Collects the ordered list of MOOSE elements feeding one Function's
-    x[] inputs, and hands out the exprtk token for each referenced symbol."""
+    x[] inputs, and hands out the exprtk token for each referenced symbol.
+
+    Feeding a pool's value into a Function is done by connecting the pool's
+    'nOut' to the Function's x[i] 'input' -- this looks like a push from a
+    SrcFinfo that (per PoolBase.cpp) is otherwise only the reply half of the
+    'reac' SharedFinfo pair with a Reac/Enz, but it is the convention
+    ReadKkit.cpp's buildSumTotal uses (and the only one Stoich recognizes):
+    when the Function and the pool it feeds are both compiled into the same
+    Stoich (stoich.reacSystemPath spans both), Stoich's own compile step finds
+    this exact 'x'/'nOut' wiring and absorbs the Function into an internal
+    FuncTerm it drives directly -- bypassing the Function's own Clock tick
+    entirely (confirmed: the live Function's .tick/.value stay at -2/0.0 after
+    compile, yet the target pool tracks the correct value every step). A
+    y-variable/'requestOut' pull (Table2's own convention) does NOT get this
+    treatment and silently never updates the target under a real solver."""
 
     def __init__(self, ctx):
         self.ctx = ctx
@@ -537,6 +551,14 @@ def _setup_solver(ctx, solver):
     for comp in compts:
         if solver == 'gssa':
             ksolve = _moose.Gsolve('%s/ksolve' % comp.path)
+            # GSSA is event-driven: a Function's contribution (rate/assignment
+            # rule, or the non-native fallback ODE) has no reaction event of
+            # its own to trigger a re-check, so it would go stale between
+            # unrelated events unless polled on a clock (see
+            # moose-examples/snippets/funcInputToPools.py). Skip the cost when
+            # this compartment has no Function to poll.
+            if _moose.wildcardFind(comp.path + '/##[ISA=Function]'):
+                ksolve.useClockedUpdate = True
         else:
             ksolve = _moose.Ksolve('%s/ksolve' % comp.path)
             # Many BioModels are stiff; LSODA (like RoadRunner's CVODE) handles
@@ -555,6 +577,13 @@ def _setup_solver(ctx, solver):
             stoich.dsolve = dsolve
         stoich.compartment = comp
         stoich.reacSystemPath = comp.path + '/##'  # last: this triggers the build
+        # NOTE: a Function wired x[i]<-nOut-<pool and valueOut->pool's
+        # increment/setN (see _make_function) needs no useClock of its own:
+        # Stoich's compile step above recognizes that exact wiring within its
+        # path and absorbs the Function into an internal FuncTerm it drives
+        # directly, independent of the Function's own (now -2/unscheduled)
+        # Clock tick. Confirmed by direct test against ReadKkit.cpp's
+        # buildSumTotal, which uses the identical wiring with no useClock.
 
     if multi:
         # Couple diffusion across each adjacent (volume-sorted) mesh pair. Pure
@@ -571,53 +600,58 @@ def _setup_solver(ctx, solver):
 
 
 # ----------------------------------------------------------------------
-# public handler
+# public entry point
 # ----------------------------------------------------------------------
-class SBMLHandler:
-    extensions = ('.xml', '.sbml')
+def read(filepath, loadpath, solver='gsl', validate=True):
+    """Load ``filepath`` (an SBML document) into a new MOOSE subtree rooted
+    at ``loadpath``.
 
-    def __init__(self):
-        self.report = None
+    ``solver`` selects the chemical solver built over the result: ``'gsl'``
+    (default) for deterministic ODE integration via Ksolve, ``'gssa'`` for
+    the stochastic Gillespie solver via Gsolve, or ``'ee'`` to skip solver
+    setup entirely (the caller is responsible for scheduling). ``validate``
+    controls whether libsbml errors on the document abort the load
+    (:class:`SBMLValidationError`) or are ignored.
 
-    def read(self, filepath, loadpath, solver='gsl', validate=True):
-        if not os.path.isfile(filepath):
-            raise FileNotFoundError('No such file: %s' % filepath)
-        doc = libsbml.readSBML(filepath)
-        if doc is None:
-            raise ModelLoadError('Empty SBML doc', filepath, loadpath)
-        if validate and doc.getNumErrors(libsbml.LIBSBML_SEV_ERROR) > 0:
-            errs = [doc.getError(i).getMessage()
-                    for i in range(doc.getNumErrors())
-                    if doc.getError(i).getSeverity() >= libsbml.LIBSBML_SEV_ERROR]
-            raise SBMLValidationError('\n'.join(errs))
+    Returns ``(element, report)``: the loaded root element, and a
+    :class:`~.report.LoadReport` recording what could not be represented
+    faithfully -- see the package docstring for the overall design and its
+    hard limits.
+    """
+    if not os.path.isfile(filepath):
+        raise FileNotFoundError('No such file: %s' % filepath)
+    doc = libsbml.readSBML(filepath)
+    if doc is None:
+        raise ModelLoadError('Empty SBML doc', filepath, loadpath)
+    if validate and doc.getNumErrors(libsbml.LIBSBML_SEV_ERROR) > 0:
+        errs = [doc.getError(i).getMessage()
+                for i in range(doc.getNumErrors())
+                if doc.getError(i).getSeverity() >= libsbml.LIBSBML_SEV_ERROR]
+        raise SBMLValidationError('\n'.join(errs))
 
-        report = LoadReport(filepath=filepath, loadpath=loadpath)
-        report.normalized, skipped = normalize(doc)
-        report.warnings += skipped
+    report = LoadReport(filepath=filepath, loadpath=loadpath)
+    report.normalized, skipped = normalize(doc)
+    report.warnings += skipped
 
-        model = doc.getModel()
-        if model is None:
-            raise ModelLoadError('Invalid SBML: no model element', filepath, loadpath)
-        if model.getNumCompartments() == 0:
-            raise ModelLoadError('Model has no compartments', filepath, loadpath)
+    model = doc.getModel()
+    if model is None:
+        raise ModelLoadError('Invalid SBML: no model element', filepath, loadpath)
+    if model.getNumCompartments() == 0:
+        raise ModelLoadError('Model has no compartments', filepath, loadpath)
 
-        root = _moose.Neutral(loadpath)
-        ctx = _Context(root, report)
-        # SI: n = (SBML amount) * NA * substance_scale, volumes in m^3 (units.py).
-        ctx.subst_factor = units.AVOGADRO * units.substance_scale(model)
+    root = _moose.Neutral(loadpath)
+    ctx = _Context(root, report)
+    # SI: n = (SBML amount) * NA * substance_scale, volumes in m^3 (units.py).
+    ctx.subst_factor = units.AVOGADRO * units.substance_scale(model)
 
-        _classify_rules(model, ctx)
-        _create_compartments(model, ctx)
-        _create_species(model, ctx)
-        _create_parameters(model, ctx)
-        _read_diffusion(model, ctx)
-        _create_reactions(model, ctx)
-        _create_rules(model, ctx)
-        _detect_unsupported(model, ctx)
-        _setup_solver(ctx, solver)
+    _classify_rules(model, ctx)
+    _create_compartments(model, ctx)
+    _create_species(model, ctx)
+    _create_parameters(model, ctx)
+    _read_diffusion(model, ctx)
+    _create_reactions(model, ctx)
+    _create_rules(model, ctx)
+    _detect_unsupported(model, ctx)
+    _setup_solver(ctx, solver)
 
-        self.report = report
-        return _moose.element(loadpath)
-
-    def write(self, modelpath, filepath, **options):
-        raise NotImplementedError('SBML writing not yet implemented')
+    return _moose.element(loadpath), report
