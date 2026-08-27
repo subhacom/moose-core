@@ -127,9 +127,9 @@ def mooseReadSBML(filepath, loadpath, solver="ee",validate="on"):
         and needs no annotations.
     """
     warnings.warn(
-        "moose.SBML.readSBML.mooseReadSBML (and moose.readSBML()) are "
-        "deprecated; use moose.loadModel() or moose.io.sbml.SBMLHandler "
-        "instead.",
+        "moose.SBML.readSBML.mooseReadSBML is deprecated (moose.readSBML() "
+        "no longer calls it); use moose.loadModel() or "
+        "moose.io.sbml.SBMLHandler instead.",
         DeprecationWarning,
         stacklevel=2,
     )

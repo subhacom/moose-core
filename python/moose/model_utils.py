@@ -10,20 +10,13 @@ import logging
 
 logger_ = logging.getLogger("moose.model")
 
-# sbml import (DEPRECATED: mass-action-only, annotation-dependent; kept for
-# moose.readSBML()/moose.writeSBML(), the explicit legacy API -- see
-# moose.SBML.readSBML.mooseReadSBML's own deprecation warning).
-sbmlImport_, sbmlError_ = True, ""
-try:
-    import moose.SBML.readSBML as _readSBML
-    import moose.SBML.writeSBML as _writeSBML
-except Exception as e:
-    sbmlImport_ = False
-    sbmlError_ = str(e)
-
-# sbml2 import: the newer moose.io.sbml reader/writer (symbolic rate-law
+# sbml import: the moose.io.sbml reader/writer (symbolic rate-law
 # recognition, multi-compartment cross-reactions, no annotations needed).
-# This is what loadModel()/_loadModel() dispatch SBML files to.
+# This is what loadModel()/_loadModel() and moose.readSBML()/writeSBML()
+# dispatch to. The old mass-action-only, annotation-dependent reader/writer
+# (moose.SBML.readSBML/writeSBML) are no longer wired to any moose.* name,
+# but stay directly importable for anyone who needs their tuple-return
+# contract.
 sbml2Import_, sbml2Error_ = True, ""
 try:
     from moose.io.sbml import SBMLHandler as _SBMLHandler
@@ -72,42 +65,21 @@ def _normalize_solver(solverclass):
 
 
 # SBML related functions.
-def mooseReadSBML(filepath, loadpath, solver="ee", validate="on"):
-    """DEPRECATED: load SBML model with the legacy reader (inner helper
-    function for moose.readSBML). loadModel() does not use this -- see
-    mooseReadSBML2 for the reader it actually dispatches to. Kept only for
-    moose.readSBML(), the explicit legacy API; see
-    moose.SBML.readSBML.mooseReadSBML's own deprecation warning."""
-    global sbmlImport_, sbmlError_
-    if not sbmlImport_:
-        raise ImportError(
-            "SBML support could not be loaded because of '%s'" % sbmlError_
-        )
-
-    modelpath = _readSBML.mooseReadSBML(filepath, loadpath, solver, validate)
-    method = _normalize_solver(solver)
-    if method != "ee":
-        _chemUtil.add_Delete_ChemicalSolver.mooseAddChemSolver(
-            modelpath[0].path, method
-        )
-    return modelpath
-
-
 def mooseReadSBML2(filepath, loadpath=None, solver="gsl", validate=False):
-    """Load an SBML model with the newer moose.io.sbml reader (inner helper
-    function for loadModel()).
+    """Load an SBML model with the moose.io.sbml reader (inner helper
+    function for loadModel() and moose.readSBML()).
 
     ``loadpath`` defaults to ``/library/{model_name}`` (see
     ``moose.io.sbml.reader.read``) when not given; loadModel() itself always
     passes one through explicitly, so this only matters when called directly.
 
-    Unlike the legacy mooseReadSBML/moose.SBML.readSBML, this recognizes
-    mass-action/Michaelis-Menten kinetics symbolically (not just by grabbing
-    the first two kinetic-law parameters), supports multi-compartment
-    cross-compartment reactions, and needs no MOOSE-specific annotations. Any
-    construct it cannot represent faithfully (events, algebraic rules, ...)
-    is recorded rather than silently dropped -- see the returned handler's
-    ``report`` (also logged at WARNING level here if non-empty).
+    Recognizes mass-action/Michaelis-Menten kinetics symbolically (not just
+    by grabbing the first two kinetic-law parameters), supports
+    multi-compartment cross-compartment reactions, and needs no
+    MOOSE-specific annotations. Any construct it cannot represent faithfully
+    (events, algebraic rules, ...) is recorded rather than silently dropped
+    -- see the returned handler's ``report`` (also logged at WARNING level
+    here if non-empty).
 
     ``validate`` defaults to False here (unlike SBMLHandler.read's own
     stricter default): loadModel() is a best-effort "just load whatever this
@@ -127,16 +99,26 @@ def mooseReadSBML2(filepath, loadpath=None, solver="gsl", validate=False):
     return element
 
 
-def mooseWriteSBML(modelpath, filepath, sceneitems={}):
-    """Writes loaded model under modelpath to a file in SBML format.
-    (helper function for writeSBML).
+def mooseWriteSBML2(modelpath, filepath):
+    """Write the model under ``modelpath`` to ``filepath`` as SBML with the
+    moose.io.sbml writer (inner helper function for moose.writeSBML()).
+
+    Emits Reac/MMenz/Enz reactions, diffusion, and Function-driven
+    rate/assignment rules; its round trip with mooseReadSBML2 is verified to
+    floating-point precision. Any construct it cannot represent faithfully
+    is recorded rather than silently dropped -- see the returned handler's
+    ``report`` (also logged at WARNING level here if non-empty).
     """
-    global sbmlImport_, sbmlError_
-    if not sbmlImport_:
+    global sbml2Import_, sbml2Error_
+    if not sbml2Import_:
         raise ImportError(
-            "SBML support could not be loaded because of '%s'" % sbmlError_
+            "moose.io.sbml could not be loaded because of '%s'" % sbml2Error_
         )
-    return _writeSBML.mooseWriteSBML(modelpath, filepath, sceneitems)
+    handler = _SBMLHandler()
+    element = handler.write(modelpath, filepath)
+    if handler.report is not None and not handler.report.fully_supported:
+        logger_.warning(handler.report.summary())
+    return element
 
 
 def mooseWriteKkit(modelpath, filepath, sceneitems={}):
