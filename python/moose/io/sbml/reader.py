@@ -79,15 +79,15 @@ class _Inputs:
     def species_token(self, sid):
         info = self.ctx.species_info[sid]
         k = self._slot(self.ctx.species[sid])
-        amount = 'x%d/%r' % (k, self.ctx.subst_factor)  # substance units
+        amount = f'x{k}/{self.ctx.subst_factor!r}'  # substance units
         if info['substance_units']:
-            return '(%s)' % amount
+            return f'({amount})'
         size = self.ctx.comp_size[info['comp']]
-        return '((%s)/%r)' % (amount, size)  # concentration in SBML units
+        return f'(({amount})/{size!r})'  # concentration in SBML units
 
     def variable_token(self, sid):
         k = self._slot(self.ctx.variable[sid])
-        return 'x%d' % k  # raw scalar (parameter-like), no unit scaling
+        return f'x{k}'  # raw scalar (parameter-like), no unit scaling
 
 
 def _resolver(inputs):
@@ -102,7 +102,7 @@ def _resolver(inputs):
             return repr(ctx.comp_size[name])
         if name in ctx.variable:
             return inputs.variable_token(name)
-        raise UnsupportedMath('unresolved symbol %r' % name)
+        raise UnsupportedMath(f'unresolved symbol {name!r}')
 
     return resolve
 
@@ -122,7 +122,7 @@ def _create_compartments(model, ctx):
     for i in range(model.getNumCompartments()):
         comp = model.getCompartment(i)
         sid = comp.getId()
-        mesh = _moose.CubeMesh('%s/%s' % (ctx.root.path, sid))
+        mesh = _moose.CubeMesh(f'{ctx.root.path}/{sid}')
         mesh.volume = units.volume(comp)
         ctx.compartment[sid] = mesh
         ctx.comp_size[sid] = comp.getSize() if comp.isSetSize() else 1.0
@@ -142,7 +142,7 @@ def _create_species(model, ctx):
         # rule). A rate rule wins even over boundaryCondition.
         held = (constant or boundary or sid in ctx.assign_targets)
         cls = _moose.BufPool if held and sid not in ctx.rate_targets else _moose.Pool
-        pool = cls('%s/%s' % (parent.path, sid))
+        pool = cls(f'{parent.path}/{sid}')
         pool.nInit = units.species_ninit(sp, model.getCompartment(comp_sid), ctx.subst_factor)
         ctx.species[sid] = pool
         ctx.species_info[sid] = {
@@ -164,11 +164,11 @@ def _create_parameters(model, ctx):
         sid = prm.getId()
         value = prm.getValue() if prm.isSetValue() else 0.0
         if sid in ctx.rate_targets:
-            proxy = _moose.Pool('%s/%s' % (host, sid))
+            proxy = _moose.Pool(f'{host}/{sid}')
             proxy.nInit = value
             ctx.variable[sid] = proxy
         elif sid in ctx.assign_targets:
-            proxy = _moose.BufPool('%s/%s' % (host, sid))
+            proxy = _moose.BufPool(f'{host}/{sid}')
             proxy.nInit = value
             ctx.variable[sid] = proxy
         else:
@@ -200,7 +200,7 @@ def _read_diffusion(model, ctx):
             continue
         if dc.getType() != libsbml.SPATIAL_DIFFUSIONKIND_ISOTROPIC:
             ctx.report.unsupported_add(
-                'anisotropic/tensor diffusion for %r reduced to isotropic' % sid)
+                f'anisotropic/tensor diffusion for {sid!r} reduced to isotropic')
         pool.diffConst = p.getValue() if p.isSetValue() else 0.0
     geom = plug.getGeometry() if plug.isSetGeometry() else None
     if geom is not None and geom.getNumGeometryDefinitions() > 0:
@@ -265,8 +265,8 @@ def _spans_compartments(kind, name, target_comp, inputs, ctx):
         comps.add(target_comp)
     if len(comps) > 1:
         ctx.report.unsupported_add(
-            '%s for %r spans compartments %s; a MOOSE Function cannot read '
-            'pools outside its own solver' % (kind, name, sorted(comps)))
+            f'{kind} for {name!r} spans compartments {sorted(comps)}; a MOOSE '
+            'Function cannot read pools outside its own solver')
         ctx.unsupported_xcompt = True
         return True
     return False
@@ -322,7 +322,7 @@ def _synthesize_enzyme(ctx, comp_sid):
     sid = '_impliedEnz0'
     while sid in ctx.species_info:
         n += 1
-        sid = '_impliedEnz%d' % n
+        sid = f'_impliedEnz{n}'
     ctx.species_info[sid] = {
         'comp': comp_sid,
         'substance_units': False,
@@ -330,7 +330,7 @@ def _synthesize_enzyme(ctx, comp_sid):
         'constant': True,
     }
     ss = ctx.subst_factor / units.AVOGADRO
-    pool = _moose.BufPool('%s/%s' % (ctx.compartment[comp_sid].path, sid))
+    pool = _moose.BufPool(f'{ctx.compartment[comp_sid].path}/{sid}')
     pool.concInit = 1.0 / _inv(sid, ctx, ss)  # value-space reading == 1
     ctx.species[sid] = pool
     return sid
@@ -382,7 +382,7 @@ def _wire(mreac, reac, ctx):
 
 
 def _reac_id(reac, index):
-    return reac.getIdAttribute() if reac.isSetIdAttribute() else 'reaction_%d' % index
+    return reac.getIdAttribute() if reac.isSetIdAttribute() else f'reaction_{index}'
 
 
 def _create_reactions(model, ctx):
@@ -393,7 +393,7 @@ def _create_reactions(model, ctx):
     for r in range(model.getNumReactions()):
         reac = model.getReaction(r)
         if reac.getFast():
-            ctx.report.unsupported_add('fast reaction %r (no QSS handling)' % reac.getId())
+            ctx.report.unsupported_add(f'fast reaction {reac.getId()!r} (no QSS handling)')
         home, home_cid = _reaction_home(reac, ctx)
         xcompt = len(_reac_compartments(reac, ctx)) > 1
         result = None
@@ -404,14 +404,14 @@ def _create_reactions(model, ctx):
         # cannot span compartments (it would read out of bounds and crash).
         if xcompt and (result is None or result['kind'] != 'massaction'):
             ctx.report.unsupported_add(
-                'cross-compartment reaction %r is not native mass-action; '
-                'no Function fallback across compartments' % reac.getId())
+                f'cross-compartment reaction {reac.getId()!r} is not native '
+                'mass-action; no Function fallback across compartments')
             ctx.unsupported_xcompt = True
             continue
         if result is None:
             fallback.append(reac)
         elif result['kind'] == 'massaction':
-            mr = _moose.Reac('%s/%s' % (home.path, _reac_id(reac, r)))
+            mr = _moose.Reac(f'{home.path}/{_reac_id(reac, r)}')
             if xcompt:
                 # Volume-independent number-space constants; fixXreacs preserves
                 # numKf/numKb when it splits the reaction across the junction.
@@ -437,7 +437,7 @@ def _create_reactions(model, ctx):
                 result['enzyme'] = _synthesize_enzyme(ctx, home_cid)
             if result['enzyme'] in ctx.species:
                 enzpool = ctx.species[result['enzyme']]
-                mm = _moose.MMenz('%s/%s' % (enzpool.path, _reac_id(reac, r)))
+                mm = _moose.MMenz(f'{enzpool.path}/{_reac_id(reac, r)}')
                 mm.kcat, mm.Km = _si_mmenz(result, reac.getReactant(0).getSpecies(),
                                            home_cid, ctx)
                 _moose.connect(enzpool, 'nOut', mm, 'enzDest')
@@ -478,18 +478,18 @@ def _build_fallback_functions(reactions, ctx):
             for ns, reac in terms:
                 kl = reac.getKineticLaw()
                 if kl is None or kl.getMath() is None:
-                    raise UnsupportedMath('reaction %r has no kinetic law' % reac.getId())
-                pieces.append('%r*(%s)' % (ns, to_exprtk(kl.getMath(), resolve)))
+                    raise UnsupportedMath(f'reaction {reac.getId()!r} has no kinetic law')
+                pieces.append(f'{ns!r}*({to_exprtk(kl.getMath(), resolve)})')
         except UnsupportedMath as e:
             ctx.report.unsupported_add(
-                'species %r derivative not built: %s' % (sid, e))
+                f'species {sid!r} derivative not built: {e}')
             continue
         if _spans_compartments('derivative', sid, ctx.species_info[sid]['comp'],
                                inputs, ctx):
             continue
-        expr = '%r*(%s)' % (ctx.subst_factor, ' + '.join(pieces))
+        expr = f'{ctx.subst_factor!r}*({" + ".join(pieces)})'
         pool = ctx.species[sid]
-        fn = _make_function('%s/dot' % pool.path, expr, inputs)
+        fn = _make_function(f'{pool.path}/dot', expr, inputs)
         _moose.connect(fn, 'valueOut', pool, 'increment')
         ctx.report.reactions_function += 1
 
@@ -508,25 +508,25 @@ def _create_rules(model, ctx):
         try:
             body = to_exprtk(math, _resolver(inputs))
         except UnsupportedMath as e:
-            ctx.report.unsupported_add('rule for %r: %s' % (var, e))
+            ctx.report.unsupported_add(f'rule for {var!r}: {e}')
             continue
 
         target, scale, _is_species = _rule_target(var, ctx)
         if target is None:
-            ctx.report.unsupported_add('rule target %r not found' % var)
+            ctx.report.unsupported_add(f'rule target {var!r} not found')
             continue
         if _spans_compartments('rule', var, _elem_compartment(target, ctx),
                                inputs, ctx):
             continue
 
         if rule.isAssignment():
-            expr = body if scale == 1.0 else '%r*(%s)' % (scale, body)
-            fn = _make_function('%s/assign' % target.path, expr, inputs)
+            expr = body if scale == 1.0 else f'{scale!r}*({body})'
+            fn = _make_function(f'{target.path}/assign', expr, inputs)
             _moose.connect(fn, 'valueOut', target, 'setN')
             ctx.report.assignment_rules += 1
         elif rule.isRate():
-            expr = body if scale == 1.0 else '%r*(%s)' % (scale, body)
-            fn = _make_function('%s/rate' % target.path, expr, inputs)
+            expr = body if scale == 1.0 else f'{scale!r}*({body})'
+            fn = _make_function(f'{target.path}/rate', expr, inputs)
             _moose.connect(fn, 'valueOut', target, 'increment')
             ctx.report.rate_rules += 1
 
@@ -548,7 +548,7 @@ def _rule_target(var, ctx):
 def _detect_unsupported(model, ctx):
     if model.getNumEvents() > 0:
         ctx.report.unsupported_add(
-            '%d event(s): MOOSE has no discrete-event support' % model.getNumEvents())
+            f'{model.getNumEvents()} event(s): MOOSE has no discrete-event support')
 
 
 def _position_compartments(compts):
@@ -588,7 +588,7 @@ def _setup_solver(ctx, solver):
 
     for comp in compts:
         if solver == 'gssa':
-            ksolve = _moose.Gsolve('%s/ksolve' % comp.path)
+            ksolve = _moose.Gsolve(f'{comp.path}/ksolve')
             # GSSA is event-driven: a Function's contribution (rate/assignment
             # rule, or the non-native fallback ODE) has no reaction event of
             # its own to trigger a re-check, so it would go stale between
@@ -598,7 +598,7 @@ def _setup_solver(ctx, solver):
             if _moose.wildcardFind(comp.path + '/##[ISA=Function]'):
                 ksolve.useClockedUpdate = True
         else:
-            ksolve = _moose.Ksolve('%s/ksolve' % comp.path)
+            ksolve = _moose.Ksolve(f'{comp.path}/ksolve')
             # Many BioModels are stiff; LSODA (like RoadRunner's CVODE) handles
             # them where the default explicit RKF45 diverges. Only for a single
             # compartment though: LSODA does not integrate the cross-compartment
@@ -608,8 +608,8 @@ def _setup_solver(ctx, solver):
                     ksolve.method = 'lsoda'
                 except Exception:
                     pass
-        dsolve = _moose.Dsolve('%s/dsolve' % comp.path) if multi else None
-        stoich = _moose.Stoich('%s/stoich' % comp.path)
+        dsolve = _moose.Dsolve(f'{comp.path}/dsolve') if multi else None
+        stoich = _moose.Stoich(f'{comp.path}/stoich')
         stoich.ksolve = ksolve
         if dsolve is not None:
             stoich.dsolve = dsolve
@@ -633,8 +633,7 @@ def _setup_solver(ctx, solver):
                 dsolves[i + 1].buildMeshJunctions(dsolves[i])
             except Exception as e:
                 ctx.report.warnings.append(
-                    'mesh junction %s<->%s failed: %s'
-                    % (compts[i].name, compts[i + 1].name, e))
+                    f'mesh junction {compts[i].name}<->{compts[i + 1].name} failed: {e}')
 
 
 # ----------------------------------------------------------------------
@@ -683,7 +682,7 @@ def read(filepath, loadpath=None, solver='gsl', validate=True):
     hard limits.
     """
     if not os.path.isfile(filepath):
-        raise FileNotFoundError('No such file: %s' % filepath)
+        raise FileNotFoundError(f'No such file: {filepath}')
     doc = libsbml.readSBML(filepath)
     if doc is None:
         raise ModelLoadError('Empty SBML doc', filepath, loadpath)
@@ -697,7 +696,7 @@ def read(filepath, loadpath=None, solver='gsl', validate=True):
         peek = doc.getModel()
         if peek is None:
             raise ModelLoadError('Invalid SBML: no model element', filepath, loadpath)
-        loadpath = '/library/%s' % _default_model_name(peek, filepath)
+        loadpath = f'/library/{_default_model_name(peek, filepath)}'
         if not _moose.exists('/library'):
             _moose.Neutral('/library')
 
@@ -726,4 +725,6 @@ def read(filepath, loadpath=None, solver='gsl', validate=True):
     _detect_unsupported(model, ctx)
     _setup_solver(ctx, solver)
 
-    return _moose.element(loadpath), report
+    element = _moose.element(loadpath)
+    print(f"Loaded SBML model '{filepath}' into '{element.path}'")
+    return element, report

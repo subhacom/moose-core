@@ -94,7 +94,7 @@ class _Ids:
             base = '_' + base
         sid, n = base, 2
         while sid in self._used:
-            sid = '%s_%d' % (base, n)
+            sid = f'{base}_{n}'
             n += 1
         self._used.add(sid)
         return sid
@@ -117,7 +117,7 @@ class _Model:
 def _create_compartments(root, mdl):
     compts = _moose.wildcardFind(root.path + '/##[0][ISA=ChemCompt]')
     if not compts:
-        raise UnsupportedModel('model %r has no compartment (ChemCompt)' % root.path)
+        raise UnsupportedModel(f'model {root.path!r} has no compartment (ChemCompt)')
     for c in compts:
         c = moose.element(c)
         sid = mdl.ids.make(c.name)
@@ -138,7 +138,7 @@ def _create_species(root, mdl):
         comp = findCompartment(p)
         if comp.path not in mdl.compartment_id:
             mdl.report.unsupported_add(
-                'species %r has no enclosing compartment; skipped' % p.path)
+                f'species {p.path!r} has no enclosing compartment; skipped')
             continue
         sid = mdl.ids.make(p.name)
         sp = mdl.sbml.createSpecies()
@@ -194,7 +194,7 @@ def _write_diffusion(root, mdl):
         if plug is None:
             mdl.report.warnings.append(
                 'spatial package unavailable in this libsbml build; '
-                'diffConst for %r not written' % p.path)
+                f'diffConst for {p.path!r} not written')
             continue
         dc = plug.createDiffusionCoefficient()
         dc.setVariable(sid)
@@ -225,7 +225,7 @@ def _monomial(order, count, sid_of):
     for elem in order:
         st = count[elem.path]
         sid = sid_of[elem.path]
-        parts.append(sid if st == 1 else '%s^%d' % (sid, st))
+        parts.append(sid if st == 1 else f'{sid}^{st}')
     return '*'.join(parts)
 
 
@@ -242,8 +242,7 @@ def _set_kinetic_law(reaction, formula, params, mdl):
     math = libsbml.parseL3Formula(formula)
     if math is None:
         mdl.report.unsupported_add(
-            'reaction %r: could not parse generated formula %r'
-            % (reaction.getId(), formula))
+            f'reaction {reaction.getId()!r}: could not parse generated formula {formula!r}')
         return False
     kl.setMath(math)
     for pid, value in params:
@@ -263,13 +262,12 @@ def _create_reactions(root, mdl):
         prd_order, prd_count = _counts(r.neighbors['prd'])
         if not sub_order and not prd_order:
             mdl.report.unsupported_add(
-                'reaction %r has neither substrate nor product; skipped' % r.path)
+                f'reaction {r.path!r} has neither substrate nor product; skipped')
             continue
         for elem in sub_order + prd_order:
             if elem.path not in mdl.species_id:
                 mdl.report.unsupported_add(
-                    'reaction %r references unwritten species %r; skipped'
-                    % (r.path, elem.path))
+                    f'reaction {r.path!r} references unwritten species {elem.path!r}; skipped')
                 break
         else:
             _emit_reac(r, sub_order, sub_count, prd_order, prd_count, mdl)
@@ -291,11 +289,11 @@ def _emit_reac(r, sub_order, sub_count, prd_order, prd_count, mdl):
     bwd = _monomial(prd_order, prd_count, mdl.species_id) if prd_order else None
 
     params = [('kf', r.numKf * AVOGADRO ** (order_sub - 1))]
-    formula = 'kf' if fwd is None else 'kf*%s' % fwd
+    formula = 'kf' if fwd is None else f'kf*{fwd}'
     reversible = bool(bwd) and r.Kb != 0.0
     if bwd is not None and reversible:
         params.append(('kb', r.numKb * AVOGADRO ** (order_prd - 1)))
-        formula = '(%s) - (kb*%s)' % (formula, bwd)
+        formula = f'({formula}) - (kb*{bwd})'
     reaction.setReversible(reversible)
 
     if _set_kinetic_law(reaction, formula, params, mdl):
@@ -313,14 +311,14 @@ def _create_mmenz(root, mdl):
         prd_order, prd_count = _counts(e.neighbors['prd'])
         if not enz or not sub_order or not prd_order:
             mdl.report.unsupported_add(
-                'MMenz %r missing enzyme/substrate/product; skipped' % e.path)
+                f'MMenz {e.path!r} missing enzyme/substrate/product; skipped')
             continue
         enz = moose.element(enz[0])
         missing = [x for x in [enz] + sub_order + prd_order
                    if x.path not in mdl.species_id]
         if missing:
             mdl.report.unsupported_add(
-                'MMenz %r references unwritten species; skipped' % e.path)
+                f'MMenz {e.path!r} references unwritten species; skipped')
             continue
         _emit_mmenz(e, enz, sub_order, sub_count, prd_order, prd_count, mdl)
 
@@ -340,7 +338,7 @@ def _emit_mmenz(e, enz, sub_order, sub_count, prd_order, prd_count, mdl):
 
     s_term = _monomial(sub_order, sub_count, mdl.species_id)
     enz_sid = mdl.species_id[enz.path]
-    formula = 'kcat*%s*%s/(Km + %s)' % (enz_sid, s_term, s_term)
+    formula = f'kcat*{enz_sid}*{s_term}/(Km + {s_term})'
     params = [('kcat', e.kcat), ('Km', e.Km * enz.volume)]
 
     if _set_kinetic_law(reaction, formula, params, mdl):
@@ -359,7 +357,7 @@ def _create_enz(root, mdl):
         prd_order, prd_count = _counts(e.neighbors['prd'])
         if not enz or not cplx or not sub_order or not prd_order:
             mdl.report.unsupported_add(
-                'Enz %r missing enzyme/complex/substrate/product; skipped' % e.path)
+                f'Enz {e.path!r} missing enzyme/complex/substrate/product; skipped')
             continue
         enz = moose.element(enz[0])
         cplx = moose.element(cplx[0])
@@ -367,7 +365,7 @@ def _create_enz(root, mdl):
                    if x.path not in mdl.species_id]
         if missing:
             mdl.report.unsupported_add(
-                'Enz %r references unwritten species; skipped' % e.path)
+                f'Enz {e.path!r} references unwritten species; skipped')
             continue
         _emit_enz(e, enz, cplx, sub_order, sub_count, prd_order, prd_count, mdl)
 
@@ -394,11 +392,11 @@ def _emit_enz(e, enz, cplx, sub_order, sub_count, prd_order, prd_count, mdl):
     cplx_ref.setConstant(True)
 
     s_term = _monomial(sub_order, sub_count, sid_of)
-    fwd = 'k1*%s*%s' % (sid_of[enz.path], s_term)
+    fwd = f'k1*{sid_of[enz.path]}*{s_term}'
     formula = fwd
     params = [('k1', e.k1 * AVOGADRO ** (order_sub - 1))]
     if formation.getReversible():
-        formula = '(%s) - (k2*%s)' % (fwd, sid_of[cplx.path])
+        formula = f'({fwd}) - (k2*{sid_of[cplx.path]})'
         params.append(('k2', e.k2))
     ok1 = _set_kinetic_law(formation, formula, params, mdl)
 
@@ -419,7 +417,7 @@ def _emit_enz(e, enz, cplx, sub_order, sub_count, prd_order, prd_count, mdl):
     enz_prd_ref.setConstant(True)
     _species_reference(catalysis, prd_order, prd_count, sid_of, 'prd')
 
-    ok2 = _set_kinetic_law(catalysis, 'k3*%s' % sid_of[cplx.path],
+    ok2 = _set_kinetic_law(catalysis, f'k3*{sid_of[cplx.path]}',
                             [('k3', e.k3)], mdl)
 
     mdl.report.enz_reactions += int(ok1) + int(ok2)
@@ -449,12 +447,12 @@ def _function_formula(fn, mdl):
     def sub(m):
         i = int(m.group(1))
         if i >= len(inputs) or inputs[i] is None:
-            raise UnsupportedModel('Function %r: x%d has no connected input' % (fn.path, i))
+            raise UnsupportedModel(f'Function {fn.path!r}: x{i} has no connected input')
         elem = inputs[i]
         if elem.path not in mdl.species_id:
             raise UnsupportedModel(
-                'Function %r: input %r is not a written species' % (fn.path, elem.path))
-        return '(%s*%r)' % (mdl.species_id[elem.path], AVOGADRO)
+                f'Function {fn.path!r}: input {elem.path!r} is not a written species')
+        return f'({mdl.species_id[elem.path]}*{AVOGADRO!r})'
 
     try:
         return _TOKEN_RE.sub(sub, expr)
@@ -477,13 +475,13 @@ def _create_rules(root, mdl):
             continue
         if has_reac:
             mdl.report.unsupported_add(
-                'pool %r is both a reaction participant and Function-driven; '
-                'the Function contribution was not written' % p.path)
+                f'pool {p.path!r} is both a reaction participant and Function-driven; '
+                'the Function contribution was not written')
             continue
         if rate_fns and assign_fns:
             mdl.report.unsupported_add(
-                'pool %r has both a rate- and assignment-driving Function; '
-                'only the rate rule was written' % p.path)
+                f'pool {p.path!r} has both a rate- and assignment-driving Function; '
+                'only the rate rule was written')
             assign_fns = []
 
         sid = mdl.species_id[p.path]
@@ -492,13 +490,13 @@ def _create_rules(root, mdl):
             formula = _function_formula(rate_fns[0], mdl)
             if formula is None:
                 continue
-            formula = '(%s)/%r' % (formula, AVOGADRO)  # d(amount)/dt from dn/dt
+            formula = f'({formula})/{AVOGADRO!r}'  # d(amount)/dt from dn/dt
             rule = mdl.sbml.createRateRule()
             rule.setVariable(sid)
             math = libsbml.parseL3Formula(formula)
             if math is None:
                 mdl.report.unsupported_add(
-                    'rate rule for %r: could not parse formula %r' % (p.path, formula))
+                    f'rate rule for {p.path!r}: could not parse formula {formula!r}')
                 continue
             rule.setMath(math)
             species.setBoundaryCondition(True)
@@ -508,13 +506,13 @@ def _create_rules(root, mdl):
             formula = _function_formula(assign_fns[0], mdl)
             if formula is None:
                 continue
-            formula = '(%s)/%r' % (formula, AVOGADRO)  # n -> amount
+            formula = f'({formula})/{AVOGADRO!r}'  # n -> amount
             rule = mdl.sbml.createAssignmentRule()
             rule.setVariable(sid)
             math = libsbml.parseL3Formula(formula)
             if math is None:
                 mdl.report.unsupported_add(
-                    'assignment rule for %r: could not parse formula %r' % (p.path, formula))
+                    f'assignment rule for {p.path!r}: could not parse formula {formula!r}')
                 continue
             rule.setMath(math)
             species.setBoundaryCondition(True)
@@ -527,7 +525,7 @@ def _create_rules(root, mdl):
 # ----------------------------------------------------------------------
 def write(modelpath, filepath, report=None):
     if not _moose.exists(modelpath):
-        raise UnsupportedModel('no such moose element: %r' % modelpath)
+        raise UnsupportedModel(f'no such moose element: {modelpath!r}')
     restoreXreacs(modelpath)  # undo any fixXreacs proxy split before mapping
     root = moose.element(modelpath)
 
@@ -574,5 +572,5 @@ def write(modelpath, filepath, report=None):
         _mark_reactions_local(mdl)
 
     if libsbml.writeSBMLToFile(doc, filepath) != 1:
-        raise UnsupportedModel('libsbml failed to write %r' % filepath)
+        raise UnsupportedModel(f'libsbml failed to write {filepath!r}')
     return report

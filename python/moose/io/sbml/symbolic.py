@@ -85,7 +85,7 @@ def ast_to_sympy(node, syms):
         return c[-1] ** (sp.Integer(1) / c[0]) if n == 2 else sp.sqrt(c[0])
     if t in _FN:
         return _FN[t](c[0])
-    raise ValueError('unhandled AST node type %d' % t)
+    raise ValueError(f'unhandled AST node type {t}')
 
 
 def analyze(reac, subst):

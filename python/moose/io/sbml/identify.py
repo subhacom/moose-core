@@ -72,7 +72,7 @@ def _eval(node, values):
         return c[-1] ** (1.0 / c[0]) if n == 2 else math.sqrt(c[0])
     if t in _UNARY:
         return _UNARY[t](c[0])
-    raise ValueError('uneval node type %d' % t)
+    raise ValueError(f'uneval node type {t}')
 
 
 def referenced_names(node, out):
