@@ -27,9 +27,13 @@ class SBMLHandler:
     def __init__(self):
         self.report = None
 
-    def read(self, filepath, loadpath, solver='gsl', validate=True):
+    def read(self, filepath, loadpath=None, solver='gsl', validate=True):
         """Load the SBML document at ``filepath`` into a new MOOSE subtree
         rooted at ``loadpath`` and return that root element.
+
+        ``loadpath`` defaults to ``/library/{model_name}``, with
+        ``model_name`` taken from the SBML model's id/name, or else the
+        source filename (see ``reader._default_model_name``).
 
         ``solver`` picks the chemical solver built over the result:
         ``'gsl'`` (default, deterministic ODE via Ksolve), ``'gssa'``

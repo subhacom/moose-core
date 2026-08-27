@@ -93,9 +93,13 @@ def mooseReadSBML(filepath, loadpath, solver="ee", validate="on"):
     return modelpath
 
 
-def mooseReadSBML2(filepath, loadpath, solver="gsl", validate=False):
+def mooseReadSBML2(filepath, loadpath=None, solver="gsl", validate=False):
     """Load an SBML model with the newer moose.io.sbml reader (inner helper
     function for loadModel()).
+
+    ``loadpath`` defaults to ``/library/{model_name}`` (see
+    ``moose.io.sbml.reader.read``) when not given; loadModel() itself always
+    passes one through explicitly, so this only matters when called directly.
 
     Unlike the legacy mooseReadSBML/moose.SBML.readSBML, this recognizes
     mass-action/Michaelis-Menten kinetics symbolically (not just by grabbing

@@ -8,6 +8,7 @@
 # the package docstring for the overall design.
 
 import os
+import re
 
 import libsbml
 from moose import _moose
@@ -639,9 +640,35 @@ def _setup_solver(ctx, solver):
 # ----------------------------------------------------------------------
 # public entry point
 # ----------------------------------------------------------------------
-def read(filepath, loadpath, solver='gsl', validate=True):
+_NAME_RE = re.compile(r'[^A-Za-z0-9_]+')
+
+
+def _default_model_name(model, filepath):
+    """A moose-legal name for ``model``, for the default loadpath: its SBML
+    id if set (already SId-constrained -- letters/digits/underscore, not
+    starting with a digit -- so safe to use as-is), else its human-readable
+    name (sanitized), else the source filename's basename (sanitized)."""
+    name = model.getId() if model.isSetId() else ''
+    if name:
+        return name
+    name = model.getName() if model.isSetName() else ''
+    if not name:
+        name = os.path.splitext(os.path.basename(filepath))[0]
+    name = _NAME_RE.sub('_', name).strip('_')
+    if not name:
+        name = 'model'
+    if name[0].isdigit():
+        name = '_' + name
+    return name
+
+
+def read(filepath, loadpath=None, solver='gsl', validate=True):
     """Load ``filepath`` (an SBML document) into a new MOOSE subtree rooted
     at ``loadpath``.
+
+    ``loadpath`` defaults to ``/library/{model_name}``, where ``model_name``
+    is taken from the SBML model's ``id`` (or, failing that, its ``name``,
+    or the source filename) -- see :func:`_default_model_name`.
 
     ``solver`` selects the chemical solver built over the result: ``'gsl'``
     (default) for deterministic ODE integration via Ksolve, ``'gssa'`` for
@@ -665,6 +692,14 @@ def read(filepath, loadpath, solver='gsl', validate=True):
                 for i in range(doc.getNumErrors())
                 if doc.getError(i).getSeverity() >= libsbml.LIBSBML_SEV_ERROR]
         raise SBMLValidationError('\n'.join(errs))
+
+    if loadpath is None:
+        peek = doc.getModel()
+        if peek is None:
+            raise ModelLoadError('Invalid SBML: no model element', filepath, loadpath)
+        loadpath = '/library/%s' % _default_model_name(peek, filepath)
+        if not _moose.exists('/library'):
+            _moose.Neutral('/library')
 
     report = LoadReport(filepath=filepath, loadpath=loadpath)
     report.normalized, skipped = normalize(doc)
