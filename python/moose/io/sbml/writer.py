@@ -8,6 +8,8 @@ standard SBML.
 Reader-created input mirrors carry a private Annotator marker. Verified unity
 Adaptor bridges are omitted and their inputs refer directly to the original
 species, restoring continuous SBML dependencies rather than sampled updates.
+Species identity Annotators preserve imported SBML IDs and original names;
+pools without valid identity metadata use their current MOOSE names.
 
 Unit convention (mirrors units.py exactly, in the inverse direction)
 ----------------------------------------------------------------------
@@ -66,6 +68,7 @@ Limitations
   not build one either); only diffusion coefficients are round-tripped.
 """
 
+import json
 import re
 
 import libsbml
@@ -75,7 +78,7 @@ from moose.chemUtil.chemConnectUtil import findCompartment
 from moose.fixXreacs import restoreXreacs
 
 from .report import WriteReport
-from .common import INPUT_MIRROR_INFO, INPUT_MIRROR_TAG
+from .common import INPUT_MIRROR_INFO, INPUT_MIRROR_TAG, SPECIES_INFO
 from .units import AVOGADRO
 
 _ID_RE = re.compile(r'[^A-Za-z0-9_]')
@@ -169,6 +172,21 @@ def _find_input_mirrors(pools, mdl):
         mdl.report.unsupported_add(f'pool {p.path!r}: invalid SBML input mirror')
 
 
+def _species_identity(pool):
+    """Prefer the imported SBML identity; native pools use their MOOSE name."""
+    path = f'{pool.path}/{SPECIES_INFO}'
+    if _moose.exists(path) and moose.element(path).isA['Annotator']:
+        try:
+            info = json.loads(moose.element(path).notes)
+            sid, name = info['id'], info['name']
+            if (isinstance(sid, str) and re.fullmatch(r'[A-Za-z_][A-Za-z0-9_]*', sid)
+                    and (name is None or isinstance(name, str))):
+                return sid, name
+        except (ValueError, TypeError, KeyError):
+            pass
+    return pool.name, pool.name
+
+
 def _create_species(root, mdl):
     pools = _moose.wildcardFind(root.path + '/##[0][ISA=PoolBase]')
     _find_input_mirrors(pools, mdl)
@@ -181,10 +199,12 @@ def _create_species(root, mdl):
             mdl.report.unsupported_add(
                 f'species {p.path!r} has no enclosing compartment; skipped')
             continue
-        sid = mdl.ids.make(p.name)
+        original_id, original_name = _species_identity(p)
+        sid = mdl.ids.make(original_id)
         sp = mdl.sbml.createSpecies()
         sp.setId(sid)
-        sp.setName(p.name)
+        if original_name is not None:
+            sp.setName(original_name)
         sp.setCompartment(mdl.compartment_id[comp.path])
         sp.setHasOnlySubstanceUnits(True)
         sp.setInitialAmount(p.nInit / AVOGADRO)

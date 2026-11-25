@@ -7,6 +7,7 @@
 # compiled to MOOSE ``Function`` objects that feed the same ODE solver. See
 # the package docstring for the overall design.
 
+import json
 import os
 import re
 
@@ -15,7 +16,7 @@ from moose import _moose
 
 from ..base import ModelLoadError
 from . import units
-from .common import participants, INPUT_MIRROR_INFO, INPUT_MIRROR_TAG
+from .common import participants, INPUT_MIRROR_INFO, INPUT_MIRROR_TAG, SPECIES_INFO
 from .identify import identify
 from .mathconv import to_exprtk, UnsupportedMath
 from .normalize import normalize
@@ -131,6 +132,12 @@ def _create_compartments(model, ctx):
 
 
 def _create_species(model, ctx):
+    # Names are display labels in SBML, so they need not be unique or legal
+    # path components. Reserve IDs used by later passes as well as solver names.
+    reserved = {'ksolve', 'dsolve', 'stoich'}
+    reserved.update(p.getId() for p in model.getListOfParameters())
+    reserved.update(_reac_id(r, i) for i, r in enumerate(model.getListOfReactions()))
+    species_ids = {sp.getId() for sp in model.getListOfSpecies()}
     for i in range(model.getNumSpecies()):
         sp = model.getSpecies(i)
         sid = sp.getId()
@@ -143,7 +150,19 @@ def _create_species(model, ctx):
         # rule). A rate rule wins even over boundaryCondition.
         held = (constant or boundary or sid in ctx.assign_targets)
         cls = _moose.BufPool if held and sid not in ctx.rate_targets else _moose.Pool
-        pool = cls(f'{parent.path}/{sid}')
+        name = _POOL_NAME_RE.sub('_', sp.getName().replace('_minus_', '-')).strip('_') or sid
+        unavailable = reserved | (species_ids - {sid})
+        base = name
+        if name in unavailable or _moose.exists(f'{parent.path}/{name}'):
+            base = name = f'{name}__{sid}'
+        suffix = 2
+        while name in unavailable or _moose.exists(f'{parent.path}/{name}'):
+            name = f'{base}_{suffix}'
+            suffix += 1
+        pool = cls(f'{parent.path}/{name}')
+        _moose.Annotator(f'{pool.path}/{SPECIES_INFO}').notes = json.dumps({
+            'id': sid, 'name': sp.getName() if sp.isSetName() else None,
+        })
         pool.nInit = units.species_ninit(sp, model.getCompartment(comp_sid), ctx.subst_factor)
         ctx.species[sid] = pool
         ctx.species_info[sid] = {
@@ -341,7 +360,7 @@ def _synthesize_enzyme(ctx, comp_sid):
     no special-casing. Returns the new species id."""
     n = 0
     sid = '_impliedEnz0'
-    while sid in ctx.species_info:
+    while sid in ctx.species_info or _moose.exists(f'{ctx.compartment[comp_sid].path}/{sid}'):
         n += 1
         sid = f'_impliedEnz{n}'
     ctx.species_info[sid] = {
@@ -657,6 +676,7 @@ def _setup_solver(ctx, solver):
 # public entry point
 # ----------------------------------------------------------------------
 _NAME_RE = re.compile(r'[^A-Za-z0-9_]+')
+_POOL_NAME_RE = re.compile(r'[^A-Za-z0-9_-]+')
 
 
 def _default_model_name(model, filepath):
@@ -685,6 +705,14 @@ def read(filepath, loadpath=None, solver='gsl', validate=True):
     ``loadpath`` defaults to ``/library/{model_name}``, where ``model_name``
     is taken from the SBML model's ``id`` (or, failing that, its ``name``,
     or the source filename) -- see :func:`_default_model_name`.
+
+    Species use their human-readable ``name`` as the pool name, decoding
+    CellDesigner's ``_minus_`` to ``-`` and sanitizing other characters to
+    underscores. Names may contain letters, digits, underscores and hyphens;
+    empty names fall back to ``id``.
+    Collisions are disambiguated with the species ID and, if needed, a numeric
+    suffix. Reactions and rules still resolve species by their SBML IDs.
+    A private Annotator preserves the original ID and name for SBML export.
 
     ``solver`` selects the chemical solver built over the result: ``'gsl'``
     (default) for deterministic ODE integration via Ksolve, ``'gssa'`` for

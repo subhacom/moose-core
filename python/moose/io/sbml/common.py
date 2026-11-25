@@ -8,6 +8,9 @@ which otherwise re-wrote the same ``range(reac.getNumReactants())`` loops.
 INPUT_MIRROR_INFO = '_sbml_input_info'
 INPUT_MIRROR_TAG = 'moose.sbml.input_mirror:1'
 
+# JSON containing the original species identity, separate from user notes.
+SPECIES_INFO = '_sbml_species_info'
+
 
 def stoich(ref):
     """Stoichiometry of a SpeciesReference, defaulting to 1 when unset."""

@@ -309,8 +309,83 @@ def _pool(root, name):
             if e.isA['PoolBase'] and '_xfer_' not in e.name][0]
 
 
+def test_species_names_are_safe_and_unique(tmp_path):
+    import libsbml
+
+    doc = libsbml.readSBML(os.path.join(HERE, '00001-sbml-l3v1.xml'))
+    model = doc.getModel()
+    model.getSpecies('S1').setName('PI3K')
+    model.getSpecies('S2').setName('PI3K')
+    # Duplicate labels, path syntax, empty labels, and sibling IDs must never
+    # merge pools or overwrite objects created by later reader passes.
+    labels = ['', '  ', '[]/', 'Akt/PKB [active]', '14-3-3',
+              'reaction1', 'k1', 'ksolve', 'S1', 'PI3K__S2',
+              'Raf_minus_1', 'Raf-1', '14_minus_3_minus_3']
+    expected = ['s0', 's1', 's2', 'Akt_PKB_active', '14-3-3',
+                'reaction1__s5', 'k1__s6', 'ksolve__s7', 'S1__s8',
+                'PI3K__S2__s9', 'Raf-1', 'Raf-1__s11', '14-3-3__s12']
+    for i, label in enumerate(labels):
+        sp = model.createSpecies()
+        sp.setId(f's{i}'); sp.setName(label); sp.setCompartment('compartment')
+        sp.setInitialAmount(i + 1); sp.setBoundaryCondition(True)
+        sp.setConstant(False); sp.setHasOnlySubstanceUnits(True)
+    path = tmp_path / 'named.xml'
+    libsbml.writeSBMLToFile(doc, str(path))
+    h = SBMLHandler()
+    h.read(str(path), '/named')
+    assert h.report.fully_supported
+    pools = moose.wildcardFind('/named/##[ISA=PoolBase]')
+    assert {p.name for p in pools} == {'PI3K', 'PI3K__S2', *expected}
+    for i, name in enumerate(expected):
+        assert _pool('/named', name).nInit == pytest.approx((i + 1) * moose.NA)
+    moose.setClock(16, 0.001)
+    t, substrate = _sim('/named', '/named/compartment/PI3K', 2.0)
+    _, product = _sim('/named', '/named/compartment/PI3K__S2', 2.0)
+    assert np.allclose(substrate / substrate[0], np.exp(-t), rtol=1e-3)
+    assert np.allclose(substrate + product, substrate[0], rtol=1e-3)
+    # Identity survives sanitization, duplicate labels, and subsequent renaming
+    # in MOOSE. The writer must also use the preserved IDs in kinetic laws.
+    _pool('/named', 'PI3K').name = 'renamed_in_moose'
+    output = tmp_path / 'named_roundtrip.xml'
+    h.write('/named', str(output))
+    written_doc = libsbml.readSBML(str(output))
+    written = written_doc.getModel()
+    assert {sp.getId() for sp in written.getListOfSpecies()} == {
+        sp.getId() for sp in model.getListOfSpecies()}
+    for sp in model.getListOfSpecies():
+        exported = written.getSpecies(sp.getId())
+        assert exported.getName() == sp.getName()
+        assert exported.isSetName() == sp.isSetName()
+    reaction = written.getReaction(0)
+    assert reaction.getReactant(0).getSpecies() == 'S1'
+    assert reaction.getProduct(0).getSpecies() == 'S2'
+    assert 'S1' in libsbml.formulaToL3String(reaction.getKineticLaw().getMath())
+    h.read(str(output), '/named_roundtrip')
+    # The original constant k1 was folded into kinetics, so its name is free.
+    assert {p.name for p in moose.wildcardFind('/named_roundtrip/##[ISA=PoolBase]')} == {
+        'PI3K', 'PI3K__S2', 'k1', *(set(expected) - {'k1__s6'})}
+
+
+@pytest.mark.parametrize('notes', ['broken JSON', '[]', '{"id": "bad/id", "name": "A"}'])
+def test_invalid_species_identity_falls_back_to_pool_name(tmp_path, notes):
+    import libsbml
+    from moose.io.sbml.common import SPECIES_INFO
+
+    moose.Neutral('/identity')
+    moose.CubeMesh('/identity/c')
+    pool = moose.Pool('/identity/c/native')
+    moose.Annotator(f'{pool.path}/{SPECIES_INFO}').notes = notes
+    output = tmp_path / 'identity.xml'
+    SBMLHandler().write('/identity', str(output))
+    doc = libsbml.readSBML(str(output))
+    sp = doc.getModel().getSpecies('native')
+    assert sp is not None
+    assert sp.getName() == 'native'
+
+
+@pytest.mark.parametrize('named', [False, True])
 @pytest.mark.parametrize('source_mode', ['reaction', 'assignment', 'fixed'])
-def test_function_reads_foreign_pool_via_adaptor(tmp_path, source_mode):
+def test_function_reads_foreign_pool_via_adaptor(tmp_path, source_mode, named):
     """Adaptor-fed mirrors track integrated, assigned and fixed sources.
     Checked against the analytic solution
     X = X0 exp(-k t), Y = (V/k) ln((Km + X0) / (Km + X)), and Z = 2X."""
@@ -318,6 +393,9 @@ def test_function_reads_foreign_pool_via_adaptor(tmp_path, source_mode):
     p = tmp_path / 'foreign_mod.xml'
     doc = _foreign_modifier_model(with_rule=True)
     model = doc.getModel()
+    names = ('PI3K', 'phospho Akt', 'total/Akt') if named else ('X', 'Y', 'Z')
+    for sid, name in zip(('X', 'Y', 'Z'), names):
+        model.getSpecies(sid).setName(name)
     if source_mode != 'reaction':
         model.removeReaction('decay')
         model.getSpecies('X').setBoundaryCondition(True)
@@ -338,7 +416,8 @@ def test_function_reads_foreign_pool_via_adaptor(tmp_path, source_mode):
     assert mirror.isA['BufPool']
     assert len(h.report.xcompt_proxies) == 1   # Y's Function and Z's rule share it
 
-    eX, eY, eZ = (_pool(root, name) for name in ('X', 'Y', 'Z'))
+    pool_names = ('PI3K', 'phospho_Akt', 'total_Akt') if named else names
+    eX, eY, eZ = (_pool(root, name) for name in pool_names)
     X0 = 3.0 if source_mode == 'assignment' else 6.0
     # Mirrors must pick up edits made after import, on every reinit.
     eX.concInit = X0 * 1e3
